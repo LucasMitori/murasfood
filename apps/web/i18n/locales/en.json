@@ -95,7 +95,15 @@
     "addedToCart": "{name} added to your cart",
     "removedFromCart": "{name} removed from your cart",
     "favoriteAdded": "Added to favourites",
-    "favoriteRemoved": "Removed from favourites"
+    "favoriteRemoved": "Removed from favourites",
+    "priceHistory": "Price history",
+    "priceHistoryEmpty": "Not enough price history for this product yet.",
+    "priceHistoryNote": "Shelf prices recorded on each change. Excludes delivery and one-off promotions.",
+    "lastDays": "{days} days",
+    "currentPrice": "Current price",
+    "lowestPrice": "Lowest",
+    "highestPrice": "Highest",
+    "priceChange": "Change"
   },
   "catalog": {
     "title": "Products",

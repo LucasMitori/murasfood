@@ -102,6 +102,8 @@
             template(#append)
               span.text-body-2.text-medium-emphasis {{ product.category.name }}
 
+    mura-price-chart.mt-6(:slug="slug")
+
     mura-product-rail.px-0(
       v-if="related?.length"
       :title="t('product.related')"

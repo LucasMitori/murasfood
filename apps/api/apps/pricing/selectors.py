@@ -16,7 +16,12 @@ from django.db.models import DecimalField, F, OuterRef, Q, QuerySet, Subquery
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from apps.common.money import gross_margin, gross_margin_percentage, markup_percentage
+from apps.common.money import (
+    gross_margin,
+    gross_margin_percentage,
+    markup_percentage,
+    money_str,
+)
 
 from .models import ProductPrice
 
@@ -133,3 +138,68 @@ def price_history_for(product: Product, *, limit: int = 50) -> QuerySet:
         .select_related("changed_by")
         .order_by("-created_at")[:limit]
     )
+
+
+#: Fields a shopper is allowed to see the history of.
+#:
+#: An allow-list rather than "everything except cost_price". A new field added
+#: to the history later is invisible here until someone decides it is public,
+#: which is the safe direction for the mistake to go.
+PUBLIC_PRICE_FIELDS: tuple[str, ...] = ("base_price", "sale_price")
+
+#: Longest window the public chart will serve, in days.
+MAX_PUBLIC_HISTORY_DAYS = 365
+
+
+def public_price_series(product: Product, *, days: int = 90) -> dict[str, Any]:
+    """Shelf-price movement for the product page chart.
+
+    Deliberately narrow. The staff endpoint returns whole ``PriceHistory`` rows
+    — cost changes, who made them, internal notes — none of which belongs on a
+    public page. This returns dated shelf prices and nothing else.
+
+    Points are the prices the product *changed to*, so the series is what a
+    shopper would have seen on the shelf on that date.
+    """
+    from .models import PriceHistory
+
+    window = max(1, min(int(days), MAX_PUBLIC_HISTORY_DAYS))
+    since = timezone.now() - timezone.timedelta(days=window)
+
+    rows = (
+        PriceHistory.objects.filter(
+            product=product,
+            field__in=PUBLIC_PRICE_FIELDS,
+            created_at__gte=since,
+            new_value__isnull=False,
+        )
+        .order_by("created_at")
+        .values_list("created_at", "new_value")
+    )
+
+    points = [
+        {"date": created_at.date().isoformat(), "price": money_str(value)}
+        for created_at, value in rows
+    ]
+
+    values = [Decimal(point["price"]) for point in points]
+    resolved = resolve_price(product)
+
+    # The chart is drawn against the price on sale now, which is authoritative
+    # even when no change has been recorded inside the window.
+    current = resolved.unit_price if resolved else (values[-1] if values else None)
+
+    summary: dict[str, str | None] = {
+        "current": money_str(current) if current is not None else None,
+        "lowest": money_str(min(values)) if values else None,
+        "highest": money_str(max(values)) if values else None,
+        "average": money_str(sum(values) / len(values)) if values else None,
+        "change_percentage": None,
+    }
+
+    # Movement across the window, from the first recorded price to today's.
+    if values and current is not None and values[0] > 0:
+        delta = (current - values[0]) / values[0] * 100
+        summary["change_percentage"] = f"{delta.quantize(Decimal('0.01'))}"
+
+    return {"days": window, "points": points, "summary": summary}

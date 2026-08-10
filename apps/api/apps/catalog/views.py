@@ -132,6 +132,33 @@ class ProductViewSet(FavoriteContextMixin, TenantScopedMixin, viewsets.ReadOnlyM
         products = related_products(product)
         return Response(self.get_serializer(products, many=True).data)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("days", int, description="Window to chart, 1-365. Defaults to 90.")
+        ],
+        responses={200: dict},
+        operation_id="catalog_price_history",
+    )
+    @action(detail=True, methods=["get"], url_path="price-history")
+    def price_history(self, request: Request, slug: str | None = None) -> Response:
+        """Shelf-price movement for the chart on the product page.
+
+        Public, and it lives on this viewset rather than in `pricing` for two
+        reasons: `get_object()` applies the storefront's own visibility rules,
+        so an unpublished product's prices cannot be read through it, and the
+        selector returns dated shelf prices only — never cost or margin, which
+        the staff endpoint at `/admin/prices/history/` does return.
+        """
+        from apps.pricing.selectors import public_price_series
+
+        product = self.get_object()
+        try:
+            days = int(request.query_params.get("days", 90))
+        except (TypeError, ValueError):
+            days = 90
+
+        return Response(public_price_series(product, days=days))
+
 
 class StorefrontHomeView(TenantScopedMixin, APIView):
     """One request that fills the home page.

@@ -59,8 +59,12 @@ def _postgres_search(queryset: QuerySet, term: str) -> QuerySet:
     Full text handles "pao integral" matching "Pão Integral"; trigram catches
     the misspellings full text will not ("integrall").
     """
-    from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-    from django.contrib.postgres.trigram import TrigramSimilarity
+    from django.contrib.postgres.search import (
+        SearchQuery,
+        SearchRank,
+        SearchVector,
+        TrigramSimilarity,
+    )
 
     # `portuguese` is the deployment's primary market; unaccenting is handled by
     # the dictionary, so "pao" finds "pão".

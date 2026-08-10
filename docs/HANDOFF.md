@@ -205,8 +205,24 @@ been present since the first commit.**
    `http://localhost:8000`, which inside the web container is the web container.
    `NUXT_API_BASE_URL_SERVER` now points SSR at `http://api:8000/api/v1`.
 
-Still outstanding: §3.4 shopping lists, §3.5 product charts, §3.6 checkout
-walkthrough.
+- **Product price charts — done.** Public
+  `GET /catalog/products/{slug}/price-history/?days=` plus `MuraPriceChart` on
+  the product page.
+
+**Three more pre-existing bugs surfaced while building the chart:**
+
+3. **Storefront search returned 500 on PostgreSQL.** `TrigramSimilarity` was
+   imported from `django.contrib.postgres.trigram`, which does not exist, and
+   the `pg_trgm` extension it needs was never installed. Both fixed; migration
+   `catalog.0003`.
+4. **The backend suite ran under development settings inside Docker.** The API
+   container exports `DJANGO_SETTINGS_MODULE=config.settings.development`, and
+   that overrides pytest's ini key. `--ds=config.settings.test` is now in
+   `addopts`, which takes precedence over the environment.
+5. Both of the above were masked: the suite reported failures that looked
+   environmental, so the search bug behind them went unread.
+
+Still outstanding: §3.4 shopping lists, §3.6 checkout walkthrough.
 
 ## 4. Things worth knowing before editing
 

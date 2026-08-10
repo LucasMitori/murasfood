@@ -95,7 +95,15 @@
     "addedToCart": "{name} añadido al carrito",
     "removedFromCart": "{name} quitado del carrito",
     "favoriteAdded": "Añadido a favoritos",
-    "favoriteRemoved": "Quitado de favoritos"
+    "favoriteRemoved": "Quitado de favoritos",
+    "priceHistory": "Variación de precio",
+    "priceHistoryEmpty": "Todavía no hay suficiente historial de precios para este producto.",
+    "priceHistoryNote": "Precios de estantería registrados en cada cambio. No incluye envío ni promociones puntuales.",
+    "lastDays": "{days} días",
+    "currentPrice": "Precio actual",
+    "lowestPrice": "Más bajo",
+    "highestPrice": "Más alto",
+    "priceChange": "Variación"
   },
   "catalog": {
     "title": "Productos",

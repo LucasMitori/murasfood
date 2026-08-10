@@ -10,7 +10,14 @@ import pytest
 from django.utils import timezone
 
 from apps.pricing.models import PriceHistory, ProductPrice
-from apps.pricing.selectors import annotate_effective_price, margin_metrics, resolve_price
+from apps.pricing.selectors import (
+    MAX_PUBLIC_HISTORY_DAYS,
+    PUBLIC_PRICE_FIELDS,
+    annotate_effective_price,
+    margin_metrics,
+    public_price_series,
+    resolve_price,
+)
 from apps.pricing.services import InvalidPriceError, set_price
 
 pytestmark = pytest.mark.django_db
@@ -98,6 +105,114 @@ class TestPriceHistory:
         set_price(tenant=tenant, product=product, base_price="12.50", cost_price="8.00")
 
         assert PriceHistory.objects.filter(product=product).count() == before
+
+
+class TestPublicPriceSeries:
+    """The series behind the product page chart.
+
+    The point of these is the boundary: this data is served to anonymous
+    shoppers, and the same table holds cost prices.
+    """
+
+    def test_cost_changes_never_appear(self, tenant: Any, product: Any) -> None:
+        set_price(tenant=tenant, product=product, base_price="12.50", cost_price="9.99")
+
+        series = public_price_series(product)
+        prices = [point["price"] for point in series["points"]]
+
+        assert "9.99" not in prices
+        assert prices == ["12.50"]
+
+    def test_only_allow_listed_fields_are_published(self) -> None:
+        """A field is invisible until it is explicitly made public."""
+        assert "cost_price" not in PUBLIC_PRICE_FIELDS
+        assert set(PUBLIC_PRICE_FIELDS) == {"base_price", "sale_price"}
+
+    def test_points_are_oldest_first(self, tenant: Any, product: Any) -> None:
+        set_price(tenant=tenant, product=product, base_price="13.00")
+        set_price(tenant=tenant, product=product, base_price="14.00")
+
+        prices = [point["price"] for point in public_price_series(product)["points"]]
+        assert prices == ["12.50", "13.00", "14.00"]
+
+    def test_summary_reports_the_window(self, tenant: Any, product: Any) -> None:
+        set_price(tenant=tenant, product=product, base_price="10.00")
+        set_price(tenant=tenant, product=product, base_price="15.00")
+
+        summary = public_price_series(product)["summary"]
+        assert summary["lowest"] == "10.00"
+        assert summary["highest"] == "15.00"
+        assert summary["current"] == "15.00"
+        # 12.50 -> 15.00
+        assert summary["change_percentage"] == "20.00"
+
+    def test_changes_outside_the_window_are_excluded(self, tenant: Any, product: Any) -> None:
+        old = PriceHistory.objects.filter(product=product).first()
+        PriceHistory.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(days=200)
+        )
+
+        assert public_price_series(product, days=30)["points"] == []
+
+    def test_window_is_clamped(self, product: Any) -> None:
+        """A caller cannot ask for an unbounded scan."""
+        assert public_price_series(product, days=99999)["days"] == MAX_PUBLIC_HISTORY_DAYS
+        assert public_price_series(product, days=0)["days"] == 1
+
+    def test_empty_history_still_reports_the_current_price(self, tenant: Any, product: Any) -> None:
+        PriceHistory.objects.filter(product=product).delete()
+
+        series = public_price_series(product)
+        assert series["points"] == []
+        assert series["summary"]["current"] == "12.50"
+        assert series["summary"]["change_percentage"] is None
+
+
+class TestPublicPriceHistoryEndpoint:
+    def test_anonymous_shopper_can_read_it(self, api_client: Any, product: Any) -> None:
+        response = api_client.get(f"/api/v1/catalog/products/{product.slug}/price-history/")
+
+        assert response.status_code == 200
+        assert response.data["points"][0]["price"] == "12.50"
+
+    def test_response_carries_no_cost_or_margin(
+        self, api_client: Any, tenant: Any, product: Any
+    ) -> None:
+        set_price(tenant=tenant, product=product, base_price="12.50", cost_price="7.77")
+
+        body = str(api_client.get(f"/api/v1/catalog/products/{product.slug}/price-history/").data)
+
+        assert "7.77" not in body
+        for leak in ("cost", "margin", "markup"):
+            assert leak not in body.lower()
+
+    def test_unpublished_product_is_not_readable(
+        self, api_client: Any, product_factory: Any
+    ) -> None:
+        """Visibility comes from the storefront queryset, not from this action."""
+        hidden = product_factory(name="Rascunho", price="5.00", is_active=False)
+
+        response = api_client.get(f"/api/v1/catalog/products/{hidden.slug}/price-history/")
+        assert response.status_code == 404
+
+    def test_other_tenants_product_is_not_readable(
+        self, api_client: Any, other_tenant: Any
+    ) -> None:
+        from apps.catalog.models import Category, UnitOfMeasure
+        from conftest import make_product
+
+        foreign = make_product(
+            tenant=other_tenant,
+            category=Category.objects.create(tenant=other_tenant, name="Outro", slug="outro"),
+            unit=UnitOfMeasure.objects.get(tenant=other_tenant, code="un"),
+            name="Produto alheio",
+            price="5.00",
+        )
+
+        # The client is pinned to the demo tenant; this product belongs to
+        # another merchant and must not be reachable through it.
+        response = api_client.get(f"/api/v1/catalog/products/{foreign.slug}/price-history/")
+        assert response.status_code == 404
 
 
 class TestAnnotation:

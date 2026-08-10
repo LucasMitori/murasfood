@@ -53,7 +53,12 @@ known-first-party = ["apps", "config"]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py", "tests.py"]
 testpaths = ["apps"]
-addopts = "--strict-markers --disable-warnings"
+# `--ds` rather than relying on the key above: a `DJANGO_SETTINGS_MODULE`
+# already in the environment overrides the ini setting, and the API container
+# exports `config.settings.development`. Running the suite there silently used
+# development settings — Celery not eager, so anything asserting on a queued
+# task failed for a reason that had nothing to do with the code.
+addopts = "--strict-markers --disable-warnings --ds=config.settings.test"
 markers = [
     "slow: tests that exercise heavier flows",
 ]
