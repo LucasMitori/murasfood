@@ -1,0 +1,279 @@
+"""
+Tenant models.
+
+A tenant is one merchant. Everything that makes MurasFood look and behave like
+a specific business — name, colours, logo, opening hours, currency, tax rules —
+lives here, in the database, never in code (spec §2 and §66). That is what makes
+the product white-label: onboarding a new merchant is a row, not a fork.
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+from apps.common.models import BaseModel
+
+HEX_COLOR_VALIDATOR = RegexValidator(
+    regex=r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+    message=_("Enter a valid hexadecimal colour, for example #7B2D3B."),
+)
+
+SLUG_VALIDATOR = RegexValidator(
+    regex=r"^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])$",
+    message=_("Use lowercase letters, numbers and hyphens."),
+)
+
+
+class TenantStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", _("Active")
+    SUSPENDED = "SUSPENDED", _("Suspended")
+    ARCHIVED = "ARCHIVED", _("Archived")
+
+
+class Weekday(models.IntegerChoices):
+    """ISO-8601 weekday numbering (Monday = 1)."""
+
+    MONDAY = 1, _("Monday")
+    TUESDAY = 2, _("Tuesday")
+    WEDNESDAY = 3, _("Wednesday")
+    THURSDAY = 4, _("Thursday")
+    FRIDAY = 5, _("Friday")
+    SATURDAY = 6, _("Saturday")
+    SUNDAY = 7, _("Sunday")
+
+
+class Tenant(BaseModel):
+    """A merchant operating on the platform."""
+
+    # --- Identity ------------------------------------------------------------
+    slug = models.SlugField(
+        _("slug"),
+        max_length=50,
+        unique=True,
+        validators=[SLUG_VALIDATOR],
+        help_text=_("Used for subdomain and API routing."),
+    )
+    legal_name = models.CharField(_("legal name"), max_length=255)
+    trade_name = models.CharField(_("trade name"), max_length=255)
+    tax_id = models.CharField(
+        _("tax id"),
+        max_length=32,
+        blank=True,
+        help_text=_("CNPJ in Brazil. Stored as typed; formatting is a display concern."),
+    )
+
+    # --- Contact -------------------------------------------------------------
+    support_email = models.EmailField(_("support email"))
+    phone = models.CharField(_("phone"), max_length=32, blank=True)
+    whatsapp = models.CharField(_("whatsapp"), max_length=32, blank=True)
+
+    # --- Address -------------------------------------------------------------
+    postal_code = models.CharField(_("postal code"), max_length=16, blank=True)
+    street = models.CharField(_("street"), max_length=255, blank=True)
+    number = models.CharField(_("number"), max_length=32, blank=True)
+    complement = models.CharField(_("complement"), max_length=120, blank=True)
+    neighborhood = models.CharField(_("neighborhood"), max_length=120, blank=True)
+    city = models.CharField(_("city"), max_length=120, blank=True)
+    state = models.CharField(_("state"), max_length=64, blank=True)
+    country = models.CharField(_("country"), max_length=2, default="BR")
+    latitude = models.DecimalField(
+        _("latitude"), max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    longitude = models.DecimalField(
+        _("longitude"), max_digits=9, decimal_places=6, null=True, blank=True
+    )
+
+    # --- Locale --------------------------------------------------------------
+    timezone = models.CharField(
+        _("timezone"),
+        max_length=64,
+        default="America/Sao_Paulo",
+        help_text=_("Determines the business day used by every report."),
+    )
+    currency = models.CharField(_("currency"), max_length=3, default="BRL")
+    locale = models.CharField(_("locale"), max_length=10, default="pt-BR")
+
+    # --- Lifecycle -----------------------------------------------------------
+    status = models.CharField(
+        _("status"), max_length=16, choices=TenantStatus.choices, default=TenantStatus.ACTIVE
+    )
+    is_active = models.BooleanField(_("active"), default=True)
+    custom_domain = models.CharField(_("custom domain"), max_length=255, blank=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("tenant")
+        verbose_name_plural = _("tenants")
+        ordering = ["trade_name"]
+        indexes = [
+            models.Index(fields=["is_active", "slug"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.trade_name or self.slug
+
+    @property
+    def is_operational(self) -> bool:
+        """Whether the tenant may take orders at all."""
+        return self.is_active and self.status == TenantStatus.ACTIVE
+
+
+class TenantBranding(BaseModel):
+    """Visual identity. Consumed by the storefront to theme itself at runtime.
+
+    Colours are stored as hex so the frontend can feed them straight into the
+    Vuetify theme without a build step. Defaults are the neutral MurasFood
+    palette — soft white with a deep wine accent — and carry no merchant
+    identity of their own.
+    """
+
+    tenant = models.OneToOneField(
+        Tenant, on_delete=models.CASCADE, related_name="branding", verbose_name=_("tenant")
+    )
+    logo = models.ForeignKey(
+        "media.MediaAsset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="branding_logos",
+        verbose_name=_("logo"),
+    )
+    logo_dark = models.ForeignKey(
+        "media.MediaAsset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="branding_dark_logos",
+        verbose_name=_("logo (dark theme)"),
+    )
+    favicon = models.ForeignKey(
+        "media.MediaAsset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="branding_favicons",
+        verbose_name=_("favicon"),
+    )
+
+    primary_color = models.CharField(
+        _("primary colour"), max_length=7, default="#7B2D3B", validators=[HEX_COLOR_VALIDATOR]
+    )
+    secondary_color = models.CharField(
+        _("secondary colour"), max_length=7, default="#2E2A2B", validators=[HEX_COLOR_VALIDATOR]
+    )
+    accent_color = models.CharField(
+        _("accent colour"), max_length=7, default="#A64253", validators=[HEX_COLOR_VALIDATOR]
+    )
+    dark_primary_color = models.CharField(
+        _("primary colour (dark)"),
+        max_length=7,
+        default="#E8C9CF",
+        validators=[HEX_COLOR_VALIDATOR],
+    )
+
+    tagline = models.CharField(_("tagline"), max_length=160, blank=True)
+    about = models.TextField(_("about"), blank=True)
+    instagram_url = models.URLField(_("Instagram"), blank=True)
+    facebook_url = models.URLField(_("Facebook"), blank=True)
+    website_url = models.URLField(_("website"), blank=True)
+
+    class Meta:
+        verbose_name = _("tenant branding")
+        verbose_name_plural = _("tenant branding")
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return f"{self.tenant} branding"
+
+
+class TenantSettings(BaseModel):
+    """Operational configuration a merchant can change without a deploy."""
+
+    tenant = models.OneToOneField(
+        Tenant, on_delete=models.CASCADE, related_name="settings", verbose_name=_("tenant")
+    )
+
+    # --- Orders --------------------------------------------------------------
+    order_number_prefix = models.CharField(_("order number prefix"), max_length=8, default="MF")
+    allow_orders_when_closed = models.BooleanField(
+        _("accept orders while closed"),
+        default=True,
+        help_text=_("Scheduled orders placed outside business hours."),
+    )
+    auto_confirm_paid_orders = models.BooleanField(_("auto-confirm paid orders"), default=True)
+    max_items_per_order = models.PositiveIntegerField(_("max items per order"), default=200)
+
+    # --- Tax -----------------------------------------------------------------
+    prices_include_tax = models.BooleanField(
+        _("prices include tax"),
+        default=True,
+        help_text=_("Brazilian retail displays tax-inclusive prices."),
+    )
+    default_tax_rate = models.DecimalField(
+        _("default tax rate (%)"),
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+
+    # --- Inventory -----------------------------------------------------------
+    allow_backorder = models.BooleanField(
+        _("allow selling without stock"),
+        default=False,
+        help_text=_("When off, stock can never go negative (invariant #6)."),
+    )
+    low_stock_threshold = models.PositiveIntegerField(_("low stock threshold"), default=5)
+
+    # --- Notifications -------------------------------------------------------
+    notify_on_new_order = models.BooleanField(_("notify staff about new orders"), default=True)
+    email_sender_name = models.CharField(_("email sender name"), max_length=120, blank=True)
+    email_reply_to = models.EmailField(_("reply-to"), blank=True)
+
+    # --- Legal ---------------------------------------------------------------
+    privacy_policy_url = models.URLField(_("privacy policy URL"), blank=True)
+    terms_url = models.URLField(_("terms of use URL"), blank=True)
+
+    class Meta:
+        verbose_name = _("tenant settings")
+        verbose_name_plural = _("tenant settings")
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return f"{self.tenant} settings"
+
+
+class BusinessHours(BaseModel):
+    """Opening hours for one weekday.
+
+    Multiple rows per weekday are allowed so a merchant can model a lunch break
+    (08:00–12:00 and 14:00–19:00).
+    """
+
+    tenant = models.ForeignKey(
+        Tenant, on_delete=models.CASCADE, related_name="business_hours", verbose_name=_("tenant")
+    )
+    weekday = models.PositiveSmallIntegerField(_("weekday"), choices=Weekday.choices)
+    opens_at = models.TimeField(_("opens at"))
+    closes_at = models.TimeField(_("closes at"))
+    is_closed = models.BooleanField(_("closed all day"), default=False)
+
+    class Meta:
+        verbose_name = _("business hours")
+        verbose_name_plural = _("business hours")
+        ordering = ["weekday", "opens_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "weekday", "opens_at"],
+                name="uniq_business_hours_tenant_weekday_open",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(closes_at__gt=models.F("opens_at")) | models.Q(is_closed=True),
+                name="business_hours_close_after_open",
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return f"{self.get_weekday_display()} {self.opens_at}–{self.closes_at}"

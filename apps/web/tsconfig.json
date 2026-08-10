@@ -1,0 +1,13 @@
+{
+  // Nuxt 4 generates one project per environment (app, server, shared, node).
+  // Referencing them — rather than extending a single config and overriding
+  // `types` — is what keeps auto-imports, Node globals and Vue SFC types all
+  // visible to `nuxt typecheck`.
+  "files": [],
+  "references": [
+    { "path": "./.nuxt/tsconfig.app.json" },
+    { "path": "./.nuxt/tsconfig.server.json" },
+    { "path": "./.nuxt/tsconfig.shared.json" },
+    { "path": "./.nuxt/tsconfig.node.json" }
+  ]
+}

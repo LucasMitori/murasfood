@@ -1,0 +1,370 @@
+<template lang="pug">
+v-card.mura-card(flat)
+  //- Toolbar: title, search, custom filters, refresh.
+  .d-flex.flex-wrap.align-center.ga-3.pa-4(v-if="title || searchable || $slots.filters || $slots.actions")
+    div(v-if="title || subtitle")
+      h2.text-subtitle-1.font-weight-medium {{ title }}
+      p.text-caption.text-medium-emphasis.mb-0(v-if="subtitle") {{ subtitle }}
+
+    v-spacer
+
+    slot(name="filters")
+
+    v-text-field.mura-data-table__search(
+      v-if="searchable"
+      :model-value="searchDraft"
+      :placeholder="t('table.searchPlaceholder')"
+      :aria-label="t('common.search')"
+      prepend-inner-icon="mdi-magnify"
+      density="compact"
+      hide-details
+      clearable
+      @update:model-value="onSearchInput"
+    )
+
+    v-btn(
+      :aria-label="t('table.refresh')"
+      icon="mdi-refresh"
+      variant="text"
+      density="comfortable"
+      :loading="table.loading.value"
+      @click="table.refresh()"
+    )
+
+    slot(name="actions")
+
+  v-divider
+
+  //- The error state replaces the table entirely: a stale grid under an error
+  //- banner invites the reader to trust numbers that failed to refresh.
+  mura-error-state(
+    v-if="table.error.value"
+    :description="errorMessage"
+    :on-retry="() => table.refresh()"
+  )
+
+  v-data-table-server(
+    v-else
+    :items="table.items.value"
+    :items-length="table.total.value"
+    :headers="headers"
+    :loading="table.loading.value"
+    :page="table.page.value"
+    :items-per-page="table.itemsPerPage.value"
+    :sort-by="table.sortBy.value"
+    :items-per-page-options="itemsPerPageOptions"
+    :item-value="itemValue"
+    :hover="Boolean(clickable)"
+    :density="density"
+    :show-select="selectable"
+    :model-value="selected"
+    class="mura-data-table"
+    @update:options="table.onOptionsUpdate"
+    @update:model-value="value => emit('update:selected', value)"
+    @click:row="onRowClick"
+  )
+    //- Forward every `item.<key>` slot the parent defined, so a caller can
+    //- override any cell without this component knowing about it.
+    template(v-for="name in passthroughSlots" :key="name" #[name]="slotProps")
+      slot(:name="name" v-bind="slotProps")
+
+    //- Default cell rendering for columns the caller did not override.
+    template(
+      v-for="column in formattedColumns"
+      :key="`cell-${column.key}`"
+      #[`item.${column.key}`]="{ item }"
+    )
+      slot(:name="`item.${column.key}`" :item="item" :value="cellValue(column, item)")
+        mura-status-badge(v-if="column.format === 'status'" :status="String(cellValue(column, item))" size="x-small")
+        v-icon(
+          v-else-if="column.format === 'boolean'"
+          :icon="cellValue(column, item) ? 'mdi-check-circle' : 'mdi-minus-circle-outline'"
+          :color="cellValue(column, item) ? 'success' : 'on-surface-variant'"
+          size="small"
+        )
+        span(v-else :class="{ 'mura-price': isNumericFormat(column) }") {{ renderCell(column, item) }}
+
+    template(v-if="actions.length" #item.__actions="{ item }")
+      .d-flex.justify-end.ga-1
+        v-btn(
+          v-for="action in visibleActionsFor(item)"
+          :key="action.key"
+          :icon="action.icon"
+          :color="action.color"
+          :aria-label="t(action.label)"
+          :title="t(action.label)"
+          variant="text"
+          size="small"
+          density="comfortable"
+          @click.stop="triggerAction(action, item)"
+        )
+
+    template(#no-data)
+      mura-empty-state(
+        :title="emptyTitle || t('table.noData')"
+        :description="emptyDescription || t('table.noDataHint')"
+        :icon="emptyIcon"
+      )
+        template(v-if="$slots['empty-action']" #action)
+          slot(name="empty-action")
+
+    template(#loading)
+      v-skeleton-loader(type="table-row@5")
+
+    template(#footer.prepend)
+      span.text-caption.text-medium-emphasis.ml-4(v-if="table.total.value > 0") {{ rangeLabel }}
+      v-spacer
+
+  mura-confirm-dialog(
+    v-model="confirmOpen"
+    :message="confirmMessage"
+    @confirm="runPendingAction"
+    @cancel="pendingAction = null"
+  )
+</template>
+
+<script setup lang="ts">
+/**
+ * Server-paginated data table.
+ *
+ * Declare columns and hand it a `useServerTable` instance; the composable owns
+ * every pagination hazard (loops, stale responses, vanishing pages) and this
+ * component owns presentation.
+ *
+ * ```ts
+ * const table = useServerTable({ endpoint: '/admin/products/' })
+ * const columns: TableColumn[] = [
+ *   { key: 'name', title: 'admin.products', sortable: true },
+ *   { key: 'price', title: 'common.total', format: 'money', align: 'end' },
+ * ]
+ * ```
+ *
+ * Any cell can be overridden with an `#item.<key>` slot, exactly as on
+ * `v-data-table-server` — the slots are forwarded through.
+ */
+import { computed, ref, useSlots } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
+import type { TableAction, TableColumn } from '~/types/ui'
+import type { useServerTable } from '~/composables/useServerTable'
+import { ITEMS_PER_PAGE_OPTIONS } from '~/composables/useServerTable'
+import { useAuthStore } from '~/stores/auth'
+import { useMoney } from '~/composables/useMoney'
+import { formatDate, formatDateTime } from '~/utils/format'
+
+type TableInstance = ReturnType<typeof useServerTable<Record<string, unknown>>>
+type Row = Record<string, unknown>
+
+const props = withDefaults(defineProps<{
+  /** The `useServerTable` instance backing this table. */
+  table: TableInstance
+  columns: TableColumn<Row>[]
+  actions?: TableAction<Row>[]
+
+  title?: string
+  subtitle?: string
+  searchable?: boolean
+  clickable?: boolean
+  selectable?: boolean
+  selected?: unknown[]
+
+  /** Row property used as the selection key. */
+  itemValue?: string
+  density?: 'default' | 'comfortable' | 'compact'
+
+  emptyTitle?: string
+  emptyDescription?: string
+  emptyIcon?: string
+}>(), {
+  actions: () => [],
+  title: '',
+  subtitle: '',
+  searchable: false,
+  clickable: false,
+  selectable: false,
+  selected: () => [],
+  itemValue: 'id',
+  density: 'comfortable',
+  emptyTitle: '',
+  emptyDescription: '',
+  emptyIcon: 'mdi-table-off',
+})
+
+const emit = defineEmits<{
+  action: [key: string, row: Row]
+  'row-click': [row: Row]
+  'update:selected': [value: unknown[]]
+}>()
+
+const { t, te, locale } = useI18n()
+const slots = useSlots()
+const display = useDisplay()
+const auth = useAuthStore()
+const money = useMoney()
+
+const searchDraft = ref('')
+const confirmOpen = ref(false)
+const pendingAction = ref<{ action: TableAction<Row>, row: Row } | null>(null)
+
+const itemsPerPageOptions = ITEMS_PER_PAGE_OPTIONS.map(value => ({
+  value,
+  title: String(value),
+}))
+
+/**
+ * Columns visible at the current breakpoint.
+ *
+ * A phone showing twelve columns is unreadable; `hideBelow` lets a schema say
+ * which ones are essential.
+ */
+const visibleColumns = computed(() =>
+  props.columns.filter((column) => {
+    if (!column.hideBelow) return true
+    if (column.hideBelow === 'sm') return display.smAndUp.value
+    if (column.hideBelow === 'md') return display.mdAndUp.value
+    return display.lgAndUp.value
+  }),
+)
+
+const headers = computed(() => {
+  const mapped = visibleColumns.value.map(column => ({
+    key: column.key,
+    title: te(column.title) ? t(column.title) : column.title,
+    sortable: Boolean(column.sortable),
+    align: column.align ?? 'start',
+    width: column.width,
+    nowrap: column.nowrap,
+  }))
+
+  if (props.actions.length) {
+    mapped.push({
+      key: '__actions',
+      title: t('table.actions'),
+      sortable: false,
+      align: 'end',
+      width: 56 * Math.min(props.actions.length, 3),
+      nowrap: true,
+    })
+  }
+
+  return mapped
+})
+
+/** Columns this component renders itself (everything but action cells). */
+const formattedColumns = computed(() => visibleColumns.value)
+
+/**
+ * Slots the caller passed that are not per-cell overrides.
+ *
+ * Per-cell slots are handled by the default-rendering template, which falls
+ * back to the caller's slot when one exists. Forwarding them twice would render
+ * the cell twice.
+ */
+const passthroughSlots = computed(() =>
+  Object.keys(slots).filter(
+    name =>
+      !name.startsWith('item.')
+      && !['filters', 'actions', 'empty-action', 'default'].includes(name),
+  ),
+)
+
+const rangeLabel = computed(() =>
+  t('table.showingRange', {
+    from: props.table.range.value.from,
+    to: props.table.range.value.to,
+    total: props.table.total.value,
+  }),
+)
+
+const errorMessage = computed(() => {
+  const code = props.table.error.value
+  const key = `errors.${code}`
+  return te(key) ? t(key) : t('table.loadError')
+})
+
+const confirmMessage = computed(() => {
+  const key = pendingAction.value?.action.confirm
+  return key ? (te(key) ? t(key) : key) : ''
+})
+
+/** Resolve a cell's raw value: an explicit getter, else the row property. */
+function cellValue(column: TableColumn<Row>, row: Row): unknown {
+  if (column.value) return column.value(row)
+  return column.key.split('.').reduce<unknown>(
+    (accumulator, part) => (accumulator as Row | undefined)?.[part],
+    row,
+  )
+}
+
+function isNumericFormat(column: TableColumn<Row>): boolean {
+  return ['money', 'quantity', 'number', 'percent'].includes(column.format ?? '')
+}
+
+/** Format a cell for display according to its declared format. */
+function renderCell(column: TableColumn<Row>, row: Row): string {
+  const value = cellValue(column, row)
+  if (value === null || value === undefined || value === '') return '—'
+
+  switch (column.format) {
+    case 'money':
+      return money.format(value as string)
+    case 'quantity':
+      return money.quantity(value as string)
+    case 'percent':
+      return `${value}%`
+    case 'number':
+      return new Intl.NumberFormat(locale.value).format(Number(value))
+    case 'date':
+      return formatDate(String(value), locale.value)
+    case 'datetime':
+      return formatDateTime(String(value), locale.value)
+    default:
+      return String(value)
+  }
+}
+
+/** Actions this user may perform on this row. */
+function visibleActionsFor(row: Row): TableAction<Row>[] {
+  return props.actions.filter((action) => {
+    if (action.permission && !auth.can(action.permission)) return false
+    return action.visibleWhen ? action.visibleWhen(row) : true
+  })
+}
+
+function triggerAction(action: TableAction<Row>, row: Row): void {
+  if (action.confirm) {
+    pendingAction.value = { action, row }
+    confirmOpen.value = true
+    return
+  }
+  emit('action', action.key, row)
+}
+
+function runPendingAction(): void {
+  const pending = pendingAction.value
+  confirmOpen.value = false
+  pendingAction.value = null
+  if (pending) emit('action', pending.action.key, pending.row)
+}
+
+function onSearchInput(value: string | null): void {
+  searchDraft.value = value ?? ''
+  // Debounced inside the composable; page always resets to 1 there.
+  props.table.setSearch(searchDraft.value)
+}
+
+function onRowClick(_event: unknown, context: { item: Row }): void {
+  if (props.clickable) emit('row-click', context.item)
+}
+</script>
+
+<style scoped>
+.mura-data-table__search {
+  max-width: 280px;
+}
+
+.mura-data-table :deep(th) {
+  white-space: nowrap;
+  font-weight: 600;
+}
+</style>

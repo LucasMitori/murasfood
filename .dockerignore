@@ -1,0 +1,47 @@
+# Keep host-specific and bulky artefacts out of the build context.
+#
+# Without this, `COPY apps/api /app` drags a Windows virtualenv into a Linux
+# image and `apps/web/node_modules` adds hundreds of megabytes of platform
+# binaries that the container cannot use anyway.
+
+# --- Virtualenvs and Python caches ------------------------------------------
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage
+**/coverage.xml
+**/*.sqlite3
+
+# --- Node -------------------------------------------------------------------
+**/node_modules/
+**/.nuxt/
+**/.output/
+**/.nitro/
+**/.cache/
+**/dist/
+
+# --- VCS and tooling --------------------------------------------------------
+.git/
+.github/
+**/.DS_Store
+**/Thumbs.db
+.idea/
+.vscode/
+
+# --- Secrets ----------------------------------------------------------------
+# Compose injects the environment through `env_file`; baking it into an image
+# layer would leave credentials in the image history.
+.env
+.env.*
+!.env.example
+
+# --- Local data -------------------------------------------------------------
+infrastructure/backups/
+apps/api/staticfiles/
+apps/api/mediafiles/
+docs/

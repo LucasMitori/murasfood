@@ -1,0 +1,48 @@
+# =============================================================================
+# Reverse proxy for the production stack.
+# Caddy is used instead of nginx because it provisions and renews TLS
+# certificates automatically (ADR-011). Replace the hostnames below with the
+# merchant's real domains at deployment time — never hard-code them in code.
+# =============================================================================
+
+{
+	# Set MURASFOOD_ACME_EMAIL in the host environment.
+	email {$MURASFOOD_ACME_EMAIL}
+}
+
+# --- Storefront + admin (Nuxt) ----------------------------------------------
+{$MURASFOOD_WEB_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy web:3000
+}
+
+# --- API (Django) ------------------------------------------------------------
+{$MURASFOOD_API_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Payment webhooks must never be cached or buffered away.
+	@webhooks path /api/v1/payments/webhooks/*
+	handle @webhooks {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy api:8000
+	}
+}

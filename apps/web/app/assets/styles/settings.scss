@@ -1,0 +1,26 @@
+// =============================================================================
+// Vuetify SASS configuration.
+//
+// Loaded by `vite-plugin-vuetify` before Vuetify's own styles, so anything set
+// here changes the framework's compiled output rather than overriding it later
+// with more specific selectors.
+// =============================================================================
+
+@use 'vuetify/settings' with (
+  // The colour pack ships ~2000 utility classes for Material's full palette.
+  // MurasFood themes come from the tenant, so none of them are used.
+  $color-pack: false,
+
+  // Slightly softer than Material's default: the storefront reads calmer with
+  // rounded product cards.
+  $border-radius-root: 10px,
+
+  $body-font-family: (
+    'Inter',
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    'Helvetica Neue',
+    sans-serif
+  )
+);
