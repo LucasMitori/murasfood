@@ -16,7 +16,9 @@ export default defineNuxtPlugin({
     const config = useRuntimeConfig()
 
     const client = new ApiClient({
-      baseUrl: config.public.apiBaseUrl,
+      // The browser and the render server can sit on different networks; see
+      // `apiBaseUrlServer` in nuxt.config.
+      baseUrl: (import.meta.server && config.apiBaseUrlServer) || config.public.apiBaseUrl,
 
       getAccessToken: () => readStorage(StorageKeys.accessToken),
       getRefreshToken: () => readStorage(StorageKeys.refreshToken),

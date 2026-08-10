@@ -6,7 +6,7 @@
  * stored preference and the session on a stored token, neither of which exists
  * during SSR.
  */
-import { useTheme } from 'vuetify'
+import type { ThemeInstance } from 'vuetify'
 import { useAuthStore } from '~/stores/auth'
 import { useCartStore } from '~/stores/cart'
 import { useFavoritesStore } from '~/stores/favorites'
@@ -16,7 +16,10 @@ import { brandingOverrides } from '~/utils/theme'
 
 export default defineNuxtPlugin({
   name: 'murasfood-bootstrap',
-  dependsOn: ['murasfood-api'],
+  // Vuetify must be installed before `useTheme()` below can resolve, and the
+  // API client before any store fetches. Plugins are otherwise ordered by
+  // filename, which ran this one first and left the app unable to hydrate.
+  dependsOn: ['murasfood-api', 'murasfood-vuetify'],
   async setup(nuxtApp) {
     const ui = useUiStore()
     const tenant = useTenantStore()
@@ -32,7 +35,10 @@ export default defineNuxtPlugin({
       media.addEventListener?.('change', event => ui.applySystemPreference(event.matches))
     }
 
-    const theme = useTheme()
+    // Taken from the instance the Vuetify plugin provides rather than
+    // `useTheme()`: that composable injects, and injection outside a component
+    // setup throws — which killed hydration for the whole app.
+    const theme = (nuxtApp.$vuetify as { theme: ThemeInstance }).theme
     theme.global.name.value = ui.theme
 
     watch(

@@ -271,7 +271,8 @@
     "exportDescription": "Receba uma cópia de todos os dados que guardamos sobre você.",
     "deleteAccount": "Excluir conta",
     "deleteDescription": "Seus dados pessoais serão anonimizados. Os registros fiscais dos pedidos são mantidos por obrigação legal.",
-    "deleteConfirm": "Tem certeza? Esta ação não pode ser desfeita."
+    "deleteConfirm": "Tem certeza? Esta ação não pode ser desfeita.",
+    "removeAddressConfirm": "Remover este endereço? Pedidos já feitos não são afetados."
   },
   "store": {
     "openNow": "Aberto agora",

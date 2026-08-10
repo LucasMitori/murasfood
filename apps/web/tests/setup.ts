@@ -11,7 +11,9 @@ import { resetApiClient } from '../app/utils/api-registry'
 beforeEach(() => {
   setActivePinia(createPinia())
   resetApiClient()
-  localStorage.clear()
+  // Suites that assert on files rather than behaviour run in the `node`
+  // environment, where there is no storage to clear.
+  if (typeof localStorage !== 'undefined') localStorage.clear()
   vi.restoreAllMocks()
 })
 

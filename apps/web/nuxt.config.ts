@@ -56,6 +56,16 @@ export default defineNuxtConfig({
    * copy all arrive from `GET /tenants/current/` at runtime (spec §66).
    */
   runtimeConfig: {
+    /**
+     * Where the server half of Nuxt reaches the API.
+     *
+     * Server-only, and different from the public URL on purpose: rendering
+     * happens inside the web container, where `localhost:8000` is the web
+     * container itself rather than the API. Left empty outside Docker, where
+     * both halves can use the same address.
+     */
+    apiBaseUrlServer: process.env.NUXT_API_BASE_URL_SERVER || '',
+
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1',
       defaultTenant: process.env.NUXT_PUBLIC_DEFAULT_TENANT || '',

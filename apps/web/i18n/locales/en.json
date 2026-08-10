@@ -271,7 +271,8 @@
     "exportDescription": "Get a copy of everything we hold about you.",
     "deleteAccount": "Delete account",
     "deleteDescription": "Your personal data will be anonymised. Order tax records are retained as required by law.",
-    "deleteConfirm": "Are you sure? This cannot be undone."
+    "deleteConfirm": "Are you sure? This cannot be undone.",
+    "removeAddressConfirm": "Remove this address? Orders already placed are unaffected."
   },
   "store": {
     "openNow": "Open now",

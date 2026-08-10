@@ -186,8 +186,27 @@ doing before building on them.
 - **Favourites page — added.** The header linked to `/favoritos`, which did not
   exist; the link was dead in shipped UI.
 
-Still outstanding: §3.3 flip-card auth, §3.4 shopping lists, §3.5 product
-charts, §3.6 checkout walkthrough.
+- **Flip-card auth — done.** `/auth/login` and `/auth/cadastro` render one
+  `MuraAuthPanel`; the card rotates in place and rewrites the URL rather than
+  navigating. `/auth/recuperar-senha` added (both halves of the reset flow).
+- **Customer account area — added.** `/conta` and `/conta/enderecos`. Both were
+  linked from the header and from checkout without existing.
+
+**Two app-wide bugs were found and fixed while verifying the above. Both had
+been present since the first commit.**
+
+1. **The client-side app never booted.** `bootstrap.client.ts` called Vuetify's
+   `useTheme()`, which resolves by injection and throws outside a component
+   setup. Every page server-rendered correctly and then blanked on hydration —
+   so every URL returned HTTP 200 while the site was unusable in a browser. The
+   theme now comes from the instance the Vuetify plugin provides. *Checking
+   status codes did not catch this and cannot; a page has to be opened.*
+2. **Server-side rendering could not reach the API.** Both halves of Nuxt used
+   `http://localhost:8000`, which inside the web container is the web container.
+   `NUXT_API_BASE_URL_SERVER` now points SSR at `http://api:8000/api/v1`.
+
+Still outstanding: §3.4 shopping lists, §3.5 product charts, §3.6 checkout
+walkthrough.
 
 ## 4. Things worth knowing before editing
 
@@ -197,6 +216,13 @@ charts, §3.6 checkout walkthrough.
 - **Adding an npm dependency needs the web image rebuilt**, because
   `node_modules` lives in a named volume:
   `docker compose down web && docker volume rm murasfood_web_node_modules && docker compose up -d --build web`.
+- **Never run `npm run build` on the host while the dev container is up.**
+  `apps/web` is bind-mounted, so the build overwrites the `.nuxt` the dev server
+  is serving from and the browser starts 404ing on chunks. Stop `web` first,
+  and delete `.nuxt`/`.output` before starting it again.
+- **HTTP 200 does not mean a page works.** Nuxt server-renders, so a page whose
+  client-side app is broken still answers 200 with complete HTML and only fails
+  once hydration runs. Open pages in a browser and check the console.
 
 - **`.env` is gitignored.** Container startup depends on it existing.
 - **`seed_catalog` archives rather than deletes** products referenced by an

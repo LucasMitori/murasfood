@@ -60,7 +60,7 @@ div
             span.text-caption {{ initials(auth.displayName) }}
       v-list(density="compact")
         v-list-item(to="/conta") {{ t('nav.account') }}
-        v-list-item(to="/conta/pedidos") {{ t('nav.orders') }}
+        v-list-item(to="/pedidos") {{ t('nav.orders') }}
         v-list-item(v-if="auth.isMerchantUser" to="/admin") {{ t('nav.dashboard') }}
         v-divider
         v-list-item(@click="signOut") {{ t('nav.signOut') }}

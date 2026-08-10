@@ -49,3 +49,8 @@ Thumbs.db
 
 # --- Local infrastructure volumes -----------------------------------------
 /infrastructure/docker/data/
+
+# Celery beat writes its schedule here at runtime.
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat.pid
