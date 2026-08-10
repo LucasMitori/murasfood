@@ -172,7 +172,31 @@ doing before building on them.
 
 ---
 
+## 3.7 Progress since this document was written
+
+- **Permissions foundation — done.** Hierarchical `perm.*` page codes, direct
+  user grants alongside roles, `GET /admin/permissions/`,
+  `PUT /admin/users/{id}/permissions/`, `PUT /admin/users/{id}/roles/`, the
+  `permission.global.ts` route guard and `usePermission`. §3.1 and §3.2 are
+  closed.
+- **Admin users screen — done.** `/admin/usuarios` (table, toolbar, New button,
+  view/edit/deactivate row actions), `/admin/usuarios/novo`,
+  `/admin/usuarios/:id` (read-only) and `/admin/usuarios/:id/editar` with tabs
+  and two drag-and-drop transfer lists.
+- **Favourites page — added.** The header linked to `/favoritos`, which did not
+  exist; the link was dead in shipped UI.
+
+Still outstanding: §3.3 flip-card auth, §3.4 shopping lists, §3.5 product
+charts, §3.6 checkout walkthrough.
+
 ## 4. Things worth knowing before editing
+
+- **File watching does not always cross the Windows bind mount.** A newly
+  *created* page can 404 until `docker compose restart web`. Edits to existing
+  files hot-reload normally.
+- **Adding an npm dependency needs the web image rebuilt**, because
+  `node_modules` lives in a named volume:
+  `docker compose down web && docker volume rm murasfood_web_node_modules && docker compose up -d --build web`.
 
 - **`.env` is gitignored.** Container startup depends on it existing.
 - **`seed_catalog` archives rather than deletes** products referenced by an

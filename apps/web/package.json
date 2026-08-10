@@ -27,6 +27,7 @@
     "vue": "^3.5.0",
     "vue-chartjs": "^5.3.1",
     "vue-router": "^4.4.0",
+    "vuedraggable": "^4.1.0",
     "vuetify": "^3.7.0"
   },
   "devDependencies": {
