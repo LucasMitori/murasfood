@@ -59,16 +59,20 @@ const { mdAndUp } = useDisplay()
 
 const rail = ref(true)
 
+// Navigation is driven by *page* permissions, the same codes the route guard
+// enforces — so a visible link never leads to a 403.
 const entries = [
-  { to: '/admin', icon: 'mdi-view-dashboard-outline', labelKey: 'admin.dashboard', permission: 'reports.view' },
-  { to: '/admin/pedidos', icon: 'mdi-receipt-text-outline', labelKey: 'admin.orders', permission: 'orders.view' },
-  { to: '/admin/produtos', icon: 'mdi-package-variant-closed', labelKey: 'admin.products', permission: 'catalog.view' },
-  { to: '/admin/estoque', icon: 'mdi-warehouse', labelKey: 'admin.inventory', permission: 'inventory.view' },
-  { to: '/admin/clientes', icon: 'mdi-account-group-outline', labelKey: 'admin.customers', permission: 'customers.view' },
-  { to: '/admin/financeiro', icon: 'mdi-finance', labelKey: 'admin.finance', permission: 'finance.view' },
+  { to: '/admin', icon: 'mdi-view-dashboard-outline', labelKey: 'admin.dashboard', permission: 'perm.admin.dashboard' },
+  { to: '/admin/pedidos', icon: 'mdi-receipt-text-outline', labelKey: 'admin.orders', permission: 'perm.admin.orders' },
+  { to: '/admin/produtos', icon: 'mdi-package-variant-closed', labelKey: 'admin.products', permission: 'perm.admin.products' },
+  { to: '/admin/estoque', icon: 'mdi-warehouse', labelKey: 'admin.inventory', permission: 'perm.admin.inventory' },
+  { to: '/admin/clientes', icon: 'mdi-account-group-outline', labelKey: 'admin.customers', permission: 'perm.admin.customers' },
+  { to: '/admin/usuarios', icon: 'mdi-shield-account-outline', labelKey: 'admin.users', permission: 'perm.admin.users' },
+  { to: '/admin/financeiro', icon: 'mdi-finance', labelKey: 'admin.finance', permission: 'perm.admin.finance' },
 ]
 
-const visibleEntries = computed(() => entries.filter(entry => auth.can(entry.permission)))
+const { can } = usePermission()
+const visibleEntries = computed(() => entries.filter(entry => can(entry.permission)))
 
 async function signOut(): Promise<void> {
   await auth.logout()

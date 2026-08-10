@@ -19,3 +19,15 @@ declare module 'vue' {
 }
 
 export {}
+
+declare module '#app' {
+  interface PageMeta {
+    /**
+     * Permission code(s) required to open this page.
+     *
+     * Enforced by `middleware/permission.global.ts`. Page codes are
+     * hierarchical: `perm.admin` satisfies `perm.admin.users`.
+     */
+    permission?: string | string[]
+  }
+}

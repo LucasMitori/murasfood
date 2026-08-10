@@ -356,7 +356,8 @@
     "archive": "Arquivar",
     "archived": "Produto arquivado",
     "archiveConfirm": "Arquivar este produto? Ele sai da vitrine, mas o histórico de pedidos é mantido.",
-    "updatedAt": "Atualizado em"
+    "updatedAt": "Atualizado em",
+    "users": "Usuários e permissões"
   },
   "errors": {
     "generic": "Não foi possível concluir a operação.",

@@ -20,7 +20,7 @@ from django.utils import timezone
 
 DEFAULT_EMAIL = "devmitori@gmail.com"
 DEFAULT_NAME = "Admin"
-DEFAULT_PASSWORD = "Admin@Market2026"  # noqa: S105 - development credential, overridable
+DEFAULT_PASSWORD = "Admin@Market2026"
 
 
 class Command(BaseCommand):
@@ -137,7 +137,5 @@ class Command(BaseCommand):
         if len(tenants) == 1:
             return tenants[0]
         if len(tenants) > 1:
-            raise SystemExit(
-                "Several tenants exist. Pass --tenant <slug> to choose one."
-            )
+            raise SystemExit("Several tenants exist. Pass --tenant <slug> to choose one.")
         return None

@@ -131,7 +131,7 @@ import { useMoney } from '~/composables/useMoney'
 import { useUiStore } from '~/stores/ui'
 import { formatDate } from '~/utils/format'
 
-definePageMeta({ layout: 'admin', middleware: 'merchant' })
+definePageMeta({ layout: 'admin', middleware: 'merchant', permission: 'perm.admin.dashboard' })
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend)
 

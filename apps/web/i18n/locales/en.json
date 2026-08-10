@@ -356,7 +356,8 @@
     "archive": "Archive",
     "archived": "Product archived",
     "archiveConfirm": "Archive this product? It leaves the storefront, but order history is kept.",
-    "updatedAt": "Updated"
+    "updatedAt": "Updated",
+    "users": "Users and permissions"
   },
   "errors": {
     "generic": "We could not complete that operation.",

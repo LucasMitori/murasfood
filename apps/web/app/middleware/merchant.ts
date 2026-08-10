@@ -1,8 +1,9 @@
 /**
- * Restricts the dashboard to merchant staff.
+ * Restricts the dashboard area to accounts with at least one admin page.
  *
- * A convenience gate only: every dashboard endpoint enforces its own permission
- * codes server-side, so bypassing this reveals nothing.
+ * Page-level access is enforced by `permission.global.ts`; this is only the
+ * area gate, so someone holding a single screen still gets in to reach it.
+ * Both are affordances — every dashboard endpoint enforces its own codes.
  */
 import { useAuthStore } from '~/stores/auth'
 
@@ -13,10 +14,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo({ path: '/auth/login', query: { redirect: to.fullPath } })
   }
 
-  // A hard refresh inside /admin has tokens but no profile yet.
+  // A hard refresh inside /admin has a token but no profile yet.
   if (!auth.user) await auth.fetchProfile()
 
-  if (!auth.isMerchantUser) {
+  const reachesAdmin = [...auth.permissions].some(code => code.startsWith('perm.admin'))
+  if (!reachesAdmin) {
     return navigateTo('/')
   }
 })

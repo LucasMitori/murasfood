@@ -29,9 +29,12 @@ from apps.common.models import BaseModel, TenantOwnedModel
 
 from .constants import (
     ALL_PERMISSION_CODES,
+    DEFAULT_CUSTOMER_PERMISSIONS,
     PERMISSION_CATALOGUE,
     TokenPurpose,
     UserType,
+    is_page_permission,
+    permission_ancestors,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -153,6 +156,17 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     user_type = models.CharField(
         _("type"), max_length=20, choices=UserType.choices, default=UserType.CUSTOMER
     )
+    direct_permissions = models.ManyToManyField(
+        Permission,
+        through="UserPermission",
+        # `UserPermission` also points at `User` through `granted_by`, so the
+        # join columns have to be named explicitly.
+        through_fields=("user", "permission"),
+        related_name="direct_users",
+        blank=True,
+        verbose_name=_("direct permissions"),
+        help_text=_("Granted to this account alone, on top of whatever its roles allow."),
+    )
     roles = models.ManyToManyField(
         Role,
         through="UserRole",
@@ -244,7 +258,16 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         if self.is_platform_admin or self.user_type == UserType.ADMINISTRATOR:
             codes = set(ALL_PERMISSION_CODES)
         else:
-            codes = set(Permission.objects.filter(roles__users=self).values_list("code", flat=True))
+            # Effective permissions are the union of what the actor's roles
+            # grant and what has been granted to them directly. Roles cover the
+            # common case; a direct grant handles the one person who needs one
+            # extra capability without inventing a role for them.
+            codes = set(
+                Permission.objects.filter(models.Q(roles__users=self) | models.Q(direct_users=self))
+                .values_list("code", flat=True)
+                .distinct()
+            )
+            codes.update(DEFAULT_CUSTOMER_PERMISSIONS)
 
         self._permission_codes_cache = codes
         return codes
@@ -252,13 +275,73 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     def has_permission_code(self, code: str) -> bool:
         """Whether this account may perform ``code``.
 
-        Unknown codes always deny: a typo in a view must fail closed.
+        Page permissions are hierarchical: holding ``perm.admin`` grants
+        ``perm.admin.users`` without it being listed separately. Capability
+        codes have no such hierarchy — ``catalog.view`` is not implied by
+        anything.
+
+        Unknown codes always deny, so a typo in a view fails closed.
         """
         if code not in PERMISSION_CATALOGUE:
             return False
         if not self.is_active:
             return False
-        return code in self.permission_codes()
+
+        held = self.permission_codes()
+        return any(ancestor in held for ancestor in permission_ancestors(code))
+
+    def grant_permission(self, code: str) -> None:
+        """Grant a permission directly to this account."""
+        permission = Permission.objects.filter(code=code).first()
+        if permission is None:
+            return
+        UserPermission.objects.get_or_create(user=self, permission=permission)
+        self.refresh_permission_cache()
+
+    def revoke_permission(self, code: str) -> None:
+        """Remove a *direct* grant. Permissions held through a role are untouched."""
+        UserPermission.objects.filter(user=self, permission__code=code).delete()
+        self.refresh_permission_cache()
+
+    def can_access_admin(self) -> bool:
+        """Whether any dashboard screen is reachable at all.
+
+        Deliberately not `has_permission_code("perm.admin")`: that code means
+        *the whole dashboard*, and a staff member holding only
+        ``perm.admin.orders`` must still get past the area gate to reach the one
+        screen they are entitled to.
+        """
+        if not self.is_active:
+            return False
+        return any(code.startswith("perm.admin") for code in self.permission_codes())
+
+    def accessible_pages(self) -> set[str]:
+        """Every page code this account can open, hierarchy expanded.
+
+        The frontend uses it to build navigation without asking about each page
+        in turn.
+        """
+        held = self.permission_codes()
+        return {
+            code
+            for code in PERMISSION_CATALOGUE
+            if is_page_permission(code)
+            and any(ancestor in held for ancestor in permission_ancestors(code))
+        }
+
+    def direct_permission_codes(self) -> set[str]:
+        """Codes granted straight to this account, ignoring roles.
+
+        The admin UI needs these separately: it must show which grants can be
+        revoked here and which come from a role.
+        """
+        return set(Permission.objects.filter(direct_users=self).values_list("code", flat=True))
+
+    def role_permission_codes(self) -> set[str]:
+        """Codes this account holds by way of a role."""
+        return set(
+            Permission.objects.filter(roles__users=self).values_list("code", flat=True).distinct()
+        )
 
     def refresh_permission_cache(self) -> None:
         self._permission_codes_cache = None
@@ -282,6 +365,31 @@ class UserRole(BaseModel):
 
     def __str__(self) -> str:  # pragma: no cover - admin display
         return f"{self.user} → {self.role}"
+
+
+class UserPermission(BaseModel):
+    """A permission granted directly to one account.
+
+    Kept as an explicit through-model rather than a bare M2M so a grant carries
+    provenance: who gave it and when. That is what makes an access review
+    possible later.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="permission_assignments")
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE, related_name="assignments")
+    granted_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="granted_permissions"
+    )
+
+    class Meta:
+        verbose_name = _("user permission")
+        verbose_name_plural = _("user permissions")
+        constraints = [
+            models.UniqueConstraint(fields=["user", "permission"], name="uniq_user_permission"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return f"{self.user} → {self.permission}"
 
 
 class AuthTokenQuerySet(models.QuerySet):

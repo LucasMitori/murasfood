@@ -26,9 +26,52 @@ class InvalidCredentialsError(DomainError):
 
 
 class PermissionSerializer(serializers.ModelSerializer):
+    """One permission, tagged so the UI can separate pages from capabilities."""
+
+    is_page = serializers.SerializerMethodField()
+    group = serializers.SerializerMethodField()
+
     class Meta:
         model = Permission
-        fields = ["code", "description"]
+        fields = ["id", "code", "description", "is_page", "group"]
+
+    def get_is_page(self, obj: Permission) -> bool:
+        from .constants import is_page_permission
+
+        return is_page_permission(obj.code)
+
+    def get_group(self, obj: Permission) -> str:
+        """Leading segment, used to group the transfer lists.
+
+        Page codes group under their second segment (`perm.admin.*` -> `admin`)
+        because grouping them all under "perm" would be one useless bucket.
+        """
+        from .constants import is_page_permission
+
+        parts = obj.code.split(".")
+        if is_page_permission(obj.code):
+            return parts[1] if len(parts) > 1 else "perm"
+        return parts[0]
+
+
+class UserPermissionsSerializer(serializers.Serializer):
+    """Read model for the permissions tab of the user editor."""
+
+    direct = serializers.ListField(child=serializers.CharField())
+    from_roles = serializers.ListField(child=serializers.CharField())
+    effective = serializers.ListField(child=serializers.CharField())
+
+
+class UserPermissionsWriteSerializer(serializers.Serializer):
+    """Replaces the set of *direct* grants. Role permissions are untouched."""
+
+    codes = serializers.ListField(child=serializers.CharField(max_length=64), allow_empty=True)
+
+
+class UserRolesWriteSerializer(serializers.Serializer):
+    """Replaces the set of assigned roles."""
+
+    roles = serializers.ListField(child=serializers.CharField(max_length=64), allow_empty=True)
 
 
 class RoleSerializer(serializers.ModelSerializer):

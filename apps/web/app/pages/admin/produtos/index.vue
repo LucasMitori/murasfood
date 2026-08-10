@@ -94,7 +94,7 @@ import { useMoney } from '~/composables/useMoney'
 import { useApiError } from '~/composables/useApiError'
 import { useUiStore } from '~/stores/ui'
 
-definePageMeta({ layout: 'admin', middleware: 'merchant' })
+definePageMeta({ layout: 'admin', middleware: 'merchant', permission: 'perm.admin.products' })
 
 type ProductRow = Record<string, unknown>
 

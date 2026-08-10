@@ -40,7 +40,7 @@ import type { OrderSummary, Paginated } from '~/types/api'
 import { useMoney } from '~/composables/useMoney'
 import { formatDateTime } from '~/utils/format'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: 'auth', permission: 'perm.account.orders' })
 
 const { t, locale } = useI18n()
 const money = useMoney()

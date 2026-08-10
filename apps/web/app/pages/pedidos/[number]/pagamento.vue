@@ -73,7 +73,7 @@ import { useMoney } from '~/composables/useMoney'
 import { useApiError } from '~/composables/useApiError'
 import { useUiStore } from '~/stores/ui'
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: 'auth', permission: 'perm.account.orders' })
 
 const route = useRoute()
 const { t } = useI18n()

@@ -76,7 +76,63 @@ PERMISSION_CATALOGUE: dict[str, str] = {
     "audit.view": "Read the audit log",
 }
 
+#: Prefix marking a *page access* permission, as opposed to a capability.
+#:
+#: Capability codes above answer "may this actor refund an order?". Page codes
+#: answer "may this actor open this screen?". They are separate questions: a
+#: manager may hold `orders.refund` yet have no reason to reach the finance
+#: dashboard.
+PAGE_PERMISSION_PREFIX = "perm"
+
+#: Page-access permissions. **Hierarchical**: holding a parent grants every
+#: descendant, so `perm.admin` opens the whole dashboard while
+#: `perm.admin.profile` opens only that screen (see
+#: :meth:`apps.accounts.models.User.has_permission_code`).
+PAGE_PERMISSIONS: dict[str, str] = {
+    "perm.admin": "Open the merchant dashboard",
+    "perm.admin.dashboard": "Open the dashboard overview",
+    "perm.admin.products": "Open product management",
+    "perm.admin.orders": "Open order management",
+    "perm.admin.inventory": "Open inventory management",
+    "perm.admin.customers": "Open the customer list",
+    "perm.admin.users": "Open user and role management",
+    "perm.admin.finance": "Open the finance area",
+    "perm.admin.reports": "Open reports",
+    "perm.admin.promotions": "Open promotions",
+    "perm.admin.settings": "Open store settings",
+    "perm.admin.audit": "Open the audit log",
+    "perm.account": "Open the customer account area",
+    "perm.account.profile": "Open the profile page",
+    "perm.account.addresses": "Open saved addresses",
+    "perm.account.orders": "Open personal order history",
+    "perm.account.lists": "Open shopping lists",
+}
+
+PERMISSION_CATALOGUE.update(PAGE_PERMISSIONS)
+
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(PERMISSION_CATALOGUE)
+
+#: Page codes every signed-in customer holds without an explicit grant. Their
+#: own profile is not a privilege that needs administering.
+DEFAULT_CUSTOMER_PERMISSIONS: tuple[str, ...] = ("perm.account",)
+
+
+def is_page_permission(code: str) -> bool:
+    return code == PAGE_PERMISSION_PREFIX or code.startswith(f"{PAGE_PERMISSION_PREFIX}.")
+
+
+def permission_ancestors(code: str) -> tuple[str, ...]:
+    """Return ``code`` and every parent that would also grant it.
+
+    ``perm.admin.users`` yields ``("perm.admin.users", "perm.admin", "perm")``.
+    Capability codes have no hierarchy — holding ``catalog`` is not a thing —
+    so they yield only themselves.
+    """
+    if not is_page_permission(code):
+        return (code,)
+
+    parts = code.split(".")
+    return tuple(".".join(parts[: index + 1]) for index in range(len(parts)))[::-1]
 
 
 class SystemRole(models.TextChoices):
@@ -101,6 +157,14 @@ SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "pricing.view",
         "promotions.view",
         "documents.view",
+        # Specific pages only. The bare `perm.admin` parent would grant every
+        # dashboard screen by hierarchy, including finance and user management.
+        "perm.admin.dashboard",
+        "perm.admin.orders",
+        "perm.admin.products",
+        "perm.admin.inventory",
+        "perm.admin.customers",
+        "perm.account",
     ),
     SystemRole.MANAGER: (
         "catalog.view",
@@ -125,6 +189,16 @@ SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "documents.view",
         "documents.upload",
         "media.upload",
+        # Managers reach every dashboard screen except users and settings, so
+        # the pages are listed individually rather than granting the parent.
+        "perm.admin.dashboard",
+        "perm.admin.products",
+        "perm.admin.orders",
+        "perm.admin.inventory",
+        "perm.admin.customers",
+        "perm.admin.reports",
+        "perm.admin.promotions",
+        "perm.account",
     ),
     # Administrators get everything defined in the catalogue; listing the codes
     # explicitly would mean a new permission is silently withheld from them.

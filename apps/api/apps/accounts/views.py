@@ -31,10 +31,14 @@ from .serializers import (
     EmailVerificationSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    PermissionSerializer,
     RegisterSerializer,
     ResendVerificationSerializer,
     RoleSerializer,
     StaffUserSerializer,
+    UserPermissionsSerializer,
+    UserPermissionsWriteSerializer,
+    UserRolesWriteSerializer,
     UserSerializer,
 )
 from .services import (
@@ -43,6 +47,8 @@ from .services import (
     create_address,
     export_personal_data,
     register_customer,
+    replace_direct_permissions,
+    replace_roles,
     request_password_reset,
     resend_verification,
     reset_password,
@@ -446,3 +452,124 @@ class RoleViewSet(TenantScopedMixin, viewsets.ModelViewSet):
         if obj is None:
             raise NotFoundError()
         return obj
+
+
+# =============================================================================
+# Permission administration
+# =============================================================================
+class PermissionListView(TenantScopedMixin, APIView):
+    """The permission catalogue, for the transfer lists in the user editor.
+
+    Returned unpaginated: it is a fixed, small vocabulary, and the UI needs all
+    of it at once to compute the "available" side of a transfer list.
+    """
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["users.view"]
+
+    @extend_schema(responses=PermissionSerializer(many=True), operation_id="admin_permissions_list")
+    def get(self, request: Request) -> Response:
+        from .models import Permission
+
+        permissions = Permission.objects.all().order_by("code")
+        return Response(PermissionSerializer(permissions, many=True).data)
+
+
+class UserPermissionsView(TenantScopedMixin, APIView):
+    """Read and replace one account's **direct** permission grants.
+
+    Reading reports the two sources separately, because the UI must show which
+    grants it can revoke here and which arrive through a role.
+    """
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = {"get": ["users.view"], "default": ["users.manage"]}
+
+    def get_user(self, request: Request, pk: str) -> User:
+        user = User.objects.filter(pk=pk, tenant_id=self.tenant_id).first()
+        if user is None:
+            raise NotFoundError()
+        return user
+
+    @extend_schema(
+        responses=UserPermissionsSerializer, operation_id="admin_user_permissions_retrieve"
+    )
+    def get(self, request: Request, pk: str) -> Response:
+        user = self.get_user(request, pk)
+        return Response(
+            {
+                "direct": sorted(user.direct_permission_codes()),
+                "from_roles": sorted(user.role_permission_codes()),
+                "effective": sorted(user.permission_codes()),
+            }
+        )
+
+    @extend_schema(
+        request=UserPermissionsWriteSerializer,
+        responses=UserPermissionsSerializer,
+        operation_id="admin_user_permissions_replace",
+    )
+    def put(self, request: Request, pk: str) -> Response:
+        serializer = UserPermissionsWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = self.get_user(request, pk)
+        before = sorted(user.direct_permission_codes())
+        after = replace_direct_permissions(
+            user=user, codes=serializer.validated_data["codes"], granted_by=request.user
+        )
+
+        record_audit(
+            action="user.permissions_changed",
+            tenant=self.tenant,
+            actor=request.user,
+            resource=user,
+            old_values={"direct": ", ".join(before)},
+            new_values={"direct": ", ".join(after)},
+            request=request,
+        )
+
+        return Response(
+            {
+                "direct": after,
+                "from_roles": sorted(user.role_permission_codes()),
+                "effective": sorted(user.permission_codes()),
+            }
+        )
+
+
+class UserRolesView(TenantScopedMixin, APIView):
+    """Replace the roles assigned to one account."""
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["users.manage"]
+
+    @extend_schema(
+        request=UserRolesWriteSerializer,
+        responses=StaffUserSerializer,
+        operation_id="admin_user_roles_replace",
+    )
+    def put(self, request: Request, pk: str) -> Response:
+        serializer = UserRolesWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = User.objects.filter(pk=pk, tenant_id=self.tenant_id).first()
+        if user is None:
+            raise NotFoundError()
+
+        before = sorted(role.slug for role in user.roles.all())
+        after = replace_roles(
+            user=user, slugs=serializer.validated_data["roles"], granted_by=request.user
+        )
+
+        record_audit(
+            action="user.permissions_changed",
+            tenant=self.tenant,
+            actor=request.user,
+            resource=user,
+            old_values={"roles": ", ".join(before)},
+            new_values={"roles": ", ".join(after)},
+            request=request,
+        )
+
+        return Response(StaffUserSerializer(user).data)

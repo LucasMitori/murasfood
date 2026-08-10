@@ -44,8 +44,16 @@ class TestPermissionChecks:
         assert staff_user.has_permission_code("orders.refund") is False
         assert staff_user.has_permission_code("finance.manage") is False
 
-    def test_customer_holds_nothing(self, customer: Any) -> None:
-        assert customer.permission_codes() == set()
+    def test_customer_holds_only_their_own_account_area(self, customer: Any) -> None:
+        """A shopper needs no grant to reach their own profile.
+
+        They hold the `perm.account` page namespace and nothing else — no
+        capability code, and no part of the dashboard.
+        """
+        assert customer.permission_codes() == {"perm.account"}
+        assert customer.has_permission_code("perm.account.profile") is True
+        assert customer.has_permission_code("perm.admin") is False
+        assert customer.has_permission_code("orders.view") is False
 
     def test_unknown_code_denies(self, admin_user: Any) -> None:
         """A typo in a view must fail closed, not open."""

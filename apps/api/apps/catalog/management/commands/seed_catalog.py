@@ -224,7 +224,7 @@ class Command(BaseCommand):
         from apps.inventory.services import set_stock
         from apps.pricing.services import set_price
 
-        rng = random.Random(2026)  # noqa: S311 - deterministic demo data, not crypto
+        rng = random.Random(2026)
         created = 0
 
         for name, section, unit_code, price, cost, stock, weighted, featured in CATALOG:

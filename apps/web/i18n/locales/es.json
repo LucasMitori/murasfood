@@ -356,7 +356,8 @@
     "archive": "Archivar",
     "archived": "Producto archivado",
     "archiveConfirm": "¿Archivar este producto? Sale de la tienda, pero se conserva el historial de pedidos.",
-    "updatedAt": "Actualizado"
+    "updatedAt": "Actualizado",
+    "users": "Usuarios y permisos"
   },
   "errors": {
     "generic": "No pudimos completar la operación.",

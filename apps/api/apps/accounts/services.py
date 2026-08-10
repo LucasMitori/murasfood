@@ -447,3 +447,75 @@ def export_personal_data(user: User) -> dict[str, Any]:
             for order in Order.objects.filter(customer=user).order_by("-created_at")
         ],
     }
+
+
+# =============================================================================
+# Permission and role assignment
+# =============================================================================
+@transaction.atomic
+def replace_direct_permissions(
+    *, user: User, codes: list[str], granted_by: User | None = None
+) -> list[str]:
+    """Set the account's direct grants to exactly ``codes``.
+
+    Only *direct* grants are touched. Anything the account holds through a role
+    is unaffected, which is what lets the editor present the two as separate
+    lists without one silently clobbering the other.
+
+    Unknown codes are ignored rather than rejected: the catalogue can shrink
+    between a page load and a save, and failing the whole request over a stale
+    checkbox would be worse than dropping it.
+
+    Returns the codes actually stored, sorted.
+    """
+    from .models import Permission, UserPermission
+
+    wanted = {code for code in codes if code in PERMISSION_CATALOGUE}
+    permissions = {p.code: p for p in Permission.objects.filter(code__in=wanted)}
+
+    UserPermission.objects.filter(user=user).exclude(permission__code__in=wanted).delete()
+
+    existing = set(
+        UserPermission.objects.filter(user=user).values_list("permission__code", flat=True)
+    )
+    UserPermission.objects.bulk_create(
+        [
+            UserPermission(user=user, permission=permissions[code], granted_by=granted_by)
+            for code in wanted - existing
+            if code in permissions
+        ],
+        ignore_conflicts=True,
+    )
+
+    user.refresh_permission_cache()
+    logger.info(
+        "user_permissions_replaced",
+        extra={"event": "accounts.permissions_replaced", "count": len(wanted)},
+    )
+    return sorted(wanted)
+
+
+@transaction.atomic
+def replace_roles(*, user: User, slugs: list[str], granted_by: User | None = None) -> list[str]:
+    """Set the account's roles to exactly ``slugs`` within its own tenant.
+
+    Roles from another tenant are ignored: assigning one would be a cross-tenant
+    privilege escalation (invariant #1).
+    """
+    from .models import Role
+
+    roles = {
+        role.slug: role for role in Role.objects.filter(tenant_id=user.tenant_id, slug__in=slugs)
+    }
+
+    UserRole.objects.filter(user=user).exclude(role__slug__in=roles).delete()
+
+    existing = set(UserRole.objects.filter(user=user).values_list("role__slug", flat=True))
+    for slug, role in roles.items():
+        if slug not in existing:
+            UserRole.objects.get_or_create(
+                user=user, role=role, defaults={"granted_by": granted_by}
+            )
+
+    user.refresh_permission_cache()
+    return sorted(roles)
