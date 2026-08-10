@@ -1,0 +1,198 @@
+# Handoff — state of MurasFood
+
+Written 2026-08-10, at commit `eb71380`. Read this first in a new session.
+
+---
+
+## 1. Running it
+
+The stack is **already built and running**. To bring it back up after a reboot:
+
+```bash
+docker compose up -d
+```
+
+| Service | URL | Notes |
+| --- | --- | --- |
+| Storefront + dashboard | http://localhost:3000 | Nuxt 4, hot reload from `apps/web` |
+| API | http://localhost:8000/api/v1/ | Django, hot reload from `apps/api` |
+| API docs | http://localhost:8000/api/docs/ | Swagger, generated from the code |
+| Mail catcher | http://localhost:8025 | Every outgoing email lands here |
+| Object storage | http://localhost:9001 | MinIO console |
+| Django admin | http://localhost:8000/django-admin/ | Emergency back-office only |
+
+**Sign in:** `devmitori@gmail.com` / `Admin@Market2026`
+
+If containers are missing, the cause is almost always a missing `.env` — it is
+gitignored by design. Recreate it with `cp .env.example .env` and generate a
+`DJANGO_SECRET_KEY`.
+
+### Rebuilding from nothing
+
+```bash
+docker compose down -v && docker compose up -d --build
+```
+
+```bash
+docker compose exec api python manage.py migrate
+```
+
+```bash
+docker compose exec api python manage.py create_admin --only-user
+```
+
+```bash
+docker compose exec api python manage.py seed_catalog
+```
+
+`create_admin` is idempotent and also provisions the tenant, roles, permissions,
+units, delivery config and email templates. `--only-user` deletes every other
+account, which is what makes the admin the *only* user.
+
+---
+
+## 2. What exists and works
+
+**Backend** — 16 domain modules, 251 tests passing, Ruff clean, 227 documented
+API operations. Tenancy, permission codes, catalog, pricing with append-only
+history, inventory as a movement ledger, cart, promotions, delivery, the order
+state machine, PIX payments with replay-safe webhooks, media, notifications,
+the finance ledger, reports with PDF export, and a write-once audit log.
+
+**Frontend** — Nuxt 4 + Vuetify 3 + Pug + Pinia + i18n (pt-BR/en/es), 181 tests
+passing, ESLint and `vue-tsc` clean, production build green. Storefront (home,
+catalog, product, cart, checkout, PIX, orders, login) and the dashboard
+overview.
+
+**Component library** — 24 components. The two that matter most for what comes
+next:
+
+- `MuraFormBuilder` — declare a `FormSchema`, get a validated form with API
+  error mapping and conditional fields. See `app/types/ui.ts`.
+- `MuraDataTable` + `useServerTable` — server pagination with the hazards
+  handled (feedback loops, stale responses, vanishing pages, `itemsPerPage: -1`).
+  Worked example: `app/pages/admin/produtos/index.vue`.
+
+**Data** — one tenant (`demo`), one user (the admin), 51 products across eight
+sections, each with a backdated price history so a price chart has a real series
+to plot.
+
+---
+
+## 3. What was asked for and is NOT built
+
+Five features from the last request remain. Nothing below is started; the notes
+are the design work so the next session can go straight to implementation.
+
+### 3.1 Admin users page with drag-and-drop permissions
+
+**Wanted:** `/admin/usuarios` with a server table, toolbar, "New" top-right, and
+per-row view/edit/delete. Edit and create open `/admin/usuarios/novo` and
+`/admin/usuarios/:id/editar` as real pages with tabs; one tab holds two
+side-by-side drag-and-drop lists (assigned vs available) for **permissions**,
+and another pair for **roles**.
+
+**Backend is ready.** `/admin/users/` and `/admin/roles/` exist with
+`users.view` / `users.manage` enforcement. `StaffUserSerializer` already accepts
+`roles` as a list of slugs.
+
+**Two gaps to close first:**
+
+1. There is no endpoint listing the permission catalogue. Add
+   `GET /admin/permissions/` returning `{code, description}` from
+   `PERMISSION_CATALOGUE` — a `ListAPIView` over `Permission`, gated on
+   `users.view`.
+2. Permissions are currently attached to *roles*, not directly to users
+   (`User.permission_codes()` unions role permissions). Direct per-user
+   permissions need either a new `UserPermission` through-model or a decision to
+   drag permissions onto a *role*. **Ask which is wanted** — it changes the
+   schema.
+
+**Drag-and-drop:** `vuedraggable@next` is the usual choice; it is not yet a
+dependency. Provide a keyboard-accessible fallback (select + move buttons) —
+drag-only lists are unusable without a mouse.
+
+### 3.2 Permission guards across every page
+
+**Wanted:** pages gated on codes such as `perm.admin.profile`, with the sweep
+applied to all existing pages.
+
+**Naming mismatch to resolve.** The backend catalogue uses `catalog.view`,
+`orders.refund`, `users.manage` — not a `perm.` prefix. Either the frontend maps
+onto the existing codes, or the catalogue is renamed in
+`apps/api/apps/accounts/constants.py` (one edit, plus a migration-free reseed).
+**Decide before writing guards**, or the two halves will disagree.
+
+**What exists:** `app/middleware/merchant.ts` checks "is staff". `auth.can(code)`
+already works client-side.
+
+**What to add:** a `permission.ts` middleware reading
+`definePageMeta({ permission: 'orders.view' })`, applied to every admin page,
+plus a `usePermission()` composable for hiding UI within a page. The API already
+enforces every code, so this is affordance and routing, not the security
+boundary.
+
+### 3.3 Login/register as one flip-card page
+
+**Wanted:** a single centred page; the card flips to reveal registration.
+
+`app/pages/auth/login.vue` and the registration flow exist separately. The work
+is one page with `transform: rotateY(180deg)`, `backface-visibility: hidden`, a
+`perspective` wrapper, and `prefers-reduced-motion` respected (the global rule
+in `main.scss` already disables transitions there — verify the flip degrades to
+a plain swap rather than getting stuck mid-rotation).
+
+### 3.4 Shopping lists
+
+**Wanted:** reusable lists ("monthly shop") that bulk-add to the cart.
+
+Entirely new. Needs a `ShoppingList` + `ShoppingListItem` model in a new app (or
+inside `cart`), tenant-owned and customer-scoped, plus
+`POST /shopping-lists/{id}/add-to-cart/` that reuses `cart.services.add_item`
+so stock and quantity rules are enforced once. Frontend: a list manager and a
+"save cart as list" action.
+
+### 3.5 Product page charts
+
+**Wanted:** price variation and product analysis on each product page.
+
+Data already exists — `PriceHistory` is populated, including by the seed. The
+gap is a **public** endpoint: the current one
+(`/admin/prices/history/{product_id}/`) requires `pricing.view`, which a shopper
+does not have. Add a public, cost-free projection returning only
+`{date, price}` — never `cost_price` or margin, which must not leak to
+customers. Then render with `vue-chartjs`, already a dependency and already used
+on the dashboard.
+
+### 3.6 Checkout, wishlist and favourites review
+
+Requested as a review; not done. Favourites and checkout are implemented and
+covered by backend tests, but I have not walked the flows in the browser. Worth
+doing before building on them.
+
+---
+
+## 4. Things worth knowing before editing
+
+- **`.env` is gitignored.** Container startup depends on it existing.
+- **`seed_catalog` archives rather than deletes** products referenced by an
+  order — deleting them would break order history (invariant #3).
+- **The payment provider is a sandbox.** It produces valid BR Codes and
+  exercises the real webhook path but moves no money. To simulate payment:
+  `POST /api/v1/payments/{id}/simulate/`.
+- **Money crosses the wire as strings.** Never do arithmetic on them in JS; use
+  `app/utils/money.ts`.
+- **Frontend tests cover the logic layer only** — stores, API client, money,
+  formatters, theme, table pagination. No component rendering is asserted; the
+  production build and `vue-tsc` are what catch template breakage.
+- **`mypy` is advisory** in CI, not blocking.
+
+## 5. Suggested order for the next session
+
+1. Settle the two open questions (§3.1 direct-vs-role permissions, §3.2 code
+   naming). Both block work that is otherwise mechanical.
+2. Permission middleware sweep — small, and everything else inherits it.
+3. Admin users page — the builders make this mostly schema.
+4. Flip-card auth — self-contained.
+5. Product charts — needs one new endpoint.
+6. Shopping lists — the largest, entirely new.
