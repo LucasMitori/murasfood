@@ -165,6 +165,9 @@ function setValue(field: FormField, value: unknown): void {
   emit('update:values', next)
 }
 
+/** Slugs the user has edited by hand, which stop tracking their source. */
+const touchedSlugs = ref(new Set<string>())
+
 /**
  * Keep a slug in step with its source field until someone edits it by hand.
  *
@@ -179,8 +182,6 @@ function maybeDeriveSlug(next: FormValues, changed: FormField): void {
 
   next[slugField.name] = slugify(String(next[changed.name] ?? ''))
 }
-
-const touchedSlugs = ref(new Set<string>())
 
 watch(
   () => props.values,

@@ -148,14 +148,19 @@ const { data: addresses } = await useAsyncData<Address[]>(
 
 addressId.value = addresses.value?.find(address => address.is_default)?.id ?? addresses.value?.[0]?.id ?? null
 
+// Declared before the fetch below, which reads it. A `const` is in its
+// temporal dead zone until this line runs, and the `useAsyncData` handler runs
+// immediately — so declaring it afterwards threw `ReferenceError` inside the
+// handler, leaving the delivery options permanently empty and the Confirm
+// button permanently disabled.
+const selectedAddress = computed(() =>
+  addresses.value?.find(address => address.id === addressId.value) ?? null,
+)
+
 const { data: deliveryOptions } = await useAsyncData<DeliveryOption[]>(
   'checkout-delivery-options',
   () => cart.loadDeliveryOptions(selectedAddress.value?.postal_code ?? ''),
   { default: () => [] },
-)
-
-const selectedAddress = computed(() =>
-  addresses.value?.find(address => address.id === addressId.value) ?? null,
 )
 
 const canSubmit = computed(() => {

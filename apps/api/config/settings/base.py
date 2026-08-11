@@ -287,9 +287,26 @@ CORS_ALLOW_HEADERS = (
     "x-requested-with",
     "x-tenant",
     "x-request-id",
+    # The anonymous cart is addressed by this header. Omitting it does not
+    # merely hide something — the preflight rejects the whole request, so every
+    # cart call failed as soon as the client had a token to send.
+    "x-cart-token",
     "idempotency-key",
     "accept-language",
 )
+
+# Response headers the browser is allowed to hand to JavaScript.
+#
+# A cross-origin response exposes only the handful of "safelisted" headers by
+# default; anything else is readable by the network tab but invisible to
+# `fetch`. Without this the storefront could never read the cart token it is
+# sent, so every anonymous cart was orphaned the moment the page reloaded.
+CORS_EXPOSE_HEADERS = [
+    "X-Cart-Token",
+    "X-Request-Id",
+    "X-Idempotent-Replay",
+]
+
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:3000"])
 
 # --- Object storage ----------------------------------------------------------

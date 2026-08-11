@@ -25,6 +25,26 @@ export default withNuxt({
 
     // Explicit `any` hides exactly the mistakes types exist to catch.
     '@typescript-eslint/no-explicit-any': 'warn',
+
+    /*
+     * Reading a `const` before its declaration is a runtime `ReferenceError`,
+     * not a hoisting quirk. It shipped once already: the checkout page passed a
+     * closure to `useAsyncData` that read a `computed` declared below it, and
+     * because the handler runs immediately it threw — leaving the delivery
+     * options empty and the "Confirm order" button permanently disabled.
+     *
+     * Functions stay exempt: they hoist, and `<script setup>` reads better with
+     * handlers defined after the state they act on.
+     */
+    'no-use-before-define': 'off',
+    '@typescript-eslint/no-use-before-define': ['error', {
+      functions: false,
+      classes: true,
+      variables: true,
+      enums: true,
+      typedefs: false,
+      ignoreTypeReferences: true,
+    }],
     '@typescript-eslint/no-unused-vars': ['error', {
       argsIgnorePattern: '^_',
       varsIgnorePattern: '^_',

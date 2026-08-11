@@ -238,7 +238,27 @@ been present since the first commit.**
    hard load. Both now return early on the server, and `/conta/**` and
    `/favoritos` joined `/admin/**` as `ssr: false`.
 
-Still outstanding: §3.6 checkout walkthrough.
+- **Checkout, cart and favourites — walked end to end.** Anonymous browse →
+  add to cart → sign in (cart merges) → checkout → PIX → paid → order history.
+  Order `MF-260811-ALWC6C` was placed and confirmed against the running stack.
+
+**Three more bugs, all of which made the storefront unusable in a browser while
+every API test passed:**
+
+8. **The anonymous cart never worked.** `X-Cart-Token` was missing from
+   `CORS_EXPOSE_HEADERS`, so the browser hid it and the token was never stored;
+   and missing from `CORS_ALLOW_HEADERS`, so once a token *was* stored the
+   preflight rejected every cart request. Both fixed, with
+   `apps/common/tests/test_cors_contract.py` guarding them.
+9. **No order could ever be placed.** `checkout.vue` passed a closure to
+   `useAsyncData` that read a `computed` declared *below* it. The handler runs
+   immediately, so it threw `ReferenceError` inside the fetch, leaving delivery
+   options empty and "Confirm order" permanently disabled. Declaration moved
+   above the fetch; `@typescript-eslint/no-use-before-define` now catches the
+   whole class, and found a second latent instance in `MuraFormBuilder`.
+
+All six requested features are built. Nothing from the original request is
+outstanding.
 
 ## 4. Things worth knowing before editing
 
