@@ -52,6 +52,20 @@ export const useAuthStore = defineStore('auth', {
       return codes.every(code => this.can(code))
     },
 
+    /**
+     * Re-read the token pair from storage after hydration.
+     *
+     * The state initialiser above already reads storage, but on a
+     * server-rendered page that runs on the *server*, where there is none — and
+     * Pinia then hydrates the client from the server's payload, overwriting
+     * whatever the browser would have read. Without this the visitor is signed
+     * out by every page load.
+     */
+    restoreFromStorage(): void {
+      this.accessToken = readStorage(StorageKeys.accessToken)
+      this.refreshToken = readStorage(StorageKeys.refreshToken)
+    },
+
     setTokens(tokens: { access: string, refresh: string }): void {
       this.accessToken = tokens.access
       this.refreshToken = tokens.refresh

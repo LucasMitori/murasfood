@@ -27,6 +27,10 @@
         p.text-body-2.text-medium-emphasis.mb-3 {{ t('account.addAddress') }}
         v-btn(to="/conta/enderecos" variant="tonal" color="primary" block) {{ t('account.addresses') }}
 
+      mura-card.mt-4(:title="t('lists.title')" icon="mdi-format-list-checks")
+        p.text-body-2.text-medium-emphasis.mb-3 {{ t('lists.subtitle') }}
+        v-btn(to="/conta/listas" variant="tonal" color="primary" block) {{ t('lists.title') }}
+
       mura-card.mt-4(:title="t('nav.orders')" icon="mdi-package-variant-closed")
         v-btn(to="/pedidos" variant="tonal" color="primary" block) {{ t('nav.orders') }}
 

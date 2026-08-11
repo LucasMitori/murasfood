@@ -13,7 +13,7 @@ from apps.catalog.services import assert_purchasable
 from apps.common.exceptions import DomainError, InsufficientStockError
 from apps.common.money import quantize_quantity
 
-from .models import Cart, CartItem, CartStatus
+from .models import Cart, CartItem, CartStatus, ShoppingList, ShoppingListItem
 
 if TYPE_CHECKING:  # pragma: no cover
     from apps.accounts.models import User
@@ -222,3 +222,178 @@ def mark_converted(cart: Cart) -> None:
     """Close a cart once its order exists."""
     cart.status = CartStatus.CONVERTED
     cart.save(update_fields=["status", "updated_at"])
+
+
+# =============================================================================
+# Shopping lists
+# =============================================================================
+class ShoppingListError(DomainError):
+    default_detail = _("The shopping list could not be updated.")
+    default_code = "SHOPPING_LIST_ERROR"
+
+
+@transaction.atomic
+def create_shopping_list(*, tenant: Any, customer: User, name: str, note: str = "") -> ShoppingList:
+    """Create an empty list.
+
+    The name is unique per customer, so a duplicate is reported as a domain
+    error rather than surfacing as an integrity error from the database.
+    """
+    name = (name or "").strip()
+    if not name:
+        raise ShoppingListError(_("Give the list a name."), code="NAME_REQUIRED")
+
+    if ShoppingList.objects.filter(tenant=tenant, customer=customer, name__iexact=name).exists():
+        raise ShoppingListError(_("You already have a list with this name."), code="DUPLICATE_NAME")
+
+    return ShoppingList.objects.create(
+        tenant=tenant, customer=customer, name=name[:120], note=note[:255]
+    )
+
+
+@transaction.atomic
+def rename_shopping_list(*, shopping_list: ShoppingList, name: str) -> ShoppingList:
+    name = (name or "").strip()
+    if not name:
+        raise ShoppingListError(_("Give the list a name."), code="NAME_REQUIRED")
+
+    clash = (
+        ShoppingList.objects.filter(
+            tenant_id=shopping_list.tenant_id,
+            customer_id=shopping_list.customer_id,
+            name__iexact=name,
+        )
+        .exclude(pk=shopping_list.pk)
+        .exists()
+    )
+    if clash:
+        raise ShoppingListError(_("You already have a list with this name."), code="DUPLICATE_NAME")
+
+    shopping_list.name = name[:120]
+    shopping_list.save(update_fields=["name", "updated_at"])
+    return shopping_list
+
+
+@transaction.atomic
+def set_list_item(
+    *,
+    shopping_list: ShoppingList,
+    product: Product,
+    quantity: Decimal | str | int = 1,
+    note: str = "",
+) -> ShoppingListItem:
+    """Add a product to a list, or set its quantity when already present.
+
+    Deliberately *not* the same rules as the cart. A list is planning, so a
+    product that is out of stock today still belongs on next month's list —
+    availability is checked when the list is copied into a cart, not here. The
+    unit's precision is still enforced, because "1.5 packets" is meaningless
+    whenever it is read.
+    """
+    if product.tenant_id != shopping_list.tenant_id:
+        raise ShoppingListError(_("Product not found."), code="NOT_FOUND", status_code=404)
+
+    quantity = quantize_quantity(Decimal(str(quantity)))
+    if quantity <= 0:
+        raise ShoppingListError(
+            _("The quantity must be greater than zero."), code="INVALID_QUANTITY"
+        )
+    if not product.sells_fractional_quantity and quantity != quantity.to_integral_value():
+        raise ShoppingListError(
+            _("This product is sold in whole units."), code="FRACTIONAL_NOT_ALLOWED"
+        )
+
+    item, _created = ShoppingListItem.objects.update_or_create(
+        shopping_list=shopping_list,
+        product=product,
+        defaults={
+            "tenant_id": shopping_list.tenant_id,
+            "quantity": quantity,
+            "note": note[:255],
+        },
+    )
+    shopping_list.save(update_fields=["updated_at"])
+    return item
+
+
+@transaction.atomic
+def remove_list_item(*, shopping_list: ShoppingList, item: ShoppingListItem) -> None:
+    item.delete()
+    shopping_list.save(update_fields=["updated_at"])
+
+
+@transaction.atomic
+def create_list_from_cart(*, cart: Cart, customer: User, name: str, note: str = "") -> ShoppingList:
+    """Save the current cart as a reusable list.
+
+    The point of the feature: a customer who has just assembled their monthly
+    shop keeps it without having to re-pick every product next month.
+    """
+    shopping_list = create_shopping_list(
+        tenant=cart.tenant, customer=customer, name=name, note=note
+    )
+
+    ShoppingListItem.objects.bulk_create(
+        [
+            ShoppingListItem(
+                tenant_id=cart.tenant_id,
+                shopping_list=shopping_list,
+                product=item.product,
+                quantity=item.quantity,
+                note=item.note,
+            )
+            for item in cart.items.all()
+        ]
+    )
+    return shopping_list
+
+
+def add_list_to_cart(*, shopping_list: ShoppingList, cart: Cart) -> dict[str, Any]:
+    """Copy a list into a cart, reporting what could not be added.
+
+    Partial success on purpose. A monthly list of twenty products where one is
+    out of stock should put nineteen in the cart and say so — refusing the
+    whole list because of one item would make the feature useless in exactly
+    the situation it exists for.
+
+    Each line goes through :func:`add_item`, so stock checks, quantity limits
+    and the purchasable guard are applied identically to a manual add. Failures
+    are collected per line rather than aborting, which is why this is not
+    wrapped in a single transaction: the nineteen that worked must survive.
+    """
+    added: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
+
+    items = shopping_list.items.select_related("product", "product__sale_unit").all()
+
+    for item in items:
+        try:
+            add_item(cart=cart, product=item.product, quantity=item.quantity, note=item.note)
+        except DomainError as error:
+            skipped.append(
+                {
+                    "product_id": str(item.product_id),
+                    "product": item.product.name,
+                    "reason": error.default_code,
+                    "detail": str(error.detail),
+                }
+            )
+        else:
+            added.append({"product_id": str(item.product_id), "product": item.product.name})
+
+    logger.info(
+        "shopping_list_added_to_cart",
+        extra={
+            "event": "cart.list_added",
+            "list_id": str(shopping_list.pk),
+            "added": len(added),
+            "skipped": len(skipped),
+        },
+    )
+
+    return {
+        "added": added,
+        "skipped": skipped,
+        "added_count": len(added),
+        "skipped_count": len(skipped),
+    }

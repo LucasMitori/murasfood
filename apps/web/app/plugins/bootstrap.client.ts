@@ -27,6 +27,10 @@ export default defineNuxtPlugin({
     const cart = useCartStore()
     const favorites = useFavoritesStore()
 
+    // Before anything reads `isAuthenticated`: hydration has just replaced the
+    // store with the server's state, which never has tokens.
+    auth.restoreFromStorage()
+
     // --- Theme --------------------------------------------------------------
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
     if (media) {

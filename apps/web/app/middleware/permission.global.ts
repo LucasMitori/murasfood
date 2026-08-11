@@ -19,6 +19,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const required = to.meta.permission as string | string[] | undefined
   if (!required) return
 
+  // Permissions come from the profile, which is fetched with a token the
+  // server cannot see. Deciding here would deny every signed-in visitor.
+  if (import.meta.server) return
+
   const codes = Array.isArray(required) ? required : [required]
   const auth = useAuthStore()
 

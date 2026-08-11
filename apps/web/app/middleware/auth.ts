@@ -7,6 +7,12 @@
 import { useAuthStore } from '~/stores/auth'
 
 export default defineNuxtRouteMiddleware((to) => {
+  // The session lives in localStorage, which the server cannot read, so a
+  // server-side check would bounce every signed-in visitor to sign-in. The
+  // client runs this again immediately after hydration, where the answer is
+  // knowable.
+  if (import.meta.server) return
+
   const auth = useAuthStore()
 
   if (!auth.isAuthenticated) {

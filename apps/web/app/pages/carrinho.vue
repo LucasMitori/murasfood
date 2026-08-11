@@ -62,9 +62,32 @@
                     @click="removeFromCart(item.id, item.product.name)"
                   )
 
-      .d-flex.justify-space-between.mt-4
+      .d-flex.flex-wrap.justify-space-between.ga-2.mt-4
         v-btn(to="/produtos" variant="text" prepend-icon="mdi-arrow-left") {{ t('cart.continueShopping') }}
-        v-btn(variant="text" color="error" @click="confirmClear = true") {{ t('cart.clearCart') }}
+        .d-flex.ga-2
+          v-btn(
+            v-if="auth.isAuthenticated"
+            variant="text"
+            prepend-icon="mdi-format-list-checks"
+            @click="openSaveAsList"
+          ) {{ t('lists.saveCartAsList') }}
+          v-btn(variant="text" color="error" @click="confirmClear = true") {{ t('cart.clearCart') }}
+
+  mura-dialog(v-model="saveListOpen" :title="t('lists.saveCartAsList')")
+    p.text-body-2.text-medium-emphasis.mb-4 {{ t('lists.saveCartHint') }}
+    v-form(@submit.prevent="saveAsList")
+      v-text-field(
+        v-model="listName"
+        :label="t('lists.name')"
+        :placeholder="t('lists.namePlaceholder')"
+        :error-messages="listError"
+        variant="outlined"
+        density="comfortable"
+        autofocus
+      )
+    template(#actions)
+      v-btn(variant="text" @click="saveListOpen = false") {{ t('common.cancel') }}
+      v-btn(color="primary" variant="flat" :loading="lists.saving" @click="saveAsList") {{ t('common.save') }}
 
     v-col(cols="12" md="4")
       v-card.mura-card.pa-4(flat)
@@ -143,6 +166,7 @@ import { useMoney } from '~/composables/useMoney'
 import { useApiError } from '~/composables/useApiError'
 import { useCartActions } from '~/composables/useCartActions'
 import { useUiStore } from '~/stores/ui'
+import { useShoppingListsStore } from '~/stores/shoppingLists'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -150,13 +174,45 @@ const router = useRouter()
 const cart = useCartStore()
 const auth = useAuthStore()
 const ui = useUiStore()
+const lists = useShoppingListsStore()
 const money = useMoney()
-const { notify } = useApiError()
+
+const { notify, messageFor } = useApiError()
 const { updateQuantity, removeFromCart } = useCartActions()
 
 const couponInput = ref('')
 const couponLoading = ref(false)
 const confirmClear = ref(false)
+
+const saveListOpen = ref(false)
+const listName = ref('')
+const listError = ref('')
+
+function openSaveAsList(): void {
+  listName.value = ''
+  listError.value = ''
+  saveListOpen.value = true
+}
+
+/** Keep the cart as a reusable list, so next month is one click. */
+async function saveAsList(): Promise<void> {
+  listError.value = ''
+  const name = listName.value.trim()
+  if (!name) {
+    listError.value = t('validation.required')
+    return
+  }
+
+  try {
+    await lists.saveCartAs(name)
+    saveListOpen.value = false
+    ui.success(t('lists.cartSaved'))
+  }
+  catch (error) {
+    // A duplicate name is the expected failure; it belongs on the field.
+    listError.value = messageFor(error)
+  }
+}
 
 useSeoMeta({ title: () => t('cart.title'), robots: 'noindex' })
 

@@ -115,7 +115,10 @@ export default defineNuxtConfig({
       // nothing for the server to usefully pre-render.
       ssr: false,
     },
-    '/conta/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
+    // Personalised and behind a token the server cannot read, so there is
+    // nothing for it to usefully render — same reasoning as `/admin/**`.
+    '/conta/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' }, ssr: false },
+    '/favoritos': { headers: { 'X-Robots-Tag': 'noindex, nofollow' }, ssr: false },
     '/checkout': { headers: { 'X-Robots-Tag': 'noindex, nofollow' }, ssr: false },
     '/pedidos/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' }, ssr: false },
   },

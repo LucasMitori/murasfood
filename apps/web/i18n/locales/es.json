@@ -503,5 +503,28 @@
     "noneAssigned": "Nada asignado todavía",
     "inherited": "Heredado",
     "inheritedHint": "Viene de un rol; quita el rol para revocarlo"
+  },
+  "lists": {
+    "title": "Mis listas",
+    "subtitle": "Arma una lista mensual y envíala entera al carrito",
+    "newList": "Nueva lista",
+    "name": "Nombre de la lista",
+    "namePlaceholder": "Ej.: Compra del mes",
+    "rename": "Renombrar",
+    "itemCount": "{count} artículo | {count} artículos",
+    "emptyTitle": "Todavía no tienes listas",
+    "emptyDescription": "Crea una lista con lo que compras siempre y reutilízala cada mes.",
+    "noItems": "Lista vacía",
+    "noItemsHint": "Agrega productos desde el catálogo o guarda el carrito como lista.",
+    "addToCart": "Agregar al carrito",
+    "addedAll": "{count} artículos agregados al carrito",
+    "addedPartially": "{added} agregados; {skipped} no disponibles ahora",
+    "unavailable": "No disponible",
+    "estimatedTotal": "Total estimado",
+    "estimatedNote": "Los precios pueden cambiar antes de finalizar el pedido.",
+    "deleteConfirm": "¿Eliminar esta lista? Los pedidos ya realizados no se ven afectados.",
+    "saveCartAsList": "Guardar como lista",
+    "saveCartHint": "Conserva los artículos del carrito para reutilizarlos después.",
+    "cartSaved": "Carrito guardado como lista"
   }
 }

@@ -503,5 +503,28 @@
     "noneAssigned": "Nothing assigned yet",
     "inherited": "Inherited",
     "inheritedHint": "Comes from a role; remove the role to revoke it"
+  },
+  "lists": {
+    "title": "My lists",
+    "subtitle": "Build a monthly list and send it all to the cart at once",
+    "newList": "New list",
+    "name": "List name",
+    "namePlaceholder": "e.g. Monthly shop",
+    "rename": "Rename",
+    "itemCount": "{count} item | {count} items",
+    "emptyTitle": "You have no lists yet",
+    "emptyDescription": "Create a list of what you always buy and reuse it every month.",
+    "noItems": "Empty list",
+    "noItemsHint": "Add products from the catalogue, or save your cart as a list.",
+    "addToCart": "Add to cart",
+    "addedAll": "{count} items added to the cart",
+    "addedPartially": "{added} added; {skipped} unavailable right now",
+    "unavailable": "Unavailable",
+    "estimatedTotal": "Estimated total",
+    "estimatedNote": "Prices may change before the order is placed.",
+    "deleteConfirm": "Delete this list? Orders already placed are unaffected.",
+    "saveCartAsList": "Save as list",
+    "saveCartHint": "Keep the cart contents to reuse later.",
+    "cartSaved": "Cart saved as a list"
   }
 }

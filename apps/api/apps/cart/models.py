@@ -154,3 +154,97 @@ class CartItem(TenantOwnedModel):
         from apps.inventory.services import check_availability
 
         return self.product.is_purchasable and check_availability(self.product, self.quantity)
+
+
+class ShoppingList(TenantOwnedModel):
+    """A reusable set of products a customer buys regularly.
+
+    Distinct from a cart in two ways that matter. It has no lifecycle — it is
+    never converted, never expires, and survives checkout — and it carries no
+    availability or pricing meaning. A list is a shopping *intention*; the cart
+    is what is actually being bought now. Copying a list into the cart goes
+    through :func:`apps.cart.services.add_list_to_cart` so that stock and
+    quantity rules are enforced in exactly one place.
+    """
+
+    customer = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="shopping_lists",
+        verbose_name=_("customer"),
+    )
+    name = models.CharField(_("name"), max_length=120)
+    note = models.CharField(_("note"), max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = _("shopping list")
+        verbose_name_plural = _("shopping lists")
+        ordering = ["name"]
+        constraints = [
+            # Two lists called "Mensal" would make the picker useless.
+            models.UniqueConstraint(
+                fields=["tenant", "customer", "name"], name="uniq_shopping_list_name"
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return self.name
+
+    # No `item_count` property here on purpose: the list index annotates one
+    # with `Count("items")`, and a property of the same name would both shadow
+    # the annotation and issue a query per row.
+
+
+class ShoppingListItem(TenantOwnedModel):
+    """One product on a shopping list.
+
+    Like ``CartItem`` this stores no price. What a list is worth depends on
+    when you look at it, so any total is computed on read from the pricing
+    engine rather than frozen here.
+    """
+
+    shopping_list = models.ForeignKey(
+        ShoppingList, on_delete=models.CASCADE, related_name="items", verbose_name=_("list")
+    )
+    product = models.ForeignKey(
+        "catalog.Product", on_delete=models.CASCADE, related_name="shopping_list_items"
+    )
+    quantity = models.DecimalField(_("quantity"), max_digits=12, decimal_places=3, default=1)
+    note = models.CharField(_("note"), max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = _("shopping list item")
+        verbose_name_plural = _("shopping list items")
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["shopping_list", "product"], name="uniq_shopping_list_item_product"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__gt=0), name="shopping_list_item_quantity_positive"
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return f"{self.quantity} × {self.product}"
+
+    @property
+    def unit_price(self) -> Decimal:
+        """Current unit price, or zero when the product has no active price."""
+        from apps.pricing.selectors import resolve_price
+
+        resolved = resolve_price(self.product, quantity=self.quantity)
+        return resolved.unit_price if resolved else Decimal("0.00")
+
+    @property
+    def line_total(self) -> Decimal:
+        from apps.common.money import money_multiply
+
+        return money_multiply(self.unit_price, self.quantity)
+
+    @property
+    def is_available(self) -> bool:
+        """Whether this line could be added to a cart right now."""
+        from apps.inventory.services import check_availability
+
+        return self.product.is_purchasable and check_availability(self.product, self.quantity)

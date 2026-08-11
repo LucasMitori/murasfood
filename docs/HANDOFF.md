@@ -222,7 +222,23 @@ been present since the first commit.**
 5. Both of the above were masked: the suite reported failures that looked
    environmental, so the search bug behind them went unread.
 
-Still outstanding: §3.4 shopping lists, §3.6 checkout walkthrough.
+- **Shopping lists — done.** `ShoppingList`/`ShoppingListItem`,
+  `/shopping-lists/` CRUD, `add-to-cart/`, `from-cart/`, and `/conta/listas`.
+
+**Two more app-wide bugs, both found while testing the lists page signed in:**
+
+6. **The session did not survive a page load.** Tokens live in `localStorage`,
+   and the store reads them in its state initialiser — but on a server-rendered
+   page that runs on the server, and Pinia then hydrates the client from the
+   server's payload, overwriting it with `null`. Every reload signed the user
+   out. `auth.restoreFromStorage()` now runs in `bootstrap.client.ts`.
+7. **Auth guards ran server-side, where they can never pass.** The server
+   cannot read `localStorage`, so `middleware/auth.ts` and
+   `permission.global.ts` redirected every signed-in visitor to sign-in on a
+   hard load. Both now return early on the server, and `/conta/**` and
+   `/favoritos` joined `/admin/**` as `ssr: false`.
+
+Still outstanding: §3.6 checkout walkthrough.
 
 ## 4. Things worth knowing before editing
 
