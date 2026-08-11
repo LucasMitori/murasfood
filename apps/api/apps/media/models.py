@@ -7,6 +7,7 @@ checksum, alt text. The bytes live in object storage (spec §10, §27).
 
 from __future__ import annotations
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -179,6 +180,30 @@ class Banner(TenantOwnedModel):
         _("link type"), max_length=16, choices=LinkType.choices, default=LinkType.NONE
     )
     link_target = models.CharField(_("link target"), max_length=512, blank=True)
+    cta_label = models.CharField(
+        _("button label"),
+        max_length=40,
+        blank=True,
+        help_text=_("Leave empty to show the banner without a button."),
+    )
+
+    class TextAlign(models.TextChoices):
+        LEFT = "LEFT", _("Left")
+        CENTER = "CENTER", _("Centre")
+        RIGHT = "RIGHT", _("Right")
+
+    text_align = models.CharField(
+        _("text alignment"), max_length=8, choices=TextAlign.choices, default=TextAlign.CENTER
+    )
+    overlay_opacity = models.PositiveSmallIntegerField(
+        _("overlay strength"),
+        default=45,
+        validators=[MinValueValidator(0), MaxValueValidator(90)],
+        help_text=_(
+            "Percentage of dark scrim over the image. The merchant controls it "
+            "because how much a photo needs depends entirely on the photo."
+        ),
+    )
 
     start_at = models.DateTimeField(_("starts at"), null=True, blank=True)
     end_at = models.DateTimeField(_("ends at"), null=True, blank=True)

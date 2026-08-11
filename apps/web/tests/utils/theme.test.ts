@@ -29,9 +29,9 @@ describe('light theme', () => {
     expect(lightTheme.dark).toBe(false)
   })
 
-  it('uses soft white surfaces with a deep wine primary', () => {
-    expect(lightTheme.colors?.background).toBe('#FAF7F7')
-    expect(lightTheme.colors?.primary).toBe('#7B2D3B')
+  it('uses a soft grey-white ground under a deep red wine', () => {
+    expect(lightTheme.colors?.background).toBe('#F6F4F3')
+    expect(lightTheme.colors?.primary).toBe('#8C1425')
   })
 
   it('meets AA contrast for body text on the background', () => {
@@ -43,16 +43,45 @@ describe('light theme', () => {
     const ratio = contrastRatio(lightTheme.colors!['on-primary']!, lightTheme.colors!.primary!)
     expect(ratio).toBeGreaterThanOrEqual(4.5)
   })
+
+  it('meets AA contrast for primary-coloured text on the page', () => {
+    // `primary` is used for links and text, not only for filled buttons, so it
+    // has to clear AA against the background as well as against `on-primary`.
+    const ratio = contrastRatio(lightTheme.colors!.primary!, lightTheme.colors!.background!)
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('meets AA contrast for muted text on tinted surfaces', () => {
+    const ratio = contrastRatio(
+      lightTheme.colors!['on-surface-variant']!,
+      lightTheme.colors!['surface-variant']!,
+    )
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
+  })
 })
 
 describe('dark theme', () => {
   it('is a dark theme on near-black surfaces', () => {
     expect(darkTheme.dark).toBe(true)
-    expect(darkTheme.colors?.background).toBe('#0B0B0C')
+    expect(darkTheme.colors?.background).toBe('#0A0A0B')
   })
 
   it('highlights in near-white', () => {
-    expect(darkTheme.colors?.['on-background']).toBe('#F5F2F2')
+    expect(darkTheme.colors?.secondary).toBe('#F5F2F2')
+    expect(darkTheme.colors?.['on-background']).toBe('#F3F0F0')
+  })
+
+  it('keeps the red readable against near-black', () => {
+    // The dark theme lifts the wine rather than darkening it: a colour deep
+    // enough for white paper disappears against black, and `primary` is used
+    // for text here too.
+    const ratio = contrastRatio(darkTheme.colors!.primary!, darkTheme.colors!.background!)
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('keeps the red readable on raised surfaces too', () => {
+    const ratio = contrastRatio(darkTheme.colors!.primary!, darkTheme.colors!.surface!)
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
   })
 
   it('meets AA contrast for body text on the background', () => {

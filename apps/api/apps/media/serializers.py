@@ -106,6 +106,9 @@ class BannerSerializer(serializers.ModelSerializer):
             "mobile_image_id",
             "link_type",
             "link_target",
+            "cta_label",
+            "text_align",
+            "overlay_opacity",
             "start_at",
             "end_at",
             "priority",
@@ -137,5 +140,16 @@ class BannerPublicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Banner
-        fields = ["id", "title", "subtitle", "image", "mobile_image", "link_type", "link_target"]
+        fields = [
+            "id",
+            "title",
+            "subtitle",
+            "image",
+            "mobile_image",
+            "link_type",
+            "link_target",
+            "cta_label",
+            "text_align",
+            "overlay_opacity",
+        ]
         read_only_fields = fields

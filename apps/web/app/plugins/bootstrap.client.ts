@@ -27,9 +27,10 @@ export default defineNuxtPlugin({
     const cart = useCartStore()
     const favorites = useFavoritesStore()
 
-    // Before anything reads `isAuthenticated`: hydration has just replaced the
-    // store with the server's state, which never has tokens.
+    // Before anything reads these: hydration has just replaced both stores with
+    // the server's state, which can never have seen `localStorage`.
     auth.restoreFromStorage()
+    ui.restoreFromStorage()
 
     // --- Theme --------------------------------------------------------------
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
@@ -43,12 +44,18 @@ export default defineNuxtPlugin({
     // `useTheme()`: that composable injects, and injection outside a component
     // setup throws — which killed hydration for the whole app.
     const theme = (nuxtApp.$vuetify as { theme: ThemeInstance }).theme
-    theme.global.name.value = ui.theme
+
+    // Usually a no-op now: the Vuetify plugin already rendered in the right
+    // theme by reading the cookie. This catches the visitor whose cookie was
+    // dropped but whose `localStorage` survived.
+    if (theme.name.value !== ui.theme) theme.change(ui.theme)
 
     watch(
       () => ui.theme,
       (next) => {
-        theme.global.name.value = next
+        // `theme.change()` rather than `theme.global.name.value`, which
+        // Vuetify 3.13 keeps only as a deprecated alias.
+        theme.change(next)
         applyBranding()
       },
     )

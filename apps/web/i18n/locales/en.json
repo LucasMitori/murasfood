@@ -411,7 +411,52 @@
     "grantedByRole": "Granted by a role",
     "noPermissions": "No permissions",
     "accessSection": "Access",
-    "accessSectionHint": "Fine-grained permissions can be set after the account exists"
+    "accessSectionHint": "Fine-grained permissions can be set after the account exists",
+    "homeConfig": "Home page",
+    "homeConfigSubtitle": "Banners at the top of the storefront",
+    "newBanner": "New banner",
+    "editBanner": "Edit banner",
+    "noBanners": "No banners configured",
+    "noBannersHint": "Add images for the top of the home page.",
+    "bannersOrderHint": "Banners appear in priority order, highest first.",
+    "bannerContent": "Content",
+    "bannerTitle": "Title",
+    "bannerSubtitle": "Supporting line",
+    "bannerSubtitleHint": "Small text above the title",
+    "bannerCta": "Button label",
+    "bannerCtaHint": "Leave empty to show no button",
+    "bannerAlign": "Text alignment",
+    "bannerImage": "Image",
+    "bannerImageHint": "Use wide images, at least 1920 pixels across.",
+    "bannerOverlay": "Darken image (%)",
+    "bannerOverlayHint": "Raise it if the white text is hard to read",
+    "bannerLink": "Destination",
+    "bannerLinkType": "Link type",
+    "bannerLinkTarget": "Link target",
+    "bannerLinkTargetHint": "Category or product slug, search term, or URL",
+    "bannerSchedule": "Scheduling",
+    "bannerScheduleHint": "Leave the dates empty to show it always.",
+    "bannerSaved": "Banner saved",
+    "bannerRemoved": "Banner removed",
+    "removeBannerConfirm": "Remove this banner from the home page?",
+    "startsAt": "Starts at",
+    "endsAt": "Ends at",
+    "priority": "Priority",
+    "priorityHint": "Higher appears first",
+    "promote": "Move up",
+    "align": {
+      "left": "Left",
+      "center": "Centre",
+      "right": "Right"
+    },
+    "linkTypes": {
+      "NONE": "No link",
+      "CATEGORY": "Category",
+      "PRODUCT": "Product",
+      "PROMOTION": "Offers",
+      "SEARCH": "Search",
+      "EXTERNAL": "External link"
+    }
   },
   "errors": {
     "generic": "We could not complete that operation.",
@@ -464,7 +509,14 @@
     "privacyPolicy": "Privacy policy",
     "terms": "Terms of use",
     "poweredBy": "Powered by MurasFood",
-    "rights": "All rights reserved"
+    "rights": "All rights reserved",
+    "shop": "Shop",
+    "faq": "FAQ",
+    "contactUs": "Contact us",
+    "deliveryInfo": "Delivery times",
+    "exchanges": "Returns and exchanges",
+    "securePayments": "Secure payment, protected details",
+    "cashOnDelivery": "Cash on delivery"
   },
   "table": {
     "searchPlaceholder": "Search…",
@@ -526,5 +578,76 @@
     "saveCartAsList": "Save as list",
     "saveCartHint": "Keep the cart contents to reuse later.",
     "cartSaved": "Cart saved as a list"
+  },
+  "home": {
+    "heroLabel": "Store highlights",
+    "scrollDown": "See more below",
+    "browseCatalog": "Browse products",
+    "categoriesHint": "Find it by the aisle you already know",
+    "onSaleHint": "Reduced for a limited time",
+    "featuredHint": "Picked by our team",
+    "bestSellersHint": "What leaves the shelf fastest",
+    "newArrivalsHint": "Just arrived",
+    "whyUs": "Why shop with us",
+    "trust": {
+      "deliveryTitle": "Same-day delivery",
+      "deliveryText": "Orders confirmed before 4pm arrive today.",
+      "freshTitle": "Freshness guaranteed",
+      "freshText": "Produce and butchery are picked on the delivery day.",
+      "secureTitle": "Secure payment",
+      "secureText": "PIX confirms instantly and your details stay protected.",
+      "supportTitle": "Real people",
+      "supportText": "Reach the store by phone, email or WhatsApp."
+    }
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "subtitle": "The usual questions about orders, delivery and payment.",
+    "stillStuck": "Still stuck?",
+    "stillStuckHint": "Our team answers during business hours.",
+    "orders": {
+      "title": "Orders",
+      "q1": "How do I track my order?",
+      "a1": "Under \"My orders\" you can see every stage from payment to delivery, with the date and time of each change.",
+      "q2": "Can I change an order I already placed?",
+      "a2": "Once confirmed an order cannot be edited, because the stock is already reserved. Cancel and place a new one, or contact the store.",
+      "q3": "Can I repeat a previous shop?",
+      "a3": "Yes. Save your cart as a list under \"My lists\" and send it all back to the cart whenever you like."
+    },
+    "delivery": {
+      "title": "Delivery",
+      "q1": "How long does it take?",
+      "a1": "The estimate appears at checkout before you confirm, calculated from your postcode. Store pickup is usually ready in 30 minutes.",
+      "q2": "Do you deliver to my address?",
+      "a2": "Checkout confirms whether your postcode is inside {store}’s delivery area. If it is not, store pickup is still available.",
+      "q3": "What if I am not home?",
+      "a3": "The driver will call the number on the order. You can leave access instructions in the note field at checkout."
+    },
+    "payment": {
+      "title": "Payment",
+      "q1": "Does the PIX code expire?",
+      "a1": "Yes, after 30 minutes. You can generate a fresh code on the same order page afterwards.",
+      "q2": "When is payment confirmed?",
+      "a2": "PIX confirms immediately: the order page updates itself as soon as the bank confirms, with no need to refresh."
+    },
+    "returns": {
+      "title": "Returns and exchanges",
+      "q1": "I received the wrong or a damaged item.",
+      "a1": "Contact the store within 7 days with your order number. Perishables are assessed on the delivery day itself.",
+      "q2": "How do refunds work?",
+      "a2": "The amount goes back by the same payment method. PIX refunds usually land within two business days."
+    }
+  },
+  "contact": {
+    "title": "Contact us",
+    "subtitle": "We are around to help with orders, deliveries or questions.",
+    "hours": "Opening hours",
+    "hoursHint": "Monday to Saturday, 8am to 8pm. Sundays and holidays, 8am to 1pm.",
+    "sendMessage": "Send a message",
+    "sendMessageHint": "This opens your email app with the message ready to send.",
+    "subject": "Subject",
+    "message": "Message",
+    "send": "Send message",
+    "openWhatsapp": "Open chat"
   }
 }

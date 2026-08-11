@@ -411,7 +411,52 @@
     "grantedByRole": "Otorgado por un rol",
     "noPermissions": "Sin permisos",
     "accessSection": "Acceso",
-    "accessSectionHint": "Los permisos detallados se ajustan tras crear la cuenta"
+    "accessSectionHint": "Los permisos detallados se ajustan tras crear la cuenta",
+    "homeConfig": "Página de inicio",
+    "homeConfigSubtitle": "Banners de la parte superior de la tienda",
+    "newBanner": "Nuevo banner",
+    "editBanner": "Editar banner",
+    "noBanners": "Ningún banner configurado",
+    "noBannersHint": "Agrega imágenes para la parte superior de la página de inicio.",
+    "bannersOrderHint": "Los banners aparecen por prioridad, de mayor a menor.",
+    "bannerContent": "Contenido",
+    "bannerTitle": "Título",
+    "bannerSubtitle": "Línea de apoyo",
+    "bannerSubtitleHint": "Texto pequeño sobre el título",
+    "bannerCta": "Texto del botón",
+    "bannerCtaHint": "Déjalo vacío para no mostrar botón",
+    "bannerAlign": "Alineación del texto",
+    "bannerImage": "Imagen",
+    "bannerImageHint": "Usa imágenes anchas, de al menos 1920 píxeles.",
+    "bannerOverlay": "Oscurecer imagen (%)",
+    "bannerOverlayHint": "Súbelo si el texto blanco cuesta leerse",
+    "bannerLink": "Destino",
+    "bannerLinkType": "Tipo de enlace",
+    "bannerLinkTarget": "Destino del enlace",
+    "bannerLinkTargetHint": "Slug de categoría o producto, término de búsqueda o URL",
+    "bannerSchedule": "Programación",
+    "bannerScheduleHint": "Deja las fechas vacías para mostrarlo siempre.",
+    "bannerSaved": "Banner guardado",
+    "bannerRemoved": "Banner eliminado",
+    "removeBannerConfirm": "¿Quitar este banner de la página de inicio?",
+    "startsAt": "Comienza el",
+    "endsAt": "Termina el",
+    "priority": "Prioridad",
+    "priorityHint": "El mayor aparece primero",
+    "promote": "Subir",
+    "align": {
+      "left": "Izquierda",
+      "center": "Centro",
+      "right": "Derecha"
+    },
+    "linkTypes": {
+      "NONE": "Sin enlace",
+      "CATEGORY": "Categoría",
+      "PRODUCT": "Producto",
+      "PROMOTION": "Ofertas",
+      "SEARCH": "Búsqueda",
+      "EXTERNAL": "Enlace externo"
+    }
   },
   "errors": {
     "generic": "No pudimos completar la operación.",
@@ -464,7 +509,14 @@
     "privacyPolicy": "Política de privacidad",
     "terms": "Términos de uso",
     "poweredBy": "Plataforma MurasFood",
-    "rights": "Todos los derechos reservados"
+    "rights": "Todos los derechos reservados",
+    "shop": "Comprar",
+    "faq": "Preguntas frecuentes",
+    "contactUs": "Contáctanos",
+    "deliveryInfo": "Plazos y entrega",
+    "exchanges": "Cambios y devoluciones",
+    "securePayments": "Pago seguro y datos protegidos",
+    "cashOnDelivery": "Efectivo en la entrega"
   },
   "table": {
     "searchPlaceholder": "Buscar…",
@@ -526,5 +578,76 @@
     "saveCartAsList": "Guardar como lista",
     "saveCartHint": "Conserva los artículos del carrito para reutilizarlos después.",
     "cartSaved": "Carrito guardado como lista"
+  },
+  "home": {
+    "heroLabel": "Destacados de la tienda",
+    "scrollDown": "Ver más abajo",
+    "browseCatalog": "Ver productos",
+    "categoriesHint": "Encuentra por el pasillo que ya conoces",
+    "onSaleHint": "Precios rebajados por tiempo limitado",
+    "featuredHint": "Elegidos por nuestro equipo",
+    "bestSellersHint": "Lo que más sale del estante",
+    "newArrivalsHint": "Recién llegados",
+    "whyUs": "Por qué comprar con nosotros",
+    "trust": {
+      "deliveryTitle": "Entrega el mismo día",
+      "deliveryText": "Los pedidos confirmados antes de las 16h llegan hoy.",
+      "freshTitle": "Frescura garantizada",
+      "freshText": "Frutas, verduras y carnicería se preparan el día de la entrega.",
+      "secureTitle": "Pago seguro",
+      "secureText": "PIX con confirmación inmediata y datos protegidos.",
+      "supportTitle": "Atención de personas",
+      "supportText": "Habla con la tienda por teléfono, correo o WhatsApp."
+    }
+  },
+  "faq": {
+    "title": "Preguntas frecuentes",
+    "subtitle": "Las dudas más comunes sobre pedidos, entrega y pago.",
+    "stillStuck": "¿No encontraste lo que buscabas?",
+    "stillStuckHint": "Nuestro equipo responde en horario comercial.",
+    "orders": {
+      "title": "Pedidos",
+      "q1": "¿Cómo sigo mi pedido?",
+      "a1": "En \"Mis pedidos\" ves cada etapa, del pago a la entrega, con fecha y hora de cada cambio.",
+      "q2": "¿Puedo cambiar un pedido ya finalizado?",
+      "a2": "Una vez confirmado no se puede editar, porque el stock ya está reservado. Cancela y haz uno nuevo, o habla con la tienda.",
+      "q3": "¿Puedo repetir una compra?",
+      "a3": "Sí. Guarda el carrito como lista en \"Mis listas\" y envíalo de vuelta al carrito cuando quieras."
+    },
+    "delivery": {
+      "title": "Entrega",
+      "q1": "¿Cuánto tarda?",
+      "a1": "El plazo aparece en el checkout antes de confirmar, calculado por tu código postal. Retirar en tienda suele estar listo en 30 minutos.",
+      "q2": "¿Entregan en mi dirección?",
+      "a2": "El checkout confirma si tu código postal está en el área de entrega de {store}. Si no lo está, retirar en tienda sigue disponible.",
+      "q3": "¿Y si no estoy en casa?",
+      "a3": "El repartidor llama al teléfono del pedido. Puedes dejar instrucciones de acceso en las observaciones del checkout."
+    },
+    "payment": {
+      "title": "Pago",
+      "q1": "¿El código PIX caduca?",
+      "a1": "Sí, a los 30 minutos. Después puedes generar un código nuevo en la misma página del pedido.",
+      "q2": "¿Cuándo se confirma el pago?",
+      "a2": "PIX confirma de inmediato: la página del pedido se actualiza sola en cuanto el banco confirma."
+    },
+    "returns": {
+      "title": "Cambios y devoluciones",
+      "q1": "Recibí un artículo equivocado o dañado.",
+      "a1": "Habla con la tienda en un plazo de 7 días con el número del pedido. Los perecederos se evalúan el mismo día de la entrega.",
+      "q2": "¿Cómo funciona el reembolso?",
+      "a2": "El importe vuelve por el mismo medio de pago. En PIX suele acreditarse en hasta dos días hábiles."
+    }
+  },
+  "contact": {
+    "title": "Contáctanos",
+    "subtitle": "Estamos cerca para ayudarte con pedidos, entregas o dudas.",
+    "hours": "Horario de atención",
+    "hoursHint": "De lunes a sábado, de 8h a 20h. Domingos y feriados, de 8h a 13h.",
+    "sendMessage": "Envía un mensaje",
+    "sendMessageHint": "Abriremos tu aplicación de correo con el mensaje listo.",
+    "subject": "Asunto",
+    "message": "Mensaje",
+    "send": "Enviar mensaje",
+    "openWhatsapp": "Abrir conversación"
   }
 }

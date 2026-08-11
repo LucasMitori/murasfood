@@ -3,7 +3,12 @@ div
   v-app-bar(flat border :elevation="0")
     v-app-bar-nav-icon.d-md-none(:aria-label="t('common.menu')" @click="drawer = !drawer")
 
-    nuxt-link.d-flex.align-center.text-decoration-none.mr-4(to="/" :aria-label="tenant.storeName")
+    //- `text-high-emphasis` is not decoration: without an explicit colour the
+    //- anchor falls back to the user agent's link blue, in both themes.
+    nuxt-link.d-flex.align-center.text-decoration-none.text-high-emphasis.mr-4(
+      to="/"
+      :aria-label="tenant.storeName"
+    )
       v-img.mr-2(v-if="logoUrl" :src="logoUrl" :alt="tenant.storeName" width="32" height="32" cover)
       v-icon.mr-2(v-else icon="mdi-storefront-outline" color="primary")
       span.text-h6.font-weight-bold.text-truncate {{ tenant.storeName }}

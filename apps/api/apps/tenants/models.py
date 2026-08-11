@@ -159,19 +159,24 @@ class TenantBranding(BaseModel):
         verbose_name=_("favicon"),
     )
 
+    # Defaults mirror the shipped theme (see `apps/web/app/utils/theme.ts`). A
+    # merchant who never opens the branding screen should get the product's own
+    # palette, not a stale copy of an older one.
     primary_color = models.CharField(
-        _("primary colour"), max_length=7, default="#7B2D3B", validators=[HEX_COLOR_VALIDATOR]
+        _("primary colour"), max_length=7, default="#8C1425", validators=[HEX_COLOR_VALIDATOR]
     )
     secondary_color = models.CharField(
-        _("secondary colour"), max_length=7, default="#2E2A2B", validators=[HEX_COLOR_VALIDATOR]
+        _("secondary colour"), max_length=7, default="#211E1F", validators=[HEX_COLOR_VALIDATOR]
     )
     accent_color = models.CharField(
-        _("accent colour"), max_length=7, default="#A64253", validators=[HEX_COLOR_VALIDATOR]
+        _("accent colour"), max_length=7, default="#B02233", validators=[HEX_COLOR_VALIDATOR]
     )
     dark_primary_color = models.CharField(
         _("primary colour (dark)"),
         max_length=7,
-        default="#E8C9CF",
+        # Lighter than the light-theme wine on purpose: a colour deep enough for
+        # white paper is unreadable on near-black.
+        default="#E2495D",
         validators=[HEX_COLOR_VALIDATOR],
     )
 

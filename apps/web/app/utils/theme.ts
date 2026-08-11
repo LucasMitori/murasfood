@@ -26,20 +26,25 @@ export const semanticColors = {
 export const lightTheme: ThemeDefinition = {
   dark: false,
   colors: {
-    background: '#FAF7F7',
+    // A soft grey-white rather than a pink-tinted one. The wine below is
+    // saturated enough that a warm background would fight it; a near-neutral
+    // grey lets the red be the only colour on the page that raises its voice.
+    background: '#F6F4F3',
     surface: '#FFFFFF',
     'surface-bright': '#FFFFFF',
-    'surface-variant': '#F2ECED',
-    'on-surface-variant': '#5C5254',
+    'surface-variant': '#EDE9E8',
+    'on-surface-variant': '#57504F',
 
-    primary: '#7B2D3B',
-    'primary-darken-1': '#5E1F2B',
-    secondary: '#2E2A2B',
-    'secondary-darken-1': '#1A1718',
-    accent: '#A64253',
+    // Deep and unmistakably red. The previous tone was desaturated far enough
+    // to read brown against white.
+    primary: '#8C1425',
+    'primary-darken-1': '#6D0E1B',
+    secondary: '#211E1F',
+    'secondary-darken-1': '#131111',
+    accent: '#B02233',
 
-    'on-background': '#2E2A2B',
-    'on-surface': '#2E2A2B',
+    'on-background': '#1F1C1D',
+    'on-surface': '#1F1C1D',
     'on-primary': '#FFFFFF',
     'on-secondary': '#FFFFFF',
     'on-accent': '#FFFFFF',
@@ -51,7 +56,7 @@ export const lightTheme: ThemeDefinition = {
     'on-error': '#FFFFFF',
   },
   variables: {
-    'border-color': '#E4D9DB',
+    'border-color': '#E2DBDA',
     'border-opacity': 1,
     'high-emphasis-opacity': 0.92,
     'medium-emphasis-opacity': 0.68,
@@ -62,25 +67,31 @@ export const lightTheme: ThemeDefinition = {
 export const darkTheme: ThemeDefinition = {
   dark: true,
   colors: {
-    background: '#0B0B0C',
-    surface: '#151416',
-    'surface-bright': '#1F1D20',
-    'surface-variant': '#232025',
-    'on-surface-variant': '#C9C2C4',
+    background: '#0A0A0B',
+    surface: '#141315',
+    'surface-bright': '#1C1A1D',
+    'surface-variant': '#221F22',
+    'on-surface-variant': '#C6BFC1',
 
-    // On black, the wine hue is lifted so text on it stays legible; the
-    // saturated tone moves to `accent` for fills and badges.
-    primary: '#E8C9CF',
-    'primary-darken-1': '#C79AA4',
+    /*
+     * The same red, raised in value rather than kept dark.
+     *
+     * A wine as deep as the light theme's would be nearly invisible against
+     * near-black, and `primary` is used for text as well as fills. Lifting it
+     * keeps the brand hue while clearing AA against the background; the dark
+     * `on-primary` below then clears AA in the other direction, on buttons.
+     */
+    primary: '#E2495D',
+    'primary-darken-1': '#C22A3C',
     secondary: '#F5F2F2',
     'secondary-darken-1': '#D8D2D3',
-    accent: '#C96A7A',
+    accent: '#F2637A',
 
-    'on-background': '#F5F2F2',
-    'on-surface': '#F5F2F2',
-    'on-primary': '#2A1218',
-    'on-secondary': '#151416',
-    'on-accent': '#1A0F12',
+    'on-background': '#F3F0F0',
+    'on-surface': '#F3F0F0',
+    'on-primary': '#1F060B',
+    'on-secondary': '#141315',
+    'on-accent': '#1F060B',
 
     ...semanticColors,
     success: '#5BB98C',
@@ -93,7 +104,7 @@ export const darkTheme: ThemeDefinition = {
     'on-error': '#2A0A08',
   },
   variables: {
-    'border-color': '#3A3538',
+    'border-color': '#332E31',
     'border-opacity': 1,
     'high-emphasis-opacity': 1,
     'medium-emphasis-opacity': 0.72,

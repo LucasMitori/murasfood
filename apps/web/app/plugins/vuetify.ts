@@ -6,7 +6,7 @@
  */
 import { createVuetify } from 'vuetify'
 import { md3 } from 'vuetify/blueprints'
-import { THEME_DARK, THEME_LIGHT, darkTheme, lightTheme } from '~/utils/theme'
+import { THEME_COOKIE, THEME_DARK, THEME_LIGHT, darkTheme, lightTheme } from '~/utils/theme'
 
 export default defineNuxtPlugin({
   // Named so other plugins can declare a dependency on it. Without a name the
@@ -14,11 +14,23 @@ export default defineNuxtPlugin({
   // bootstrap plugin that needs `useTheme()`.
   name: 'murasfood-vuetify',
   setup(nuxtApp) {
+    /*
+     * The visitor's theme has to be known *here*, before the first render.
+     *
+     * It is kept in a cookie rather than only in `localStorage` precisely so
+     * this line can read it during server rendering. Deciding later, in a
+     * client plugin, means the server always emits the light theme and the
+     * browser repaints — a flash of the wrong colours, and a hydration
+     * mismatch on every themed element.
+     */
+    const stored = useCookie<string | null>(THEME_COOKIE).value
+    const initialTheme = stored === THEME_DARK ? THEME_DARK : THEME_LIGHT
+
     const vuetify = createVuetify({
       blueprint: md3,
       ssr: true,
       theme: {
-        defaultTheme: THEME_LIGHT,
+        defaultTheme: initialTheme,
         themes: {
           [THEME_LIGHT]: lightTheme,
           [THEME_DARK]: darkTheme,

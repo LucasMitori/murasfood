@@ -226,6 +226,11 @@ export interface Banner {
   mobile_image: MediaAsset | null
   link_type: string
   link_target: string
+  /** Empty renders the banner without a button. */
+  cta_label: string
+  text_align: 'LEFT' | 'CENTER' | 'RIGHT'
+  /** Percentage of dark scrim over the photo, 0–90. */
+  overlay_opacity: number
 }
 
 export interface StorefrontHome {

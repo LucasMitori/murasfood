@@ -59,11 +59,17 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+    # The bucket also needs anonymous read. Public assets (product photos,
+    # banners, the logo) are served to the browser as direct bucket URLs rather
+    # than signed ones, so a private bucket makes every image on the storefront
+    # 403 — which is exactly what it did.
     entrypoint: >
       /bin/sh -c "
       mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-murasfood} ${S3_SECRET_KEY:-murasfood-secret} &&
       mc mb --ignore-existing local/${S3_BUCKET:-murasfood-media} &&
-      echo 'bucket ready'
+      (mc anonymous set download local/${S3_BUCKET:-murasfood-media} ||
+       mc policy set download local/${S3_BUCKET:-murasfood-media}) &&
+      echo 'bucket ready and publicly readable'
       "
     restart: "no"
 

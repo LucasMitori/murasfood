@@ -60,6 +60,10 @@ function collectLinks(): { file: string, line: number, link: string }[] {
     /\bto=["'](\/[^"'`]*)["']/g,
     /\bback-to=["'](\/[^"'`]*)["']/g,
     /(?:router\.push|navigateTo)\(\s*["'](\/[^"'`]*)["']/g,
+    // Navigation defined as data rather than markup — the admin sidebar builds
+    // its menu from an array, and four entries in it led to pages that had
+    // never been written.
+    /\bto:\s*["'](\/[^"'`]*)["']/g,
   ]
 
   const found: { file: string, line: number, link: string }[] = []

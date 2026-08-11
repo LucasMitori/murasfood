@@ -78,3 +78,20 @@ export function writeJson(key: string, value: unknown): void {
 export function clearAppStorage(): void {
   for (const key of Object.values(StorageKeys)) removeStorage(key)
 }
+
+/**
+ * Persist a value the *server* also needs to see.
+ *
+ * `localStorage` is invisible to server rendering, so anything that changes
+ * what the first paint looks like — the theme — has to travel as a cookie or
+ * the server renders one thing and the client corrects it a moment later.
+ *
+ * Written with `document.cookie` rather than `useCookie` so a Pinia action can
+ * call it without needing a Nuxt context.
+ */
+export function writeCookie(name: string, value: string, days = 365): void {
+  if (!isBrowser()) return
+
+  const expires = new Date(Date.now() + days * 864e5).toUTCString()
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`
+}

@@ -260,6 +260,40 @@ every API test passed:**
 All six requested features are built. Nothing from the original request is
 outstanding.
 
+## 3.8 Visual pass
+
+- **Palette reworked.** A deeper, redder wine (`#8C1425`) on a soft grey-white
+  (`#F6F4F3`); the dark theme *lifts* the same hue to `#E2495D` rather than
+  darkening it, because a wine deep enough for white paper vanishes on black
+  and `primary` is used for text as well as fills. Contrast is asserted in
+  `tests/utils/theme.test.ts`, in both directions.
+- **Full-height hero.** `MuraHero`: 100svh, carousel, scroll-linked parallax,
+  per-banner text alignment and scrim strength, all merchant-controlled.
+- **`/admin/home`** configures those banners, shown as previews rather than a
+  table — the point of the record is how it looks.
+- **Product cards** carry a discount ribbon with the money saved, a struck list
+  price, a hover quick-add and a slow sheen on discounted cards.
+- **Footer** rebuilt with real navigation, plus new `/faq` and `/contato`.
+- **Seeds:** `seed_banners` and `seed_images` generate abstract artwork
+  locally — no stock photography in a white-label repo, no network needed.
+
+**Four more bugs, all of which made the product look broken rather than
+merely unfinished:**
+
+10. **No image had ever displayed.** The MinIO bucket was created without an
+    anonymous-read policy, so every product photo, banner and logo returned
+    403. `docker-compose.yml` now sets it.
+11. **The theme choice never survived a reload**, the same Pinia-hydration bug
+    as the auth tokens. Fixed properly: the theme is now a *cookie*, read by
+    the Vuetify plugin during SSR, so the server renders the right theme
+    instead of flashing light and mismatching on hydration.
+12. **The brand wordmark rendered in the browser's default link blue** — the
+    anchor had `text-decoration-none` but no colour.
+13. **Four admin sidebar links pointed at pages that do not exist.** The link
+    test only scanned template attributes; the sidebar builds its menu from an
+    array. The test now covers that shape too, and the dead entries are gone
+    until those screens are built.
+
 ## 4. Things worth knowing before editing
 
 - **File watching does not always cross the Windows bind mount.** A newly
