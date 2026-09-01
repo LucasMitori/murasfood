@@ -25,10 +25,10 @@ v-card.mura-pcard(
       span.mura-pcard__deal-amount(v-if="savings") {{ savings }}
 
     v-btn.mura-pcard__fav(
-      :icon="isFavorite ? 'mdi-heart' : 'mdi-heart-outline'"
-      :color="isFavorite ? 'primary' : undefined"
-      :aria-label="isFavorite ? t('product.unfavorite') : t('product.favorite')"
-      :aria-pressed="isFavorite"
+      :icon="showFavorite ? 'mdi-heart' : 'mdi-heart-outline'"
+      :color="showFavorite ? 'primary' : undefined"
+      :aria-label="showFavorite ? t('product.unfavorite') : t('product.favorite')"
+      :aria-pressed="showFavorite"
       size="small"
       variant="flat"
       @click.stop.prevent="$emit('toggle-favorite', product)"
@@ -100,6 +100,7 @@ import type { Product } from '~/types/api'
 import { buildSrcSet } from '~/utils/format'
 import { useMoney } from '~/composables/useMoney'
 import { discountPercentage, fromCents, toCents } from '~/utils/money'
+import { useHydrated } from '~/composables/useHydrated'
 
 const props = withDefaults(defineProps<{
   product: Product
@@ -114,6 +115,13 @@ defineEmits<{
 
 const { t } = useI18n()
 const money = useMoney()
+const hydrated = useHydrated()
+
+/**
+ * Favourites are personal, so the server cannot know them and always renders
+ * the empty heart. Filling it only after hydration keeps the two in step.
+ */
+const showFavorite = computed(() => hydrated.value && props.isFavorite)
 
 const productLink = computed(() => `/produtos/${props.product.slug}`)
 const imageUrl = computed(() => props.product.image?.variants?.medium ?? props.product.image?.url ?? '')

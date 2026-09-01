@@ -7,6 +7,7 @@
 import { createVuetify } from 'vuetify'
 import { md3 } from 'vuetify/blueprints'
 import { THEME_COOKIE, THEME_DARK, THEME_LIGHT, darkTheme, lightTheme } from '~/utils/theme'
+import { useUiStore } from '~/stores/ui'
 
 export default defineNuxtPlugin({
   // Named so other plugins can declare a dependency on it. Without a name the
@@ -47,6 +48,10 @@ export default defineNuxtPlugin({
         VAlert: { rounded: 'md', variant: 'tonal' },
       },
     })
+
+    // Seed the store from the very same value, on both the server and the
+    // client, so the two halves cannot render different themes.
+    useUiStore(nuxtApp.$pinia as never).hydrateTheme(initialTheme)
 
     nuxtApp.vueApp.use(vuetify)
 

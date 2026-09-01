@@ -296,7 +296,8 @@
     "deleteAccount": "Delete account",
     "deleteDescription": "Your personal data will be anonymised. Order tax records are retained as required by law.",
     "deleteConfirm": "Are you sure? This cannot be undone.",
-    "removeAddressConfirm": "Remove this address? Orders already placed are unaffected."
+    "removeAddressConfirm": "Remove this address? Orders already placed are unaffected.",
+    "ordersHint": "Track deliveries and reorder"
   },
   "store": {
     "openNow": "Open now",
@@ -632,7 +633,8 @@
     "deleteConfirm": "Delete this list? Orders already placed are unaffected.",
     "saveCartAsList": "Save as list",
     "saveCartHint": "Keep the cart contents to reuse later.",
-    "cartSaved": "Cart saved as a list"
+    "cartSaved": "Cart saved as a list",
+    "yourLists": "Your lists"
   },
   "home": {
     "heroLabel": "Store highlights",

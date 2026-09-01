@@ -55,11 +55,11 @@ div
             v-list-item-title {{ option.name }}
 
       v-btn(to="/favoritos" variant="text" icon :aria-label="t('nav.favorites')")
-        v-badge(:content="favorites.count" :model-value="favorites.count > 0" color="primary")
+        v-badge(:content="favorites.count" :model-value="hydrated && favorites.count > 0" color="primary")
           v-icon(icon="mdi-heart-outline")
 
       v-btn(to="/carrinho" variant="text" icon :aria-label="t('nav.cart')")
-        v-badge(:content="cart.itemCount" :model-value="cart.itemCount > 0" color="primary")
+        v-badge(:content="cart.itemCount" :model-value="hydrated && cart.itemCount > 0" color="primary")
           v-icon(icon="mdi-cart-outline")
 
       v-menu(v-if="auth.isAuthenticated")
@@ -92,7 +92,11 @@ div
       .mura-container
         v-row(no-gutters align="center")
           v-col(cols="12" md="6")
+            //- An explicit id: Vuetify otherwise generates one from a counter
+              //- that can land on a different number on the server than in the
+              //- browser, which Vue reports as an attribute mismatch.
             v-text-field.mura-header__search(
+              id="mura-header-search"
               v-model="term"
               :placeholder="t('common.searchPlaceholder')"
               :aria-label="t('common.search')"
@@ -212,6 +216,7 @@ import { useTenantStore } from '~/stores/tenant'
 import { useUiStore } from '~/stores/ui'
 import { useDisplay } from 'vuetify'
 import { useMoney } from '~/composables/useMoney'
+import { useHydrated } from '~/composables/useHydrated'
 import { initials } from '~/utils/format'
 
 const props = withDefaults(defineProps<{
@@ -238,6 +243,10 @@ const favorites = useFavoritesStore()
 const tenant = useTenantStore()
 const ui = useUiStore()
 const money = useMoney()
+
+// Cart and favourite counts come from the account, which the server cannot
+// read; the badges stay hidden until the browser knows the real numbers.
+const hydrated = useHydrated()
 
 const term = ref('')
 const results = ref<Product[]>([])
@@ -425,8 +434,28 @@ onBeforeUnmount(() => {
   padding-inline: 0.625rem !important;
 }
 
+/*
+ * The field needs an edge of its own.
+ *
+ * A 5% tint is invisible against a white header, and Vuetify lightens a
+ * `solo-filled` field further while it is focused — so clicking into the
+ * search made it disappear exactly when the visitor was looking at it. A
+ * border defines it at rest, and focus strengthens rather than removes it.
+ */
 .mura-header__search :deep(.v-field) {
-  background: rgba(var(--v-theme-on-surface), 0.05);
+  border: 1px solid rgba(var(--v-border-color), 0.9);
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.mura-header__search :deep(.v-field:hover) {
+  border-color: rgba(var(--v-theme-on-surface), 0.28);
+}
+
+.mura-header__search :deep(.v-field--focused) {
+  border-color: rgb(var(--v-theme-primary));
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.16);
 }
 
 .mura-search-panel {

@@ -19,7 +19,7 @@ export default defineNuxtPlugin({
   // Vuetify must be installed before `useTheme()` below can resolve, and the
   // API client before any store fetches. Plugins are otherwise ordered by
   // filename, which ran this one first and left the app unable to hydrate.
-  dependsOn: ['murasfood-api', 'murasfood-vuetify'],
+  dependsOn: ['murasfood-api', 'murasfood-vuetify', 'murasfood-tenant'],
   async setup(nuxtApp) {
     const ui = useUiStore()
     const tenant = useTenantStore()
@@ -27,10 +27,14 @@ export default defineNuxtPlugin({
     const cart = useCartStore()
     const favorites = useFavoritesStore()
 
-    // Before anything reads these: hydration has just replaced both stores with
-    // the server's state, which can never have seen `localStorage`.
+    // Hydration has just replaced the auth store with the server's state,
+    // which can never have seen `localStorage`.
     auth.restoreFromStorage()
-    ui.restoreFromStorage()
+
+    // The theme is not restored here — it arrives with the page, from the
+    // cookie the Vuetify plugin read. This only carries a pre-cookie choice
+    // across, once.
+    ui.migrateStoredTheme()
 
     // --- Theme --------------------------------------------------------------
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
@@ -68,7 +72,8 @@ export default defineNuxtPlugin({
       Object.assign(active.colors, overrides)
     }
 
-    await tenant.fetch()
+    // The tenant itself is loaded by the universal `murasfood-tenant` plugin,
+    // so the server renders the same footer and header the browser will.
     applyBranding()
 
     if (tenant.tenant) {

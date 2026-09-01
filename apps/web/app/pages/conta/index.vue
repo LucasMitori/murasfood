@@ -23,20 +23,25 @@
         )
 
     v-col(cols="12" md="5")
-      mura-card(:title="t('account.addresses')" icon="mdi-map-marker-outline")
-        p.text-body-2.text-medium-emphasis.mb-3 {{ t('account.addAddress') }}
-        v-btn(to="/conta/enderecos" variant="tonal" color="primary" block) {{ t('account.addresses') }}
-
-      mura-card.mt-4(:title="t('lists.title')" icon="mdi-format-list-checks")
-        p.text-body-2.text-medium-emphasis.mb-3 {{ t('lists.subtitle') }}
-        v-btn(to="/conta/listas" variant="tonal" color="primary" block) {{ t('lists.title') }}
-
-      mura-card.mt-4(:title="t('nav.orders')" icon="mdi-package-variant-closed")
-        v-btn(to="/pedidos" variant="tonal" color="primary" block) {{ t('nav.orders') }}
+      //- Navigation is a list, not four cards. Each was one line of text and a
+      //- full-width button in its own box, which spread three links over the
+      //- height of the forms beside them and read as clutter.
+      mura-card(:title="t('account.title')" icon="mdi-compass-outline" :padded="false")
+        v-list(density="comfortable" bg-color="transparent" nav)
+          v-list-item.mx-2(
+            v-for="link in shortcuts"
+            :key="link.to"
+            :to="link.to"
+            :prepend-icon="link.icon"
+            rounded="lg"
+            append-icon="mdi-chevron-right"
+          )
+            v-list-item-title {{ link.title }}
+            v-list-item-subtitle {{ link.subtitle }}
 
       mura-card.mt-4(:title="t('account.privacy')" icon="mdi-shield-lock-outline")
         p.text-body-2.text-medium-emphasis.mb-3 {{ t('account.exportDescription') }}
-        v-btn.mb-6(
+        v-btn(
           variant="tonal"
           block
           prepend-icon="mdi-download-outline"
@@ -44,7 +49,7 @@
           @click="exportData"
         ) {{ t('account.exportData') }}
 
-        v-divider.mb-4
+        v-divider.my-4
 
         p.text-body-2.text-medium-emphasis.mb-3 {{ t('account.deleteDescription') }}
         v-btn(
@@ -104,6 +109,27 @@ const confirmingDelete = ref(false)
 
 const profileForm = ref<FormHandle | null>(null)
 const passwordForm = ref<FormHandle | null>(null)
+
+const shortcuts = computed(() => [
+  {
+    to: '/conta/enderecos',
+    icon: 'mdi-map-marker-outline',
+    title: t('account.addresses'),
+    subtitle: t('account.addAddress'),
+  },
+  {
+    to: '/conta/listas',
+    icon: 'mdi-format-list-checks',
+    title: t('lists.title'),
+    subtitle: t('lists.subtitle'),
+  },
+  {
+    to: '/pedidos',
+    icon: 'mdi-package-variant-closed',
+    title: t('nav.orders'),
+    subtitle: t('account.ordersHint'),
+  },
+])
 
 const profileValues = ref<FormValues>({
   first_name: auth.user?.first_name ?? '',

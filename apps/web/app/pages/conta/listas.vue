@@ -21,18 +21,23 @@
 
   v-row(v-else)
     v-col(cols="12" md="4")
-      v-list.mura-card(density="comfortable" nav)
-        v-list-item(
-          v-for="row in store.lists"
-          :key="row.id"
-          :active="row.id === selectedId"
-          rounded="lg"
-          @click="select(row.id)"
-        )
-          template(#prepend)
-            v-icon(icon="mdi-format-list-checks")
-          v-list-item-title {{ row.name }}
-          v-list-item-subtitle {{ t('lists.itemCount', row.item_count, { count: row.item_count }) }}
+      //- A card, like the panel beside it. As a bare `v-list` this column had
+      //- 8px of list padding against the detail card's 16px, which is what made
+      //- the two halves look misaligned.
+      mura-card(:title="t('lists.yourLists')" icon="mdi-playlist-check" :padded="false")
+        v-list.py-2(density="comfortable" nav bg-color="transparent")
+          v-list-item.mx-2(
+            v-for="row in store.lists"
+            :key="row.id"
+            :active="row.id === selectedId"
+            rounded="lg"
+            color="primary"
+            @click="select(row.id)"
+          )
+            template(#prepend)
+              v-icon(icon="mdi-format-list-checks")
+            v-list-item-title {{ row.name }}
+            v-list-item-subtitle {{ t('lists.itemCount', row.item_count, { count: row.item_count }) }}
 
     v-col(cols="12" md="8")
       mura-loading(v-if="loadingDetail" skeleton="card")
@@ -70,44 +75,41 @@
             v-btn(to="/produtos" color="primary" variant="tonal") {{ t('cart.continueShopping') }}
 
         template(v-else)
-          v-list(bg-color="transparent")
-            v-list-item.px-0(v-for="item in store.current.items" :key="item.id")
-              template(#prepend)
-                v-avatar.mr-3(rounded="lg" size="48")
-                  v-img(
-                    :src="item.product.image?.variants?.thumbnail || item.product.image?.url"
-                    :alt="item.product.image?.alt_text || item.product.name"
-                    cover
-                  )
-              v-list-item-title
-                nuxt-link.text-decoration-none.text-high-emphasis(:to="`/produtos/${item.product.slug}`") {{ item.product.name }}
-              v-list-item-subtitle
-                span {{ money.quantity(item.quantity, item.product.unit.code) }} · {{ money.format(item.unit_price) }}
-                v-chip.ml-2(
-                  v-if="!item.is_available"
-                  size="x-small"
-                  color="warning"
-                  variant="tonal"
-                ) {{ t('lists.unavailable') }}
+          ul.mura-list-items
+            li.mura-list-item(v-for="item in store.current.items" :key="item.id")
+              v-avatar.flex-shrink-0(rounded="lg" size="48")
+                v-img(
+                  :src="item.product.image?.variants?.thumbnail || item.product.image?.url"
+                  :alt="item.product.image?.alt_text || item.product.name"
+                  cover
+                )
 
-              template(#append)
-                .d-flex.align-center.ga-2
-                  span.text-body-2.font-weight-medium {{ money.format(item.line_total) }}
-                  v-btn(
-                    icon="mdi-close"
+              .mura-list-item__body
+                nuxt-link.mura-list-item__name(:to="`/produtos/${item.product.slug}`") {{ item.product.name }}
+                .d-flex.align-center.ga-2.flex-wrap
+                  span.text-caption.text-medium-emphasis {{ money.quantity(item.quantity, item.product.unit.code) }} · {{ money.format(item.unit_price) }}
+                  v-chip(
+                    v-if="!item.is_available"
                     size="x-small"
-                    variant="text"
-                    :aria-label="t('common.remove')"
-                    @click="removeItem(item.id)"
-                  )
+                    color="warning"
+                    variant="tonal"
+                  ) {{ t('lists.unavailable') }}
 
-          v-divider.my-3
+              span.mura-list-item__total {{ money.format(item.line_total) }}
 
-          .d-flex.align-center.justify-space-between
-            span.text-body-2.text-medium-emphasis {{ t('lists.estimatedTotal') }}
-            span.text-h6 {{ money.format(store.current.estimated_total) }}
+              v-btn.flex-shrink-0(
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                :aria-label="t('common.remove')"
+                @click="removeItem(item.id)"
+              )
 
-          p.text-caption.text-medium-emphasis.mt-1.mb-0 {{ t('lists.estimatedNote') }}
+          .mura-list-total
+            div
+              p.text-body-2.text-medium-emphasis.mb-0 {{ t('lists.estimatedTotal') }}
+              p.text-caption.text-medium-emphasis.mb-0 {{ t('lists.estimatedNote') }}
+            span.text-h5.font-weight-bold {{ money.format(store.current.estimated_total) }}
 
   mura-dialog(v-model="formOpen" :title="renaming ? t('lists.rename') : t('lists.newList')")
     v-form(@submit.prevent="submitForm")
@@ -274,3 +276,59 @@ await store.fetch()
 const first = store.lists[0]
 if (first) await select(first.id)
 </script>
+
+<style scoped>
+.mura-list-items {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mura-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 0;
+}
+
+.mura-list-item + .mura-list-item {
+  border-top: 1px solid rgba(var(--v-border-color), 0.5);
+}
+
+.mura-list-item__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.mura-list-item__name {
+  display: block;
+  overflow: hidden;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mura-list-item__name:hover {
+  color: rgb(var(--v-theme-primary));
+}
+
+.mura-list-item__total {
+  flex-shrink: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mura-list-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid rgba(var(--v-border-color), 0.8);
+}
+</style>

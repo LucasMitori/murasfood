@@ -296,7 +296,8 @@
     "deleteAccount": "Eliminar cuenta",
     "deleteDescription": "Tus datos personales serán anonimizados. Los registros fiscales de los pedidos se conservan por obligación legal.",
     "deleteConfirm": "¿Estás seguro? Esta acción no se puede deshacer.",
-    "removeAddressConfirm": "¿Quitar esta dirección? Los pedidos ya realizados no se ven afectados."
+    "removeAddressConfirm": "¿Quitar esta dirección? Los pedidos ya realizados no se ven afectados.",
+    "ordersHint": "Sigue entregas y vuelve a comprar"
   },
   "store": {
     "openNow": "Abierto ahora",
@@ -632,7 +633,8 @@
     "deleteConfirm": "¿Eliminar esta lista? Los pedidos ya realizados no se ven afectados.",
     "saveCartAsList": "Guardar como lista",
     "saveCartHint": "Conserva los artículos del carrito para reutilizarlos después.",
-    "cartSaved": "Carrito guardado como lista"
+    "cartSaved": "Carrito guardado como lista",
+    "yourLists": "Tus listas"
   },
   "home": {
     "heroLabel": "Destacados de la tienda",

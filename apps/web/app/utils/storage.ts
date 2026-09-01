@@ -95,3 +95,11 @@ export function writeCookie(name: string, value: string, days = 365): void {
   const expires = new Date(Date.now() + days * 864e5).toUTCString()
   document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`
 }
+
+/** Read a cookie set by {@link writeCookie}. Client-only; `null` on the server. */
+export function readCookie(name: string): string | null {
+  if (!isBrowser()) return null
+
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  return match?.[1] ? decodeURIComponent(match[1]) : null
+}
