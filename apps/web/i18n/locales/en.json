@@ -541,7 +541,35 @@
     "NOT_FOUND": "We could not find what you are looking for.",
     "RATE_LIMITED": "Too many requests. Please try again shortly.",
     "SERVER_ERROR": "We are having trouble. Please try again shortly.",
-    "TENANT_NOT_RESOLVED": "We could not identify the store."
+    "TENANT_NOT_RESOLVED": "We could not identify the store.",
+    "tryInstead": "Or go straight to",
+    "pages": {
+      "401": {
+        "badge": "Sign in to continue",
+        "title": "We need to know who you are",
+        "description": "This page depends on your account. Sign in and we will bring you straight back."
+      },
+      "403": {
+        "badge": "Restricted area",
+        "title": "This area is not yours",
+        "description": "Your account does not have permission to open this page. If you think it should, ask whoever administers the store."
+      },
+      "404": {
+        "badge": "Page not found",
+        "title": "We could not find that page",
+        "description": "The address may have changed, or the product has left the catalogue. Nothing is lost: your cart is where you left it."
+      },
+      "500": {
+        "badge": "Unexpected error",
+        "title": "Something broke on our side",
+        "description": "The failure has been recorded and we are looking at it. Try again in a moment."
+      },
+      "503": {
+        "badge": "Under maintenance",
+        "title": "Back shortly",
+        "description": "The store is having a quick bit of maintenance. Try again in a few minutes."
+      }
+    }
   },
   "validation": {
     "required": "This field is required",

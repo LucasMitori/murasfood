@@ -1,5 +1,5 @@
 <template lang="pug">
-.mura-container.mura-section
+.mura-container.mura-section.mura-cart
   h1.text-h5.mb-4 {{ t('cart.title') }}
 
   v-progress-linear(v-if="cart.loading" indeterminate color="primary")
@@ -73,22 +73,6 @@
           ) {{ t('lists.saveCartAsList') }}
           v-btn(variant="text" color="error" @click="confirmClear = true") {{ t('cart.clearCart') }}
 
-  mura-dialog(v-model="saveListOpen" :title="t('lists.saveCartAsList')")
-    p.text-body-2.text-medium-emphasis.mb-4 {{ t('lists.saveCartHint') }}
-    v-form(@submit.prevent="saveAsList")
-      v-text-field(
-        v-model="listName"
-        :label="t('lists.name')"
-        :placeholder="t('lists.namePlaceholder')"
-        :error-messages="listError"
-        variant="outlined"
-        density="comfortable"
-        autofocus
-      )
-    template(#actions)
-      v-btn(variant="text" @click="saveListOpen = false") {{ t('common.cancel') }}
-      v-btn(color="primary" variant="flat" :loading="lists.saving" @click="saveAsList") {{ t('common.save') }}
-
     v-col(cols="12" md="4")
       v-card.mura-card.pa-4(flat)
         h2.text-subtitle-1.mb-3 {{ t('cart.summary') }}
@@ -140,6 +124,22 @@
           :disabled="cart.hasBlockingIssues"
           @click="goToCheckout"
         ) {{ t('cart.checkout') }}
+
+  mura-dialog(v-model="saveListOpen" :title="t('lists.saveCartAsList')")
+    p.text-body-2.text-medium-emphasis.mb-4 {{ t('lists.saveCartHint') }}
+    v-form(@submit.prevent="saveAsList")
+      v-text-field(
+        v-model="listName"
+        :label="t('lists.name')"
+        :placeholder="t('lists.namePlaceholder')"
+        :error-messages="listError"
+        variant="outlined"
+        density="comfortable"
+        autofocus
+      )
+    template(#actions)
+      v-btn(variant="text" @click="saveListOpen = false") {{ t('common.cancel') }}
+      v-btn(color="primary" variant="flat" :loading="lists.saving" @click="saveAsList") {{ t('common.save') }}
 
   v-dialog(v-model="confirmClear" max-width="420")
     v-card
@@ -271,3 +271,22 @@ function goToCheckout(): void {
   router.push(auth.isAuthenticated ? '/checkout' : { path: '/auth/login', query: { redirect: '/checkout' } })
 }
 </script>
+
+<style scoped>
+/*
+ * Hold the page to the height of the window.
+ *
+ * An empty or short cart otherwise collapsed to a couple of hundred pixels and
+ * pulled the whole footer up under the header, which read as a broken page
+ * rather than an empty one. The header and its extension are 120px.
+ */
+.mura-cart {
+  display: flex;
+  min-height: calc(100svh - 120px);
+  flex-direction: column;
+}
+
+.mura-cart > :last-child {
+  flex: 1 1 auto;
+}
+</style>

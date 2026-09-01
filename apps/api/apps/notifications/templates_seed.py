@@ -14,22 +14,115 @@ from __future__ import annotations
 
 from typing import Any
 
+#: Brand colours, kept in step with the storefront theme
+#: (``apps/web/app/utils/theme.ts``). Email clients strip CSS custom properties
+#: and most external stylesheets, so every value here is inlined by hand.
+BRAND = "#8C1425"
+BRAND_DARK = "#6D0E1B"
+INK = "#1F1C1D"
+MUTED = "#57504F"
+PAPER = "#F6F4F3"
+LINE = "#E2DBDA"
+
 _LAYOUT = """<!doctype html>
 <html lang="{{ locale }}">
-  <head><meta charset="utf-8"><title>{{ subject }}</title></head>
-  <body style="margin:0;padding:24px;background:#FAF7F7;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#2E2A2B;">
-    <table role="presentation" style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:12px;padding:32px;">
-      <tr><td>
-        <h1 style="margin:0 0 16px;font-size:20px;color:#7B2D3B;">{{ store_name }}</h1>
-        {{ content }}
-        <hr style="border:none;border-top:1px solid #EEE6E7;margin:28px 0;">
-        <p style="font-size:12px;color:#8A8082;margin:0;">
-          {{ store_name }} · {{ support_email }}
-        </p>
-      </td></tr>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{{ subject }}</title>
+  </head>
+  <body style="margin:0;padding:0;background:__PAPER__;">
+    <!-- Preheader: the grey line a client shows beside the subject. Hidden in
+         the body itself, or it would repeat the first paragraph twice. -->
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ preheader }}</div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="background:__PAPER__;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="max-width:560px;background:#FFFFFF;border:1px solid __LINE__;
+                        border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="background:__BRAND__;padding:20px 32px;">
+                <p style="margin:0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+                          font-size:17px;font-weight:700;color:#FFFFFF;letter-spacing:-0.01em;">
+                  {{ store_name }}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+                         font-size:15px;line-height:1.6;color:__INK__;">
+                {{ content }}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px 28px;border-top:1px solid __LINE__;
+                         font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:__MUTED__;">
+                  {{ store_name }} &middot;
+                  <a href="mailto:{{ support_email }}" style="color:__MUTED__;">{{ support_email }}</a>
+                </p>
+                <p style="margin:8px 0 0;font-size:11px;color:__MUTED__;">
+                  Você recebeu este e-mail porque tem uma conta em {{ store_name }}.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
     </table>
   </body>
 </html>"""
+
+_LAYOUT = (
+    _LAYOUT.replace("__BRAND__", BRAND)
+    .replace("__PAPER__", PAPER)
+    .replace("__LINE__", LINE)
+    .replace("__INK__", INK)
+    .replace("__MUTED__", MUTED)
+)
+
+
+def button(label: str, url: str) -> str:
+    """A call to action that survives Outlook.
+
+    Rendered as a table rather than a styled anchor: Word's rendering engine,
+    which Outlook on Windows uses, drops padding on inline-block links and the
+    button collapses to bare underlined text.
+    """
+    return (
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        'style="margin:20px 0;"><tr><td align="center" '
+        f'style="background:{BRAND};border-radius:10px;">'
+        f'<a href="{url}" style="display:inline-block;padding:13px 26px;'
+        'font-family:system-ui,-apple-system,\'Segoe UI\',sans-serif;font-size:15px;'
+        'font-weight:600;color:#FFFFFF;text-decoration:none;">'
+        f'{label}</a></td></tr></table>'
+    )
+
+
+def note(text: str) -> str:
+    """Small print under the main message."""
+    return f'<p style="margin:0;font-size:13px;color:{MUTED};">{text}</p>'
+
+
+def panel(rows: str) -> str:
+    """A tinted block for the facts of an order — number, total, status."""
+    return (
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        f'style="margin:20px 0;background:{PAPER};border-radius:12px;">'
+        f'<tr><td style="padding:16px 20px;font-size:14px;color:{INK};">{rows}</td></tr></table>'
+    )
+
+
+def row(label: str, value: str) -> str:
+    return (
+        f'<p style="margin:0 0 6px;font-size:13px;color:{MUTED};">{label}<br>'
+        f'<strong style="font-size:15px;color:{INK};">{value}</strong></p>'
+    )
 
 
 def _wrap(content: str) -> str:
@@ -44,10 +137,9 @@ DEFAULT_TEMPLATES: tuple[dict[str, Any], ...] = (
         "html": _wrap(
             "<p>Olá, {{ first_name }}!</p>"
             "<p>Confirme seu endereço de e-mail para ativar sua conta.</p>"
-            '<p><a href="{{ verification_url }}" '
-            'style="display:inline-block;background:#7B2D3B;color:#fff;padding:12px 20px;'
-            'border-radius:8px;text-decoration:none;">Confirmar e-mail</a></p>'
-            '<p style="font-size:13px;color:#8A8082;">O link expira em {{ expires_in_hours }} horas.</p>'
+            + button("Confirmar e-mail", "{{ verification_url }}")
+            + note("O link expira em {{ expires_in_hours }} horas. "
+                   "Se não foi você quem criou a conta, ignore este e-mail.")
         ),
         "text": (
             "Olá, {{ first_name }}!\n\n"
@@ -71,11 +163,9 @@ DEFAULT_TEMPLATES: tuple[dict[str, Any], ...] = (
         "html": _wrap(
             "<p>Olá, {{ first_name }}!</p>"
             "<p>Recebemos um pedido para redefinir sua senha.</p>"
-            '<p><a href="{{ reset_url }}" '
-            'style="display:inline-block;background:#7B2D3B;color:#fff;padding:12px 20px;'
-            'border-radius:8px;text-decoration:none;">Criar nova senha</a></p>'
-            '<p style="font-size:13px;color:#8A8082;">O link expira em {{ expires_in_hours }} horas. '
-            "Se não foi você, ignore este e-mail.</p>"
+            + button("Criar nova senha", "{{ reset_url }}")
+            + note("O link expira em {{ expires_in_hours }} horas. "
+                   "Se não foi você, ignore este e-mail e sua senha continuará a mesma.")
         ),
         "text": (
             "Olá, {{ first_name }}!\n\n"
@@ -89,9 +179,9 @@ DEFAULT_TEMPLATES: tuple[dict[str, Any], ...] = (
         "variables": ["first_name", "order_number", "order_total", "order_url"],
         "html": _wrap(
             "<p>Olá, {{ first_name }}!</p>"
-            "<p>Recebemos seu pedido <strong>{{ order_number }}</strong>.</p>"
-            "<p>Total: <strong>{{ order_total }}</strong></p>"
-            '<p><a href="{{ order_url }}">Acompanhar pedido</a></p>'
+            "<p>Recebemos seu pedido e já estamos cuidando dele.</p>"
+            + panel(row("Pedido", "{{ order_number }}") + row("Total", "{{ order_total }}"))
+            + button("Acompanhar pedido", "{{ order_url }}")
         ),
         "text": (
             "Olá, {{ first_name }}!\n\n"
@@ -105,9 +195,9 @@ DEFAULT_TEMPLATES: tuple[dict[str, Any], ...] = (
         "variables": ["first_name", "order_number", "order_total", "order_url"],
         "html": _wrap(
             "<p>Olá, {{ first_name }}!</p>"
-            "<p>Seu pagamento de <strong>{{ order_total }}</strong> foi confirmado.</p>"
-            "<p>Já estamos preparando o pedido {{ order_number }}.</p>"
-            '<p><a href="{{ order_url }}">Acompanhar pedido</a></p>'
+            "<p>Seu pagamento foi confirmado. Já começamos a separar tudo.</p>"
+            + panel(row("Pedido", "{{ order_number }}") + row("Pago", "{{ order_total }}"))
+            + button("Acompanhar pedido", "{{ order_url }}")
         ),
         "text": (
             "Olá, {{ first_name }}!\n\n"

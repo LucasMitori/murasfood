@@ -48,7 +48,9 @@
         //- There is no inbox behind this page, and a form that silently
         //- discarded messages would be worse than no form.
         v-form(@submit.prevent="openMailClient")
-          v-row(dense)
+          //- Standard gutters: `dense` squeezed the row to 4px and put the
+          //- name and email fields almost against each other.
+          v-row
             v-col(cols="12" sm="6")
               v-text-field(
                 v-model="form.name"
@@ -67,7 +69,7 @@
                 density="comfortable"
               )
 
-          v-text-field.mb-1(
+          v-text-field.mb-4(
             v-model="form.subject"
             :label="t('contact.subject')"
             :rules="[rules.required]"
@@ -75,7 +77,7 @@
             density="comfortable"
           )
 
-          v-textarea.mb-3(
+          v-textarea.mb-4(
             v-model="form.message"
             :label="t('contact.message')"
             :rules="[rules.required]"
@@ -84,14 +86,18 @@
             auto-grow
           )
 
-          v-btn(
-            type="submit"
-            color="primary"
-            variant="flat"
-            size="large"
-            append-icon="mdi-send"
-            :disabled="!canSend"
-          ) {{ t('contact.send') }}
+          //- Right-aligned: the action that ends a form belongs at the end of
+          //- the reading order, under the last field it acts on.
+          .d-flex.justify-end
+            v-btn(
+              type="submit"
+              color="primary"
+              variant="flat"
+              size="large"
+              rounded="lg"
+              append-icon="mdi-send"
+              :disabled="!canSend"
+            ) {{ t('contact.send') }}
 </template>
 
 <script setup lang="ts">

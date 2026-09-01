@@ -541,7 +541,35 @@
     "NOT_FOUND": "Não encontramos o que você procura.",
     "RATE_LIMITED": "Muitas requisições. Tente novamente em instantes.",
     "SERVER_ERROR": "Estamos com instabilidade. Tente novamente em instantes.",
-    "TENANT_NOT_RESOLVED": "Não foi possível identificar a loja."
+    "TENANT_NOT_RESOLVED": "Não foi possível identificar a loja.",
+    "tryInstead": "Ou vá direto para",
+    "pages": {
+      "401": {
+        "badge": "Entre para continuar",
+        "title": "Precisamos saber quem é você",
+        "description": "Esta página depende da sua conta. Entre e traremos você de volta para cá."
+      },
+      "403": {
+        "badge": "Acesso restrito",
+        "title": "Esta área não é sua",
+        "description": "Sua conta não tem permissão para abrir esta página. Se acha que deveria ter, fale com quem administra a loja."
+      },
+      "404": {
+        "badge": "Página não encontrada",
+        "title": "Não achamos essa página",
+        "description": "O endereço pode ter mudado ou o produto saiu do catálogo. Nada se perdeu: seu carrinho continua onde estava."
+      },
+      "500": {
+        "badge": "Erro inesperado",
+        "title": "Algo quebrou do nosso lado",
+        "description": "A falha foi registrada e já estamos olhando. Tente novamente em instantes."
+      },
+      "503": {
+        "badge": "Em manutenção",
+        "title": "Voltamos já",
+        "description": "A loja está passando por uma manutenção rápida. Tente novamente em alguns minutos."
+      }
+    }
   },
   "validation": {
     "required": "Campo obrigatório",

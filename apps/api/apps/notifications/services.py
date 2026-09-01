@@ -88,6 +88,10 @@ def _base_context(tenant: Tenant) -> dict[str, Any]:
         "support_email": tenant.support_email,
         "locale": tenant.locale,
         "app_url": settings.PUBLIC_APP_URL,
+        # The layout has a hidden preheader slot — the grey line a mail client
+        # shows next to the subject. Defaulted here so an unset one renders as
+        # nothing rather than as the literal placeholder.
+        "preheader": "",
     }
 
 
@@ -169,6 +173,10 @@ def deliver_email(log: EmailLog, context: dict[str, Any]) -> bool:
 
     merged = {**_base_context(tenant), **context}
     subject = render_template(template.subject, merged, escape=False)
+    # Falls back to the subject, which is a better preview line than a blank.
+    merged.setdefault("preheader", subject)
+    if not merged.get("preheader"):
+        merged["preheader"] = subject
     text_body = render_template(template.text_body or "", merged, escape=False)
     html_body = render_template(template.html_body, merged)
 

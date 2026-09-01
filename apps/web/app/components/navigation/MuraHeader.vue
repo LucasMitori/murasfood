@@ -55,14 +55,22 @@ div
             v-list-item-title {{ option.name }}
 
       v-btn(to="/favoritos" variant="text" icon :aria-label="t('nav.favorites')")
-        v-badge(:content="favorites.count" :model-value="hydrated && favorites.count > 0" color="primary")
+        v-badge(
+          :content="hydrated ? favorites.count : 0"
+          :model-value="hydrated && favorites.count > 0"
+          color="primary"
+        )
           v-icon(icon="mdi-heart-outline")
 
       v-btn(to="/carrinho" variant="text" icon :aria-label="t('nav.cart')")
-        v-badge(:content="cart.itemCount" :model-value="hydrated && cart.itemCount > 0" color="primary")
+        v-badge(
+          :content="hydrated ? cart.itemCount : 0"
+          :model-value="hydrated && cart.itemCount > 0"
+          color="primary"
+        )
           v-icon(icon="mdi-cart-outline")
 
-      v-menu(v-if="auth.isAuthenticated")
+      v-menu(v-if="hydrated && auth.isAuthenticated")
         template(#activator="{ props: menuProps }")
           v-btn(v-bind="menuProps" icon variant="text" :aria-label="t('nav.account')")
             v-avatar(color="primary" size="32")
@@ -118,28 +126,23 @@ div
               @click:clear="close"
             )
 
-          v-col.mura-header__nav.d-none.d-md-flex.justify-end(cols="12" md="6")
-            //- Labels are dropped below `lg`, where five of them cannot fit in
-            //- half the bar. Without this the row overflowed its column and
-            //- spilled leftwards across the search field.
-            v-tooltip(
+          //- Labels are hidden below `lg` in CSS rather than by branching on a
+            //- JS breakpoint. `useDisplay()` guesses a width on the server and
+            //- measures the real one in the browser, so a template that reads it
+            //- renders two different things and every button mismatches on
+            //- hydration. CSS resolves per viewport with no such split.
+          v-col.mura-header__nav.justify-end(cols="12" md="6")
+            v-btn.mura-header__link(
               v-for="link in links"
               :key="link.to"
-              :text="link.label"
-              location="bottom"
-              :disabled="showLabels"
+              :to="link.to"
+              :prepend-icon="link.icon"
+              :active="isActive(link.to)"
+              :title="link.label"
+              variant="text"
+              density="comfortable"
             )
-              template(#activator="{ props: tip }")
-                v-btn.mura-header__link(
-                  v-bind="tip"
-                  :to="link.to"
-                  :icon="showLabels ? undefined : link.icon"
-                  :prepend-icon="showLabels ? link.icon : undefined"
-                  :active="isActive(link.to)"
-                  :aria-label="link.label"
-                  variant="text"
-                  density="comfortable"
-                ) {{ showLabels ? link.label : '' }}
+              span.mura-header__label {{ link.label }}
 
   //- Results panel. A sibling of the app bar rather than a child: the bar uses
   //- `backdrop-filter` when scrolled, which would make it the containing block
@@ -214,7 +217,6 @@ import { useCartStore } from '~/stores/cart'
 import { useFavoritesStore } from '~/stores/favorites'
 import { useTenantStore } from '~/stores/tenant'
 import { useUiStore } from '~/stores/ui'
-import { useDisplay } from 'vuetify'
 import { useMoney } from '~/composables/useMoney'
 import { useHydrated } from '~/composables/useHydrated'
 import { initials } from '~/utils/format'
@@ -232,11 +234,8 @@ const emit = defineEmits<{
 const { t, locale, locales: availableLocales } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const { lgAndUp } = useDisplay()
 
 /** Labelled links only where half the bar is wide enough to hold them. */
-const showLabels = computed(() => lgAndUp.value)
-
 const auth = useAuthStore()
 const cart = useCartStore()
 const favorites = useFavoritesStore()
@@ -420,8 +419,41 @@ onBeforeUnmount(() => {
  * over the search field.
  */
 .mura-header__nav {
+  display: none;
   min-width: 0;
   gap: 0.125rem;
+}
+
+/* The navigation half appears once there is room for it beside the search. */
+@media (min-width: 960px) {
+  .mura-header__nav {
+    display: flex;
+  }
+}
+
+/*
+ * Below `lg` five labels do not fit in half the bar, so the buttons collapse to
+ * their icons rather than overflowing the column and spilling across the search
+ * field.
+ */
+@media (max-width: 1279px) {
+  .mura-header__label {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .mura-header__nav .mura-header__link {
+    min-width: 40px;
+    padding-inline: 8px;
+  }
+
+  .mura-header__nav .mura-header__link :deep(.v-btn__prepend) {
+    margin-inline: 0;
+  }
 }
 
 .mura-header__link {
