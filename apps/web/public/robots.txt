@@ -1,0 +1,11 @@
+# Storefront pages are public and worth indexing. Everything behind an account
+# or a checkout is not: those pages are personal, change per visitor, and carry
+# no value in a search result.
+User-agent: *
+Allow: /
+Disallow: /conta
+Disallow: /carrinho
+Disallow: /checkout
+Disallow: /pedidos
+Disallow: /admin
+Disallow: /auth

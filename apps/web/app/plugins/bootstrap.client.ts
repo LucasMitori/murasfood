@@ -39,7 +39,18 @@ export default defineNuxtPlugin({
     // --- Theme --------------------------------------------------------------
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
     if (media) {
-      ui.applySystemPreference(media.matches)
+      /*
+       * Deferred past hydration on purpose.
+       *
+       * On a first visit there is no theme cookie, so the server renders light.
+       * Applying the system preference straight away changed the theme while
+       * Vue was still matching its tree against that markup, and every themed
+       * element reported a mismatch. `onNuxtReady` runs once hydration is
+       * finished, so the switch is an ordinary update instead of a disagreement
+       * about what the page already says.
+       */
+      onNuxtReady(() => ui.applySystemPreference(media.matches))
+
       // Follow the system while the visitor has expressed no preference.
       media.addEventListener?.('change', event => ui.applySystemPreference(event.matches))
     }
