@@ -317,6 +317,26 @@ merely unfinished:**
   does not run when frames are not being produced, which froze the header and
   the hero parallax rather than merely skipping a frame.
 
+## 3.10 Dashboard coverage and floating tools
+
+- **Four admin screens added**, closing the gap the sidebar used to advertise:
+  `/admin/pedidos` (queue with a detail sheet and status transitions),
+  `/admin/estoque`, `/admin/clientes`, `/admin/financeiro`. All eight nav
+  entries now have a page behind them.
+- **Orders take their transitions from the server.** The serializer already
+  sends `allowed_transitions` from the state machine, so the screen renders
+  exactly those and cannot drift out of step with what the API accepts.
+- **Stock offers a count and an adjustment separately** — one replaces the
+  balance with what is on the shelf, the other records a movement of a known
+  size. Collapsing them would make the ledger lie about which happened.
+- **`MuraFloatingTools`**: a draggable launcher that fans its actions onto a
+  quarter-circle arc. Position persists per viewer. The arc's starting angle
+  is chosen per corner so the actions always open into the screen; getting
+  that wrong put them off the edge, where they could not be clicked.
+- **`MuraCalculator`** runs its arithmetic on integers scaled by 10⁴. People
+  reach for a calculator in a shop to do money, and `0.1 + 0.2` visibly
+  failing in the shop's own tool would undermine every other number on screen.
+
 ## 4. Things worth knowing before editing
 
 - **File watching does not always cross the Windows bind mount.** A newly

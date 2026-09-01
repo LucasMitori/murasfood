@@ -38,6 +38,10 @@ div
       slot
 
   mura-footer
+
+  //- Floating tools sit above every page, so they live in the layout rather
+  //- than being repeated per page.
+  mura-floating-tools
 </template>
 
 <script setup lang="ts">

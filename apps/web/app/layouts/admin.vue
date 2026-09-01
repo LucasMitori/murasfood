@@ -74,6 +74,8 @@ div
   v-main
     #main-content.mura-container.py-6(tabindex="-1")
       slot
+
+  mura-floating-tools
 </template>
 
 <script setup lang="ts">
@@ -103,14 +105,15 @@ const { mdAndUp } = useDisplay()
 const drawer = ref(true)
 
 // Navigation is driven by *page* permissions, the same codes the route guard
-// enforces — so a visible link never leads to a 403.
-//
-// Only screens that exist are listed. Orders, inventory, customers and finance
-// have permission codes and API endpoints but no page yet; advertising them
-// here sent staff to a 404, which is worse than not offering them.
+// enforces — so a visible link never leads to a 403. Every entry here has a
+// page behind it; the link test fails the build if one stops being true.
 const entries = [
   { to: '/admin', icon: 'mdi-view-dashboard-outline', labelKey: 'admin.dashboard', permission: 'perm.admin.dashboard' },
+  { to: '/admin/pedidos', icon: 'mdi-receipt-text-outline', labelKey: 'admin.orders', permission: 'perm.admin.orders' },
   { to: '/admin/produtos', icon: 'mdi-package-variant-closed', labelKey: 'admin.products', permission: 'perm.admin.products' },
+  { to: '/admin/estoque', icon: 'mdi-warehouse', labelKey: 'admin.inventory', permission: 'perm.admin.inventory' },
+  { to: '/admin/clientes', icon: 'mdi-account-group-outline', labelKey: 'admin.customers', permission: 'perm.admin.customers' },
+  { to: '/admin/financeiro', icon: 'mdi-finance', labelKey: 'admin.finance', permission: 'perm.admin.finance' },
   { to: '/admin/usuarios', icon: 'mdi-shield-account-outline', labelKey: 'admin.users', permission: 'perm.admin.users' },
   { to: '/admin/home', icon: 'mdi-home-edit-outline', labelKey: 'admin.homeConfig', permission: 'perm.admin.settings' },
 ]
