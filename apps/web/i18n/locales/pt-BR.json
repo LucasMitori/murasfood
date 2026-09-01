@@ -456,7 +456,8 @@
       "PROMOTION": "Promoções",
       "SEARCH": "Busca",
       "EXTERNAL": "Link externo"
-    }
+    },
+    "viewStorefront": "Ver a loja"
   },
   "errors": {
     "generic": "Não foi possível concluir a operação.",
@@ -649,5 +650,10 @@
     "message": "Mensagem",
     "send": "Enviar mensagem",
     "openWhatsapp": "Abrir conversa"
+  },
+  "search": {
+    "resultsFor": "Resultados para \"{term}\"",
+    "seeAll": "Ver todos os resultados",
+    "noResults": "Nenhum produto encontrado. Tente outro termo ou remova os filtros."
   }
 }

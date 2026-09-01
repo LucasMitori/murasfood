@@ -15,7 +15,15 @@ export default defineNuxtConfig({
 
   modules: ['@pinia/nuxt', '@nuxtjs/i18n', '@nuxt/eslint'],
 
-  css: ['vuetify/styles', '~/assets/styles/main.scss'],
+  // `@mdi/font` is not optional: Vuetify's default icon set resolves
+  // `icon="mdi-cart"` to that font's CSS classes, so without it every icon in
+  // the app renders as nothing at all — buttons look blank, and an icon-only
+  // action column is invisible until you hover it and see the ripple.
+  css: [
+    'vuetify/styles',
+    '@mdi/font/css/materialdesignicons.css',
+    '~/assets/styles/main.scss',
+  ],
 
   // Components are organised by domain but referenced by their own name, so
   // `components/catalog/MuraProductCard.vue` is `<MuraProductCard>` rather than
@@ -99,7 +107,7 @@ export default defineNuxtConfig({
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'theme-color', content: '#7B2D3B' },
+        { name: 'theme-color', content: '#8C1425' },
       ],
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },

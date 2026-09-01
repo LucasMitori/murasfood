@@ -149,18 +149,15 @@ function scrollPast(): void {
   })
 }
 
-let frame = 0
-
+/**
+ * Deliberately synchronous, for the same reason as the header: rAF does not
+ * run when frames are not being produced, which would freeze the parallax and
+ * the scroll hint rather than merely skipping a frame of them.
+ */
 function onScroll(): void {
-  // Coalesce to one read per frame: `scrollY` forces a style recalculation,
-  // and the scroll event can fire far more often than the screen repaints.
-  if (frame) return
-  frame = requestAnimationFrame(() => {
-    frame = 0
-    const y = window.scrollY
-    offset.value = Math.min(y, window.innerHeight)
-    scrolled.value = y > 80
-  })
+  const y = window.scrollY
+  offset.value = Math.min(y, window.innerHeight)
+  scrolled.value = y > 80
 }
 
 onMounted(() => {
@@ -171,7 +168,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
-  if (frame) cancelAnimationFrame(frame)
 })
 </script>
 

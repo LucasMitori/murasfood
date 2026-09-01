@@ -294,6 +294,29 @@ merely unfinished:**
     array. The test now covers that shape too, and the dead entries are gone
     until those screens are built.
 
+## 3.9 Navigation and chrome pass
+
+- **`@mdi/font` was never installed.** Vuetify's default icon set resolves
+  `icon="mdi-cart"` to that font's CSS classes, so every icon in the app
+  rendered as nothing: toolbar buttons looked blank and the table action column
+  was invisible until hovered. Installed and wired into `css` in `nuxt.config`.
+- **One gutter everywhere.** `--mura-gutter` is 24px (16px on phones) and the
+  header lays its bars out inside `.mura-container`, so header, page content
+  and footer all begin and end on the same line — measured at 77px both sides.
+- **Storefront header rebuilt** as `MuraHeader`: a tools bar over a navigation
+  bar split half search / half destinations, going to 60% opacity with a blur
+  once the page scrolls. Typing opens a results panel with live products and
+  category/offer filters that carry through to `/produtos`.
+- **Admin shell rebuilt**: the sidebar runs the full height with the header
+  beside it, opens with avatar/name/email, and pins "view the store" to the
+  bottom.
+- **Data tables** use theme tokens for a soft near-white header on light and a
+  gentle lift on dark; the action column is sticky so it survives horizontal
+  overflow, and its buttons are visible at rest rather than on hover.
+- Scroll handlers here are deliberately **synchronous**. `requestAnimationFrame`
+  does not run when frames are not being produced, which froze the header and
+  the hero parallax rather than merely skipping a frame.
+
 ## 4. Things worth knowing before editing
 
 - **File watching does not always cross the Windows bind mount.** A newly

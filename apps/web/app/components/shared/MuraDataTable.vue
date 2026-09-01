@@ -58,7 +58,7 @@ v-card.mura-card(flat)
     :density="density"
     :show-select="selectable"
     :model-value="selected"
-    class="mura-data-table"
+    :class="['mura-data-table', { 'mura-data-table--sticky-actions': actions.length }]"
     @update:options="table.onOptionsUpdate"
     @update:model-value="value => emit('update:selected', value)"
     @click:row="onRowClick"
@@ -86,7 +86,7 @@ v-card.mura-card(flat)
 
     template(v-if="actions.length" #item.__actions="{ item }")
       .d-flex.justify-end.ga-1
-        v-btn(
+        v-btn.mura-data-table__action(
           v-for="action in visibleActionsFor(item)"
           :key="action.key"
           :icon="action.icon"
@@ -363,8 +363,86 @@ function onRowClick(_event: unknown, context: { item: Row }): void {
   max-width: 280px;
 }
 
+/*
+ * Table surfaces are expressed against theme tokens rather than fixed greys, so
+ * the same rules give a soft near-white header on light and a gentle lift out
+ * of near-black on dark.
+ */
 .mura-data-table :deep(th) {
   white-space: nowrap;
-  font-weight: 600;
+  background: rgb(var(--v-theme-surface-variant)) !important;
+  color: rgb(var(--v-theme-on-surface-variant)) !important;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mura-data-table :deep(tbody tr) {
+  transition: background-color 140ms ease;
+}
+
+.mura-data-table :deep(tbody tr:hover) {
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
+.mura-data-table :deep(td) {
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.5) !important;
+}
+
+/*
+ * Row actions stay visible at rest.
+ *
+ * They were icon-only text buttons, which read as blank space until hovered —
+ * the operator had to sweep the row to discover there were controls in it.
+ */
+.mura-data-table__action {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  opacity: 0.9;
+  transition: background-color 140ms ease, opacity 140ms ease;
+}
+
+.mura-data-table__action:hover {
+  background: rgba(var(--v-theme-primary), 0.16);
+  opacity: 1;
+}
+
+/*
+ * Pin the action column to the right edge.
+ *
+ * A table with more columns than fit scrolls horizontally, and the actions —
+ * the controls an operator reaches for most — were the first thing pushed out
+ * of sight. Sticky keeps them reachable without shrinking the data columns.
+ */
+/*
+ * `!important` because Vuetify sets `position: relative` on every data-table
+ * cell from a selector this cannot outrank without duplicating its internals.
+ */
+.mura-data-table--sticky-actions :deep(th:last-child),
+.mura-data-table--sticky-actions :deep(td:last-child) {
+  position: sticky !important;
+  right: 0;
+  z-index: 2;
+}
+
+.mura-data-table--sticky-actions :deep(th:last-child) {
+  z-index: 3;
+}
+
+.mura-data-table--sticky-actions :deep(td:last-child) {
+  background: rgb(var(--v-theme-surface));
+  /* Marks the seam where the rest of the row scrolls underneath. */
+  box-shadow: -8px 0 12px -10px rgba(var(--v-theme-on-surface), 0.5);
+}
+
+.mura-data-table--sticky-actions :deep(tbody tr:hover td:last-child) {
+  background: rgb(var(--v-theme-surface-bright));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mura-data-table :deep(tbody tr),
+  .mura-data-table__action {
+    transition: none;
+  }
 }
 </style>
