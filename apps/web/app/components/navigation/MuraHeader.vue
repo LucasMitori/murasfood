@@ -114,16 +114,28 @@ div
               @click:clear="close"
             )
 
-          v-col.d-none.d-md-flex.justify-end(cols="12" md="6")
-            v-btn.mura-header__link(
+          v-col.mura-header__nav.d-none.d-md-flex.justify-end(cols="12" md="6")
+            //- Labels are dropped below `lg`, where five of them cannot fit in
+            //- half the bar. Without this the row overflowed its column and
+            //- spilled leftwards across the search field.
+            v-tooltip(
               v-for="link in links"
               :key="link.to"
-              :to="link.to"
-              :prepend-icon="link.icon"
-              :active="isActive(link.to)"
-              variant="text"
-              density="comfortable"
-            ) {{ link.label }}
+              :text="link.label"
+              location="bottom"
+              :disabled="showLabels"
+            )
+              template(#activator="{ props: tip }")
+                v-btn.mura-header__link(
+                  v-bind="tip"
+                  :to="link.to"
+                  :icon="showLabels ? undefined : link.icon"
+                  :prepend-icon="showLabels ? link.icon : undefined"
+                  :active="isActive(link.to)"
+                  :aria-label="link.label"
+                  variant="text"
+                  density="comfortable"
+                ) {{ showLabels ? link.label : '' }}
 
   //- Results panel. A sibling of the app bar rather than a child: the bar uses
   //- `backdrop-filter` when scrolled, which would make it the containing block
@@ -198,6 +210,7 @@ import { useCartStore } from '~/stores/cart'
 import { useFavoritesStore } from '~/stores/favorites'
 import { useTenantStore } from '~/stores/tenant'
 import { useUiStore } from '~/stores/ui'
+import { useDisplay } from 'vuetify'
 import { useMoney } from '~/composables/useMoney'
 import { initials } from '~/utils/format'
 
@@ -214,6 +227,10 @@ const emit = defineEmits<{
 const { t, locale, locales: availableLocales } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const { lgAndUp } = useDisplay()
+
+/** Labelled links only where half the bar is wide enough to hold them. */
+const showLabels = computed(() => lgAndUp.value)
 
 const auth = useAuthStore()
 const cart = useCartStore()
@@ -388,10 +405,24 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
+/*
+ * The nav half must never grow past its column: `min-width: 0` lets it shrink
+ * inside the flex row instead of pushing its content out of the left edge and
+ * over the search field.
+ */
+.mura-header__nav {
+  min-width: 0;
+  gap: 0.125rem;
+}
+
 .mura-header__link {
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
+}
+
+.mura-header__link:not(.v-btn--icon) {
+  padding-inline: 0.625rem !important;
 }
 
 .mura-header__search :deep(.v-field) {
