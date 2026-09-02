@@ -131,7 +131,8 @@ const typeOptions = computed(() =>
   })),
 )
 
-async function onAction(key: string, row: UserRow): Promise<void> {
+async function onAction(payload: { key: string, row: UserRow }): Promise<void> {
+  const { key, row } = payload
   if (key === 'view') {
     await router.push(`/admin/users/${row.id}`)
     return

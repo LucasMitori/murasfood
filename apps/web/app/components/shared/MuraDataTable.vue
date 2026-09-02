@@ -108,7 +108,13 @@ v-card.mura-card(flat)
         template(v-if="$slots['empty-action']" #action)
           slot(name="empty-action")
 
-    template(#loading)
+    //- Skeletons only when there is nothing on screen yet.
+      //- Overriding this slot replaces the whole body, so on every refresh the
+      //- rows vanished and were rebuilt — which read as the table rebooting
+      //- itself. With rows already present Vuetify's own progress bar runs
+      //- along the top instead and the data stays put until the new page
+      //- arrives.
+    template(v-if="!table.items.value.length" #loading)
       v-skeleton-loader(type="table-row@5")
 
     template(#footer.prepend)
@@ -191,7 +197,15 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  action: [key: string, row: Row]
+  /**
+   * One object, not two positional arguments.
+   *
+   * Every screen consuming this reads `payload.key` and `payload.row`. Emitted
+   * as `(key, row)` the handler received the *string* as its only argument, so
+   * `payload.key` was `undefined` and not one row action in the dashboard did
+   * anything. Pug templates are not type-checked, so nothing caught it.
+   */
+  action: [payload: { key: string, row: Row }]
   'row-click': [row: Row]
   'update:selected': [value: unknown[]]
 }>()
@@ -337,14 +351,14 @@ function triggerAction(action: TableAction<Row>, row: Row): void {
     confirmOpen.value = true
     return
   }
-  emit('action', action.key, row)
+  emit('action', { key: action.key, row })
 }
 
 function runPendingAction(): void {
   const pending = pendingAction.value
   confirmOpen.value = false
   pendingAction.value = null
-  if (pending) emit('action', pending.action.key, pending.row)
+  if (pending) emit('action', { key: pending.action.key, row: pending.row })
 }
 
 function onSearchInput(value: string | null): void {
@@ -444,5 +458,25 @@ function onRowClick(_event: unknown, context: { item: Row }): void {
   .mura-data-table__action {
     transition: none;
   }
+}
+
+/*
+ * Banded rows.
+ *
+ * Built from the theme's own surface colour rather than fixed greys, so the
+ * band is a slight lift in light mode and a slight lift in dark mode too —
+ * hard-coded greys would turn the dark table into a light one. Kept under the
+ * hover and selected states, which must still be able to show through.
+ */
+.mura-data-table :deep(tbody tr:nth-child(even) > td) {
+  background: rgba(var(--v-theme-on-surface), 0.028);
+}
+
+.mura-data-table :deep(tbody tr:hover > td) {
+  background: rgba(var(--v-theme-primary), 0.07);
+}
+
+.mura-data-table :deep(tbody tr.v-data-table__selected > td) {
+  background: rgba(var(--v-theme-primary), 0.12);
 }
 </style>

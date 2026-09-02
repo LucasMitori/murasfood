@@ -307,7 +307,8 @@ async function save(values: FormValues): Promise<void> {
   }
 }
 
-async function onAction(key: string, row: ProductRow): Promise<void> {
+async function onAction(payload: { key: string, row: ProductRow }): Promise<void> {
+  const { key, row } = payload
   if (key === 'edit') {
     openEdit(row)
     return
