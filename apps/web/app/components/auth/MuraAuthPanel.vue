@@ -52,7 +52,7 @@
             )
 
             .d-flex.justify-end.mb-4
-              v-btn(to="/auth/recuperar-senha" variant="text" size="small") {{ t('auth.forgotPassword') }}
+              v-btn(to="/auth/reset-password" variant="text" size="small") {{ t('auth.forgotPassword') }}
 
             v-btn(
               type="submit"
@@ -273,7 +273,7 @@ function flip(toSignUp: boolean): void {
 
   // Keep the address bar in step without letting the router unmount the card.
   if (import.meta.client) {
-    const path = toSignUp ? '/auth/cadastro' : '/auth/login'
+    const path = toSignUp ? '/auth/register' : '/auth/login'
     const query = route.query.redirect ? `?redirect=${encodeURIComponent(String(route.query.redirect))}` : ''
     window.history.replaceState(window.history.state, '', `${path}${query}`)
   }

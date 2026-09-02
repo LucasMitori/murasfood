@@ -10,7 +10,7 @@ div
         :label="t('admin.newUser')"
         icon="mdi-account-plus-outline"
         permission="users.manage"
-        @click="router.push('/admin/usuarios/novo')"
+        @click="router.push('/admin/users/new')"
       )
 
   mura-data-table(
@@ -21,7 +21,7 @@ div
     searchable
     clickable
     @action="onAction"
-    @row-click="row => router.push(`/admin/usuarios/${row.id}`)"
+    @row-click="row => router.push(`/admin/users/${row.id}`)"
   )
     template(#filters)
       v-select.mura-admin-filter(
@@ -133,11 +133,11 @@ const typeOptions = computed(() =>
 
 async function onAction(key: string, row: UserRow): Promise<void> {
   if (key === 'view') {
-    await router.push(`/admin/usuarios/${row.id}`)
+    await router.push(`/admin/users/${row.id}`)
     return
   }
   if (key === 'edit') {
-    await router.push(`/admin/usuarios/${row.id}/editar`)
+    await router.push(`/admin/users/${row.id}/editar`)
     return
   }
 

@@ -52,10 +52,10 @@
     v-card.mura-card.pa-6.text-center(v-else flat)
       v-icon.mb-3(icon="mdi-check-circle-outline" size="48" color="success")
       p.text-body-1.mb-4 {{ t('payment.confirmed') }}
-      v-btn(:to="`/pedidos/${order.number}`" color="primary" variant="flat") {{ t('order.trackOrder') }}
+      v-btn(:to="`/account/orders/${order.number}`" color="primary" variant="flat") {{ t('order.trackOrder') }}
 
     .text-center.mt-6
-      v-btn(:to="`/pedidos/${order.number}`" variant="text") {{ t('order.trackOrder') }}
+      v-btn(:to="`/account/orders/${order.number}`" variant="text") {{ t('order.trackOrder') }}
 </template>
 
 <script setup lang="ts">

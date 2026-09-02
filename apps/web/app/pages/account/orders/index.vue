@@ -13,13 +13,13 @@
     icon="mdi-receipt-text-outline"
   )
     template(#action)
-      v-btn(to="/produtos" color="primary" variant="flat") {{ t('cart.continueShopping') }}
+      v-btn(to="/products" color="primary" variant="flat") {{ t('cart.continueShopping') }}
 
   v-card.mura-card(v-else flat)
     v-list(lines="two")
       template(v-for="(order, index) in data.results" :key="order.id")
         v-divider(v-if="index > 0")
-        v-list-item(:to="`/pedidos/${order.number}`")
+        v-list-item(:to="`/account/orders/${order.number}`")
           v-list-item-title.font-weight-medium {{ order.number }}
           v-list-item-subtitle
             span {{ formatDateTime(order.placed_at || order.created_at, locale) }}

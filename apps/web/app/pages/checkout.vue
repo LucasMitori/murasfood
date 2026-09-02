@@ -25,7 +25,7 @@
       v-card.mura-card.pa-4.mb-4(v-if="deliveryMethod === 'DELIVERY'" flat)
         .d-flex.align-center.justify-space-between.mb-3
           h2.text-subtitle-1 {{ t('checkout.address') }}
-          v-btn(to="/conta/enderecos" variant="text" size="small") {{ t('checkout.newAddress') }}
+          v-btn(to="/account/addresses" variant="text" size="small") {{ t('checkout.newAddress') }}
 
         mura-empty-state(
           v-if="!addresses?.length"
@@ -34,7 +34,7 @@
           icon="mdi-map-marker-outline"
         )
           template(#action)
-            v-btn(to="/conta/enderecos" color="primary" variant="tonal") {{ t('account.addAddress') }}
+            v-btn(to="/account/addresses" color="primary" variant="tonal") {{ t('account.addAddress') }}
 
         v-radio-group(v-else v-model="addressId" hide-details @update:model-value="refreshDelivery")
           v-radio(v-for="address in addresses" :key="address.id" :value="address.id")
@@ -201,7 +201,7 @@ async function placeOrder(): Promise<void> {
     )
 
     await cart.fetch()
-    await router.push(`/pedidos/${order.number}/pagamento`)
+    await router.push(`/account/orders/${order.number}/pagamento`)
   }
   catch (error) {
     submitError.value = messageFor(error)

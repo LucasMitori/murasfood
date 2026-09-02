@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.common.serializers import QuantitySerializerField
 
-from .models import InventoryItem, StockMovement, StockReservation
+from .models import InventoryItem, StockBatch, StockMovement, StockReservation
 
 
 class InventoryItemSerializer(serializers.ModelSerializer):
@@ -104,3 +105,57 @@ class StockReservationSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class StockBatchSerializer(serializers.ModelSerializer):
+    """One lot of a product, with the date it stops being sellable."""
+
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    product_sku = serializers.CharField(source="product.sku", read_only=True)
+    unit = serializers.CharField(source="product.sale_unit.code", read_only=True)
+
+    days_remaining = serializers.IntegerField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+    write_off_value = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = StockBatch
+        fields = [
+            "id",
+            "product",
+            "product_name",
+            "product_sku",
+            "unit",
+            "code",
+            "quantity",
+            "expiry_date",
+            "received_date",
+            "supplier",
+            "cost_price",
+            "note",
+            "days_remaining",
+            "is_expired",
+            "write_off_value",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate(self, attrs: dict) -> dict:
+        """A lot cannot expire before it arrived.
+
+        Caught here rather than by a database constraint because the message
+        belongs on the field the operator just typed, and because a partial
+        update has to compare the new value against the stored one.
+        """
+        expiry = attrs.get("expiry_date") or getattr(self.instance, "expiry_date", None)
+        received = attrs.get("received_date") or getattr(self.instance, "received_date", None)
+
+        if expiry and received and expiry < received:
+            raise serializers.ValidationError(
+                {"expiry_date": _("An expiry date cannot fall before the date received.")}
+            )
+
+        return attrs

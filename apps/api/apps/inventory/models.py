@@ -15,13 +15,14 @@ so an abandoned cart cannot lock a product out of the catalog forever.
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.common.models import TenantOwnedModel
+from apps.common.models import TenantOwnedModel, TenantQuerySet
 
 
 class MovementType(models.TextChoices):
@@ -207,3 +208,108 @@ class StockReservation(TenantOwnedModel):
     @property
     def is_expired(self) -> bool:
         return self.status == ReservationStatus.HELD and self.expires_at <= timezone.now()
+
+
+class BatchQuerySet(TenantQuerySet):
+    """Shelf-life queries, expressed once so every caller agrees on the rules."""
+
+    def remaining(self) -> BatchQuerySet:
+        """Batches with stock left. A spent batch is history, not a warning."""
+        return self.filter(quantity__gt=0)
+
+    def expired(self, *, on: date | None = None) -> BatchQuerySet:
+        return self.remaining().filter(expiry_date__lt=on or timezone.localdate())
+
+    def expiring_within(self, days: int, *, on: date | None = None) -> BatchQuerySet:
+        """Still sellable, but not for long.
+
+        Deliberately excludes what has already expired: those need pulling from
+        the shelf, which is a different job from discounting what is about to
+        turn, and mixing them into one list hides the urgent behind the routine.
+        """
+        today = on or timezone.localdate()
+        return self.remaining().filter(
+            expiry_date__gte=today,
+            expiry_date__lte=today + timedelta(days=days),
+        )
+
+
+class StockBatch(TenantOwnedModel):
+    """One delivery of a product, with the date it stops being sellable.
+
+    Separate from :class:`InventoryItem` because shelf life belongs to a *lot*,
+    not to a product: two crates of the same milk bought a week apart expire a
+    week apart, and a single quantity on the product cannot express that.
+
+    The quantity here is what remains of that lot. It is not authoritative for
+    what is sellable — :class:`InventoryItem` remains the one balance the
+    catalog reads — because a shop that batches some products and not others
+    would otherwise have two disagreeing sources of truth. This answers a
+    narrower question: *what is about to go off, and how much of it.*
+    """
+
+    product = models.ForeignKey(
+        "catalog.Product",
+        on_delete=models.CASCADE,
+        related_name="batches",
+        verbose_name=_("product"),
+    )
+
+    code = models.CharField(
+        _("batch code"),
+        max_length=64,
+        blank=True,
+        help_text=_("The supplier's lot number, where there is one."),
+    )
+    quantity = models.DecimalField(
+        _("quantity remaining"), max_digits=12, decimal_places=3, default=Decimal("0.000")
+    )
+    expiry_date = models.DateField(_("expiry date"), db_index=True)
+    received_date = models.DateField(_("received on"), default=timezone.localdate)
+
+    supplier = models.CharField(_("supplier"), max_length=120, blank=True)
+    cost_price = models.DecimalField(
+        _("cost price"),
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=_("What this lot cost per unit, for margin and write-off value."),
+    )
+    note = models.CharField(_("note"), max_length=255, blank=True)
+
+    objects = BatchQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = _("stock batch")
+        verbose_name_plural = _("stock batches")
+        # Soonest to expire first: the order the shelf should be worked in.
+        ordering = ["expiry_date", "received_date"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(quantity__gte=0), name="batch_quantity_non_negative"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "expiry_date"]),
+            models.Index(fields=["tenant", "product", "expiry_date"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return f"{self.product} · {self.expiry_date}"
+
+    @property
+    def days_remaining(self) -> int:
+        """Negative once the date has passed, which is what makes it sortable."""
+        return (self.expiry_date - timezone.localdate()).days
+
+    @property
+    def is_expired(self) -> bool:
+        return self.days_remaining < 0
+
+    @property
+    def write_off_value(self) -> Decimal | None:
+        """What is lost if this batch is binned. ``None`` when cost is unknown."""
+        if self.cost_price is None:
+            return None
+        return (self.cost_price * self.quantity).quantize(Decimal("0.01"))

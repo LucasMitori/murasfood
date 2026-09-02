@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
+from django.db.models import F, Q
+from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,9 +19,10 @@ from apps.common.exceptions import NotFoundError
 from apps.common.permissions import HasTenantPermission
 from apps.common.views import TenantScopedMixin
 
-from .models import InventoryItem, StockMovement, StockReservation
+from .models import InventoryItem, StockBatch, StockMovement, StockReservation
 from .serializers import (
     InventoryItemSerializer,
+    StockBatchSerializer,
     StockAdjustmentSerializer,
     StockCountSerializer,
     StockMovementSerializer,
@@ -42,12 +47,18 @@ class InventoryItemViewSet(TenantScopedMixin, viewsets.ModelViewSet):
 
     def get_queryset(self) -> Any:
         queryset = super().get_queryset()
-        if self.request.query_params.get("low_stock") == "true":
-            from django.db.models import F
+        params = self.request.query_params
 
-            queryset = queryset.filter(
-                track_stock=True, quantity__lte=F("reorder_threshold") + F("reserved_quantity")
-            )
+        if params.get("low_stock") == "true":
+            queryset = queryset.filter(_low_stock_q())
+
+        # The four states a shopkeeper acts on. Expressed here rather than in
+        # the client so the counts on a summary and the rows in a list are
+        # derived from the same rule and cannot drift apart.
+        state = params.get("stock_state")
+        if state:
+            queryset = _filter_by_state(queryset, state)
+
         return queryset.order_by("product__name")
 
 
@@ -133,3 +144,147 @@ class LowStockView(TenantScopedMixin, APIView):
     def get(self, request: Request) -> Response:
         items = low_stock_items(self.tenant_id, limit=100)
         return Response(InventoryItemSerializer(items, many=True).data)
+
+
+class StockBatchViewSet(TenantScopedMixin, viewsets.ModelViewSet):
+    """Lots of stock and the dates they stop being sellable.
+
+    Filters are query parameters rather than separate endpoints because the
+    three questions an operator asks — *what has expired*, *what is about to*,
+    and *what is in this product* — are the same list under different windows,
+    and one list keeps sorting and pagination consistent between them.
+    """
+
+    serializer_class = StockBatchSerializer
+    permission_classes = [HasTenantPermission]
+    required_permissions = {
+        "list": ["inventory.view"],
+        "retrieve": ["inventory.view"],
+        "default": ["inventory.manage"],
+    }
+    queryset = StockBatch.objects.select_related("product", "product__sale_unit").all()
+    filterset_fields = ["product"]
+    search_fields = ["product__name", "product__sku", "code", "supplier"]
+
+    def get_queryset(self) -> Any:
+        queryset = super().get_queryset()
+        params = self.request.query_params
+
+        if params.get("remaining") == "true":
+            queryset = queryset.remaining()
+
+        if params.get("expired") == "true":
+            queryset = queryset.expired()
+
+        window = params.get("expiring_days")
+        if window:
+            try:
+                days = int(window)
+            except ValueError:
+                # A malformed window is a caller bug, not a reason to answer
+                # with every batch ever received.
+                raise ValidationError({"expiring_days": _("Must be a whole number of days.")})
+            queryset = queryset.expiring_within(max(days, 0))
+
+        return queryset
+
+
+class ExpiryReportView(TenantScopedMixin, APIView):
+    """What is going off, summarised for a dashboard.
+
+    Answers in one request what a shop checks every morning: how much has
+    already expired, how much turns this week, and what that is worth if it is
+    thrown away.
+    """
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["inventory.view"]
+
+    @extend_schema(responses={200: dict}, operation_id="inventory_expiry_report")
+    def get(self, request: Request) -> Response:
+        try:
+            days = int(request.query_params.get("days", 7))
+        except ValueError:
+            raise ValidationError({"days": _("Must be a whole number of days.")})
+
+        days = max(days, 0)
+        batches = StockBatch.objects.for_tenant(request.tenant)
+
+        expired = batches.expired().select_related("product")
+        soon = batches.expiring_within(days).select_related("product")
+
+        def value_of(queryset: Any) -> Decimal:
+            """Only batches with a known cost contribute; the rest are unknown,
+            not zero, and quietly counting them as zero would understate it."""
+            total = Decimal("0.00")
+            for batch in queryset:
+                worth = batch.write_off_value
+                if worth is not None:
+                    total += worth
+            return total
+
+        return Response(
+            {
+                "days": days,
+                "expired_count": expired.count(),
+                "expired_value": str(value_of(expired)),
+                "expiring_count": soon.count(),
+                "expiring_value": str(value_of(soon)),
+                "expired": StockBatchSerializer(expired[:20], many=True).data,
+                "expiring": StockBatchSerializer(soon[:20], many=True).data,
+            }
+        )
+
+
+def _low_stock_q() -> Q:
+    """Tracked, still has some, and at or under the point it should be reordered."""
+    return Q(track_stock=True, quantity__lte=F("reorder_threshold") + F("reserved_quantity"))
+
+
+def _out_of_stock_q() -> Q:
+    """Nothing sellable left. Available is derived, so the comparison is too."""
+    return Q(track_stock=True, quantity__lte=F("reserved_quantity"))
+
+
+def _filter_by_state(queryset: Any, state: str) -> Any:
+    if state == "out":
+        return queryset.filter(_out_of_stock_q())
+    if state == "low":
+        # Low means running down, not gone: what is already out belongs in the
+        # other band, and counting it twice would overstate both.
+        return queryset.filter(_low_stock_q()).exclude(_out_of_stock_q())
+    if state == "healthy":
+        return queryset.filter(track_stock=True).exclude(_low_stock_q())
+    if state == "untracked":
+        return queryset.filter(track_stock=False)
+
+    raise ValidationError({"stock_state": _("Unknown stock state.")})
+
+
+class StockHealthView(TenantScopedMixin, APIView):
+    """How many products sit in each state.
+
+    One request rather than four so the numbers describe a single moment. Four
+    separate counts taken as stock moves can disagree with each other and with
+    the list beside them, which makes the summary look broken.
+    """
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["inventory.view"]
+
+    @extend_schema(responses={200: dict}, operation_id="inventory_stock_health")
+    def get(self, request: Request) -> Response:
+        items = InventoryItem.objects.for_tenant(request.tenant)
+
+        tracked = items.filter(track_stock=True)
+        out = tracked.filter(_out_of_stock_q()).count()
+        low = tracked.filter(_low_stock_q()).exclude(_out_of_stock_q()).count()
+
+        return Response(
+            {
+                "out": out,
+                "low": low,
+                "healthy": tracked.count() - out - low,
+                "untracked": items.filter(track_stock=False).count(),
+            }
+        )

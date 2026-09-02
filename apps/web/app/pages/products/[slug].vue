@@ -165,10 +165,10 @@ const canPurchase = computed(() =>
 
 const breadcrumbs = computed(() => [
   { title: t('nav.home'), to: '/' },
-  { title: t('nav.catalog'), to: '/produtos' },
+  { title: t('nav.catalog'), to: '/products' },
   ...(product.value?.breadcrumb ?? []).map(node => ({
     title: node.name,
-    to: `/produtos?category=${node.slug}`,
+    to: `/products?category=${node.slug}`,
   })),
 ])
 

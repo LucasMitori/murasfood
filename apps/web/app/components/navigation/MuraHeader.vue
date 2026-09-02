@@ -54,7 +54,7 @@ div
           )
             v-list-item-title {{ option.name }}
 
-      v-btn(to="/favoritos" variant="text" icon :aria-label="t('nav.favorites')")
+      v-btn(to="/favorites" variant="text" icon :aria-label="t('nav.favorites')")
         v-badge(
           :content="hydrated ? favorites.count : 0"
           :model-value="hydrated && favorites.count > 0"
@@ -62,7 +62,7 @@ div
         )
           v-icon(icon="mdi-heart-outline")
 
-      v-btn(to="/carrinho" variant="text" icon :aria-label="t('nav.cart')")
+      v-btn(to="/cart" variant="text" icon :aria-label="t('nav.cart')")
         v-badge(
           :content="hydrated ? cart.itemCount : 0"
           :model-value="hydrated && cart.itemCount > 0"
@@ -76,9 +76,9 @@ div
             v-avatar(color="primary" size="32")
               span.text-caption {{ initials(auth.displayName) }}
         v-list(density="compact")
-          v-list-item(to="/conta" prepend-icon="mdi-account-outline") {{ t('nav.account') }}
-          v-list-item(to="/pedidos" prepend-icon="mdi-package-variant-closed") {{ t('nav.orders') }}
-          v-list-item(to="/conta/listas" prepend-icon="mdi-format-list-checks") {{ t('lists.title') }}
+          v-list-item(to="/account" prepend-icon="mdi-account-outline") {{ t('nav.account') }}
+          v-list-item(to="/account/orders" prepend-icon="mdi-package-variant-closed") {{ t('nav.orders') }}
+          v-list-item(to="/account/lists" prepend-icon="mdi-format-list-checks") {{ t('lists.title') }}
           v-list-item(
             v-if="auth.isMerchantUser"
             to="/admin"
@@ -184,7 +184,7 @@ div
 
         v-row(v-else dense)
           v-col(v-for="product in results" :key="product.id" cols="12" sm="6" md="3")
-            nuxt-link.mura-search-hit(:to="`/produtos/${product.slug}`" @click="close")
+            nuxt-link.mura-search-hit(:to="`/products/${product.slug}`" @click="close")
               v-avatar(rounded="lg" size="44")
                 v-img(
                   :src="product.image?.variants?.thumbnail || product.image?.url"
@@ -268,10 +268,10 @@ const topCategories = computed(() => props.categories.slice(0, 5))
 
 const links = computed(() => [
   { to: '/', icon: 'mdi-home-outline', label: t('nav.home') },
-  { to: '/produtos', icon: 'mdi-view-grid-outline', label: t('nav.catalog') },
-  { to: '/produtos?on_sale=true', icon: 'mdi-sale', label: t('nav.offers') },
+  { to: '/products', icon: 'mdi-view-grid-outline', label: t('nav.catalog') },
+  { to: '/products?on_sale=true', icon: 'mdi-sale', label: t('nav.offers') },
   { to: '/faq', icon: 'mdi-help-circle-outline', label: t('footer.faq') },
-  { to: '/contato', icon: 'mdi-email-outline', label: t('footer.contactUs') },
+  { to: '/contact', icon: 'mdi-email-outline', label: t('footer.contactUs') },
 ])
 
 function isActive(to: string): boolean {
@@ -337,7 +337,7 @@ function submit(): void {
   if (categorySlug.value) query.category = categorySlug.value
 
   close()
-  router.push({ path: '/produtos', query })
+  router.push({ path: '/products', query })
 }
 
 function close(): void {

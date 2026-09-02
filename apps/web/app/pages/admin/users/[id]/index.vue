@@ -3,15 +3,15 @@ div
   mura-page-header(
     :title="user?.full_name || user?.email || t('admin.viewUser')"
     :subtitle="user?.email"
-    back-to="/admin/usuarios"
-    :breadcrumbs="[{ title: 'admin.dashboard', to: '/admin' }, { title: 'admin.users', to: '/admin/usuarios' }, { title: 'admin.viewUser' }]"
+    back-to="/admin/users"
+    :breadcrumbs="[{ title: 'admin.dashboard', to: '/admin' }, { title: 'admin.users', to: '/admin/users' }, { title: 'admin.viewUser' }]"
   )
     template(#actions)
       mura-button(
         :label="t('common.edit')"
         icon="mdi-pencil-outline"
         permission="users.manage"
-        @click="router.push(`/admin/usuarios/${userId}/editar`)"
+        @click="router.push(`/admin/users/${userId}/editar`)"
       )
 
   mura-loading(v-if="pending" skeleton="card")

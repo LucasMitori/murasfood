@@ -11,7 +11,7 @@
     icon="mdi-heart-outline"
   )
     template(#action)
-      v-btn(to="/produtos" color="primary" variant="flat") {{ t('cart.continueShopping') }}
+      v-btn(to="/products" color="primary" variant="flat") {{ t('cart.continueShopping') }}
 
   template(v-else)
     p.text-body-2.text-medium-emphasis.mb-4 {{ t('common.results', favorites.count, { count: favorites.count }) }}

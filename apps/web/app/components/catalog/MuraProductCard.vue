@@ -123,7 +123,7 @@ const hydrated = useHydrated()
  */
 const showFavorite = computed(() => hydrated.value && props.isFavorite)
 
-const productLink = computed(() => `/produtos/${props.product.slug}`)
+const productLink = computed(() => `/products/${props.product.slug}`)
 const imageUrl = computed(() => props.product.image?.variants?.medium ?? props.product.image?.url ?? '')
 const srcSet = computed(() => buildSrcSet(props.product.image?.variants))
 

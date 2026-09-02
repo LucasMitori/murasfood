@@ -22,7 +22,7 @@
         v-icon.mb-2(icon="mdi-lifebuoy" color="primary" size="28")
         h3.text-subtitle-1.font-weight-bold.mb-1 {{ t('faq.stillStuck') }}
         p.text-body-2.text-medium-emphasis.mb-4 {{ t('faq.stillStuckHint') }}
-        v-btn(to="/contato" color="primary" variant="flat" block) {{ t('footer.contactUs') }}
+        v-btn(to="/contact" color="primary" variant="flat" block) {{ t('footer.contactUs') }}
 </template>
 
 <script setup lang="ts">

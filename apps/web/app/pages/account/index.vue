@@ -112,19 +112,19 @@ const passwordForm = ref<FormHandle | null>(null)
 
 const shortcuts = computed(() => [
   {
-    to: '/conta/enderecos',
+    to: '/account/addresses',
     icon: 'mdi-map-marker-outline',
     title: t('account.addresses'),
     subtitle: t('account.addAddress'),
   },
   {
-    to: '/conta/listas',
+    to: '/account/lists',
     icon: 'mdi-format-list-checks',
     title: t('lists.title'),
     subtitle: t('lists.subtitle'),
   },
   {
-    to: '/pedidos',
+    to: '/account/orders',
     icon: 'mdi-package-variant-closed',
     title: t('nav.orders'),
     subtitle: t('account.ordersHint'),

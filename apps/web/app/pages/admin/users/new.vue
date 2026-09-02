@@ -3,8 +3,8 @@ div
   mura-page-header(
     :title="t('admin.newUser')"
     :subtitle="t('admin.newUserSubtitle')"
-    back-to="/admin/usuarios"
-    :breadcrumbs="[{ title: 'admin.dashboard', to: '/admin' }, { title: 'admin.users', to: '/admin/usuarios' }, { title: 'admin.newUser' }]"
+    back-to="/admin/users"
+    :breadcrumbs="[{ title: 'admin.dashboard', to: '/admin' }, { title: 'admin.users', to: '/admin/users' }, { title: 'admin.newUser' }]"
   )
 
   mura-form-builder(
@@ -14,7 +14,7 @@ div
     :loading="saving"
     show-cancel
     @submit="create"
-    @cancel="router.push('/admin/usuarios')"
+    @cancel="router.push('/admin/users')"
   )
 </template>
 
@@ -121,7 +121,7 @@ async function create(values: FormValues): Promise<void> {
 
     // Straight into the editor: permissions and extra roles come next, and the
     // account is not much use until they are set.
-    await router.push(`/admin/usuarios/${created.id}/editar`)
+    await router.push(`/admin/users/${created.id}/editar`)
   }
   catch (error) {
     formRef.value?.applyApiError(error)

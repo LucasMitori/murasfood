@@ -119,13 +119,13 @@ const actions = computed<ToolAction[]>(() => {
       key: 'cart',
       icon: 'mdi-cart-outline',
       label: t('nav.cart'),
-      run: () => void router.push('/carrinho'),
+      run: () => void router.push('/cart'),
     },
     {
       key: 'lists',
       icon: 'mdi-format-list-checks',
       label: t('lists.title'),
-      run: () => void router.push('/conta/listas'),
+      run: () => void router.push('/account/lists'),
     },
     {
       key: 'theme',

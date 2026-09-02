@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest'
  * Every internal link must point at a page that exists.
  *
  * This is here because dead links kept shipping: the header linked to
- * `/favoritos`, sign-in linked to `/auth/cadastro` and `/auth/recuperar-senha`,
- * and checkout sent customers to `/conta/enderecos` to add the address they
+ * `/favorites`, sign-in linked to `/auth/register` and `/auth/reset-password`,
+ * and checkout sent customers to `/account/addresses` to add the address they
  * needed in order to finish paying. None of those pages existed. Nothing caught
  * it — a missing route is not a type error, and the build compiles a broken
  * link happily.
@@ -104,11 +104,49 @@ describe('internal links', () => {
   it('resolves dynamic routes by shape', () => {
     // Guards the matcher itself: if this stopped working every link would
     // "pass" by accident and the test above would prove nothing.
-    expect(resolves('/produtos/arroz-branco-5kg')).toBe(true)
-    expect(resolves('/produtos/anything/deeper/still')).toBe(false)
+    expect(resolves('/products/arroz-branco-5kg')).toBe(true)
+    expect(resolves('/products/anything/deeper/still')).toBe(false)
   })
 
   it('rejects a route that does not exist', () => {
     expect(resolves('/definitely-not-a-page')).toBe(false)
+  })
+})
+
+/**
+ * Route rules in `nuxt.config.ts` must name pages that exist.
+ *
+ * These sit outside `app/`, so the link scan above never saw them — and when
+ * the routes were renamed to English the rules kept pointing at the Portuguese
+ * paths. That is worse than a dead link: `/account/**` silently lost both its
+ * `noindex` header and its client-only rendering, so personalised pages became
+ * server-rendered and indexable, and `/conta` answered 200 with an empty shell
+ * instead of a 404.
+ */
+describe('route rules', () => {
+  const config = fs.readFileSync(path.join(webRoot, 'nuxt.config.ts'), 'utf8')
+
+  /** The keys of `routeRules`, e.g. `'/admin/**'` or `'/checkout'`. */
+  function ruleGlobs(): string[] {
+    const block = config.match(/routeRules:\s*\{([\s\S]*?)\n {2}\},/)
+    if (!block) return []
+
+    return [...block[1]!.matchAll(/'([^']+)':\s*\{/g)].map(match => match[1]!)
+  }
+
+  it('finds rules to check', () => {
+    expect(ruleGlobs().length).toBeGreaterThan(0)
+  })
+
+  it('every rule matches at least one real page', () => {
+    const orphaned = ruleGlobs().filter((glob) => {
+      // A `/x/**` rule is satisfied by the section existing at all, which is
+      // what `/x` itself resolving proves.
+      const probe = glob.replace(/\/\*\*$/, '')
+      return !resolves(probe) && !resolves(`${probe}/index`)
+    })
+
+    expect(orphaned, `Route rules naming pages that do not exist: ${orphaned.join(', ')}`)
+      .toEqual([])
   })
 })

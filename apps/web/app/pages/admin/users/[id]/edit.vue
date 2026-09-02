@@ -3,8 +3,8 @@ div
   mura-page-header(
     :title="user?.full_name || user?.email || t('admin.editUser')"
     :subtitle="user?.email"
-    back-to="/admin/usuarios"
-    :breadcrumbs="[{ title: 'admin.dashboard', to: '/admin' }, { title: 'admin.users', to: '/admin/usuarios' }, { title: 'admin.editUser' }]"
+    back-to="/admin/users"
+    :breadcrumbs="[{ title: 'admin.dashboard', to: '/admin' }, { title: 'admin.users', to: '/admin/users' }, { title: 'admin.editUser' }]"
   )
 
   mura-loading(v-if="pending" skeleton="card")
@@ -28,7 +28,7 @@ div
           show-cancel
           require-changes
           @submit="saveDetails"
-          @cancel="router.push('/admin/usuarios')"
+          @cancel="router.push('/admin/users')"
         )
 
       //- --- Permissions ---------------------------------------------------

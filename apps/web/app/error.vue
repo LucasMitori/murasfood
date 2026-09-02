@@ -121,10 +121,10 @@ const detail = computed(() => {
 })
 
 const suggestions = computed(() => [
-  { to: '/produtos', icon: 'mdi-view-grid-outline', label: t('nav.catalog') },
-  { to: '/produtos?on_sale=true', icon: 'mdi-sale', label: t('nav.offers') },
+  { to: '/products', icon: 'mdi-view-grid-outline', label: t('nav.catalog') },
+  { to: '/products?on_sale=true', icon: 'mdi-sale', label: t('nav.offers') },
   { to: '/faq', icon: 'mdi-help-circle-outline', label: t('footer.faq') },
-  { to: '/contato', icon: 'mdi-email-outline', label: t('footer.contactUs') },
+  { to: '/contact', icon: 'mdi-email-outline', label: t('footer.contactUs') },
 ])
 
 function goHome(): void {

@@ -1,6 +1,6 @@
 <template lang="pug">
 .mura-container.mura-section
-  mura-page-header(:title="t('account.addresses')" back-to="/conta")
+  mura-page-header(:title="t('account.addresses')" back-to="/account")
     template(#actions)
       v-btn(color="primary" variant="flat" prepend-icon="mdi-plus" @click="openCreate") {{ t('account.addAddress') }}
 

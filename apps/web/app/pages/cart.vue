@@ -11,7 +11,7 @@
     icon="mdi-cart-outline"
   )
     template(#action)
-      v-btn(to="/produtos" color="primary" variant="flat") {{ t('cart.continueShopping') }}
+      v-btn(to="/products" color="primary" variant="flat") {{ t('cart.continueShopping') }}
 
   v-row(v-else)
     v-col(cols="12" md="8")
@@ -38,7 +38,7 @@
                   )
 
               v-list-item-title
-                nuxt-link.text-decoration-none.text-high-emphasis(:to="`/produtos/${item.product.slug}`") {{ item.product.name }}
+                nuxt-link.text-decoration-none.text-high-emphasis(:to="`/products/${item.product.slug}`") {{ item.product.name }}
               v-list-item-subtitle
                 span {{ money.format(item.unit_price) }} · {{ money.quantity(item.quantity, item.product.unit.code) }}
                 v-chip.ml-2(v-if="!item.is_available" size="x-small" color="warning" variant="tonal") {{ t('cart.itemUnavailable') }}
@@ -63,7 +63,7 @@
                   )
 
       .d-flex.flex-wrap.justify-space-between.ga-2.mt-4
-        v-btn(to="/produtos" variant="text" prepend-icon="mdi-arrow-left") {{ t('cart.continueShopping') }}
+        v-btn(to="/products" variant="text" prepend-icon="mdi-arrow-left") {{ t('cart.continueShopping') }}
         .d-flex.ga-2
           v-btn(
             v-if="auth.isAuthenticated"

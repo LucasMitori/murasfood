@@ -13,7 +13,7 @@ div
       .text-center
         h1.text-h3.font-weight-bold.mb-3 {{ tenant.storeName }}
         p.text-h6.text-medium-emphasis.mb-6(v-if="tenant.branding?.tagline") {{ tenant.branding.tagline }}
-        v-btn(to="/produtos" color="primary" size="x-large" variant="flat" append-icon="mdi-arrow-right") {{ t('home.browseCatalog') }}
+        v-btn(to="/products" color="primary" size="x-large" variant="flat" append-icon="mdi-arrow-right") {{ t('home.browseCatalog') }}
 
     section.mura-container.mura-section(v-if="home.categories.length" aria-labelledby="home-categories")
       .mura-section__title
@@ -25,7 +25,7 @@ div
         nuxt-link.mura-category(
           v-for="category in home.categories"
           :key="category.id"
-          :to="`/produtos?category=${category.slug}`"
+          :to="`/products?category=${category.slug}`"
         )
           .mura-category__art
             v-img(
@@ -44,7 +44,7 @@ div
       :title="t('catalog.onSale')"
       :subtitle="t('home.onSaleHint')"
       :products="home.on_sale"
-      to="/produtos?on_sale=true"
+      to="/products?on_sale=true"
       highlight
     )
 
@@ -55,21 +55,21 @@ div
       :title="t('catalog.featured')"
       :subtitle="t('home.featuredHint')"
       :products="home.featured"
-      to="/produtos"
+      to="/products"
     )
     mura-product-rail(
       v-if="home.best_sellers.length"
       :title="t('catalog.bestSellers')"
       :subtitle="t('home.bestSellersHint')"
       :products="home.best_sellers"
-      to="/produtos?sort=best_sellers"
+      to="/products?sort=best_sellers"
     )
     mura-product-rail(
       v-if="home.new_arrivals.length"
       :title="t('catalog.newArrivals')"
       :subtitle="t('home.newArrivalsHint')"
       :products="home.new_arrivals"
-      to="/produtos?sort=newest"
+      to="/products?sort=newest"
     )
 </template>
 

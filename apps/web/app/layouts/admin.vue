@@ -66,7 +66,7 @@ div
           v-avatar(color="primary" size="32")
             span.text-caption {{ initials(auth.displayName) }}
       v-list(density="compact")
-        v-list-item(to="/conta" prepend-icon="mdi-account-outline") {{ t('nav.account') }}
+        v-list-item(to="/account" prepend-icon="mdi-account-outline") {{ t('nav.account') }}
         v-list-item(to="/" prepend-icon="mdi-storefront-outline") {{ t('admin.viewStorefront') }}
         v-divider
         v-list-item(prepend-icon="mdi-logout" @click="signOut") {{ t('nav.signOut') }}
@@ -130,13 +130,15 @@ const drawer = ref(true)
 // page behind it; the link test fails the build if one stops being true.
 const entries = [
   { to: '/admin', icon: 'mdi-view-dashboard-outline', labelKey: 'admin.dashboard', permission: 'perm.admin.dashboard' },
-  { to: '/admin/pedidos', icon: 'mdi-receipt-text-outline', labelKey: 'admin.orders', permission: 'perm.admin.orders' },
-  { to: '/admin/produtos', icon: 'mdi-package-variant-closed', labelKey: 'admin.products', permission: 'perm.admin.products' },
-  { to: '/admin/estoque', icon: 'mdi-warehouse', labelKey: 'admin.inventory', permission: 'perm.admin.inventory' },
-  { to: '/admin/clientes', icon: 'mdi-account-group-outline', labelKey: 'admin.customers', permission: 'perm.admin.customers' },
-  { to: '/admin/financeiro', icon: 'mdi-finance', labelKey: 'admin.finance', permission: 'perm.admin.finance' },
-  { to: '/admin/usuarios', icon: 'mdi-shield-account-outline', labelKey: 'admin.users', permission: 'perm.admin.users' },
-  { to: '/admin/home', icon: 'mdi-home-edit-outline', labelKey: 'admin.homeConfig', permission: 'perm.admin.settings' },
+  { to: '/admin/orders', icon: 'mdi-receipt-text-outline', labelKey: 'admin.orders', permission: 'perm.admin.orders' },
+  { to: '/admin/products', icon: 'mdi-package-variant-closed', labelKey: 'admin.products', permission: 'perm.admin.products' },
+  { to: '/admin/inventory', icon: 'mdi-warehouse', labelKey: 'admin.inventory', permission: 'perm.admin.inventory' },
+  { to: '/admin/inventory/alerts', icon: 'mdi-alert-decagram-outline', labelKey: 'admin.stockHealth', permission: 'perm.admin.inventory' },
+  { to: '/admin/inventory/expiry', icon: 'mdi-calendar-clock', labelKey: 'admin.expiry', permission: 'perm.admin.inventory' },
+  { to: '/admin/customers', icon: 'mdi-account-group-outline', labelKey: 'admin.customers', permission: 'perm.admin.customers' },
+  { to: '/admin/finance', icon: 'mdi-finance', labelKey: 'admin.finance', permission: 'perm.admin.finance' },
+  { to: '/admin/users', icon: 'mdi-shield-account-outline', labelKey: 'admin.users', permission: 'perm.admin.users' },
+  { to: '/admin/storefront', icon: 'mdi-home-edit-outline', labelKey: 'admin.homeConfig', permission: 'perm.admin.settings' },
 ]
 
 const { can } = usePermission()

@@ -10,18 +10,18 @@ div
   v-navigation-drawer(v-model="drawer" temporary)
     v-list(nav density="comfortable")
       v-list-item(to="/" prepend-icon="mdi-home-outline") {{ t('nav.home') }}
-      v-list-item(to="/produtos" prepend-icon="mdi-view-grid-outline") {{ t('nav.catalog') }}
-      v-list-item(to="/produtos?on_sale=true" prepend-icon="mdi-sale") {{ t('nav.offers') }}
-      v-list-item(to="/favoritos" prepend-icon="mdi-heart-outline") {{ t('nav.favorites') }}
-      v-list-item(to="/carrinho" prepend-icon="mdi-cart-outline") {{ t('nav.cart') }}
+      v-list-item(to="/products" prepend-icon="mdi-view-grid-outline") {{ t('nav.catalog') }}
+      v-list-item(to="/products?on_sale=true" prepend-icon="mdi-sale") {{ t('nav.offers') }}
+      v-list-item(to="/favorites" prepend-icon="mdi-heart-outline") {{ t('nav.favorites') }}
+      v-list-item(to="/cart" prepend-icon="mdi-cart-outline") {{ t('nav.cart') }}
       v-list-item(to="/faq" prepend-icon="mdi-help-circle-outline") {{ t('footer.faq') }}
-      v-list-item(to="/contato" prepend-icon="mdi-email-outline") {{ t('footer.contactUs') }}
+      v-list-item(to="/contact" prepend-icon="mdi-email-outline") {{ t('footer.contactUs') }}
       v-divider.my-2
       v-list-subheader {{ t('nav.categories') }}
       v-list-item(
         v-for="category in categories"
         :key="category.id"
-        :to="`/produtos?category=${category.slug}`"
+        :to="`/products?category=${category.slug}`"
         prepend-icon="mdi-tag-outline"
       ) {{ category.name }}
 

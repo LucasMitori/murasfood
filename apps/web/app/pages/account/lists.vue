@@ -3,7 +3,7 @@
   mura-page-header(
     :title="t('lists.title')"
     :subtitle="t('lists.subtitle')"
-    back-to="/conta"
+    back-to="/account"
   )
     template(#actions)
       v-btn(color="primary" variant="flat" prepend-icon="mdi-plus" @click="openCreate") {{ t('lists.newList') }}
@@ -72,7 +72,7 @@
           icon="mdi-cart-outline"
         )
           template(#action)
-            v-btn(to="/produtos" color="primary" variant="tonal") {{ t('cart.continueShopping') }}
+            v-btn(to="/products" color="primary" variant="tonal") {{ t('cart.continueShopping') }}
 
         template(v-else)
           ul.mura-list-items
@@ -85,7 +85,7 @@
                 )
 
               .mura-list-item__body
-                nuxt-link.mura-list-item__name(:to="`/produtos/${item.product.slug}`") {{ item.product.name }}
+                nuxt-link.mura-list-item__name(:to="`/products/${item.product.slug}`") {{ item.product.name }}
                 .d-flex.align-center.ga-2.flex-wrap
                   span.text-caption.text-medium-emphasis {{ money.quantity(item.quantity, item.product.unit.code) }} · {{ money.format(item.unit_price) }}
                   v-chip(

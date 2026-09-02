@@ -3,9 +3,9 @@
 # no value in a search result.
 User-agent: *
 Allow: /
-Disallow: /conta
-Disallow: /carrinho
+Disallow: /account
+Disallow: /cart
 Disallow: /checkout
-Disallow: /pedidos
+Disallow: /account/orders
 Disallow: /admin
 Disallow: /auth

@@ -133,12 +133,12 @@ function srcsetFor(banner: Banner): string {
 
 function linkFor(banner: Banner): string {
   switch (banner.link_type) {
-    case 'CATEGORY': return `/produtos?category=${banner.link_target}`
-    case 'PRODUCT': return `/produtos/${banner.link_target}`
-    case 'SEARCH': return `/produtos?q=${encodeURIComponent(banner.link_target)}`
-    case 'PROMOTION': return '/produtos?on_sale=true'
+    case 'CATEGORY': return `/products?category=${banner.link_target}`
+    case 'PRODUCT': return `/products/${banner.link_target}`
+    case 'SEARCH': return `/products?q=${encodeURIComponent(banner.link_target)}`
+    case 'PROMOTION': return '/products?on_sale=true'
     case 'EXTERNAL': return banner.link_target
-    default: return '/produtos'
+    default: return '/products'
   }
 }
 

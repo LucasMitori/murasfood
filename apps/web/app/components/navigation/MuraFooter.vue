@@ -116,18 +116,18 @@ const columns = computed(() => [
   {
     title: t('footer.shop'),
     links: [
-      { label: t('nav.catalog'), to: '/produtos' },
-      { label: t('nav.offers'), to: '/produtos?on_sale=true' },
-      { label: t('nav.favorites'), to: '/favoritos' },
-      { label: t('lists.title'), to: '/conta/listas' },
+      { label: t('nav.catalog'), to: '/products' },
+      { label: t('nav.offers'), to: '/products?on_sale=true' },
+      { label: t('nav.favorites'), to: '/favorites' },
+      { label: t('lists.title'), to: '/account/lists' },
     ],
   },
   {
     title: t('footer.help'),
     links: [
       { label: t('footer.faq'), to: '/faq' },
-      { label: t('footer.contactUs'), to: '/contato' },
-      { label: t('nav.orders'), to: '/pedidos' },
+      { label: t('footer.contactUs'), to: '/contact' },
+      { label: t('nav.orders'), to: '/account/orders' },
       { label: t('footer.deliveryInfo'), to: '/faq#entrega' },
     ],
   },

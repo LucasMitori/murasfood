@@ -74,9 +74,9 @@ div
                 td
                   //- The orders screen opens the detail as a side sheet rather than a
                     //- page, so the link carries the id as a query and that screen
-                    //- opens it. Pointing at `/admin/pedidos/<id>` matched no route
+                    //- opens it. Pointing at `/admin/orders/<id>` matched no route
                     //- at all, and every order number on this dashboard was dead.
-                  nuxt-link.text-decoration-none(:to="`/admin/pedidos?order=${order.id}`") {{ order.number }}
+                  nuxt-link.text-decoration-none(:to="`/admin/orders?order=${order.id}`") {{ order.number }}
                 td
                   mura-status-badge(:status="order.status" size="x-small")
                 td.text-right.mura-price {{ money.format(order.total) }}
