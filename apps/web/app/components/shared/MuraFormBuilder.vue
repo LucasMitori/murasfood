@@ -17,7 +17,14 @@ v-form(ref="formRef" :disabled="loading" @submit.prevent="submit")
             h3.text-subtitle-1.font-weight-medium {{ translate(section.title) }}
           p.text-caption.text-medium-emphasis.mb-0(v-if="section.description") {{ translate(section.description) }}
 
-        v-row(dense)
+        //- Standard gutters, not `dense`.
+          //- Every field owns its own grid cell, so the row's gutter is the one
+          //- place spacing is decided and each field is separated from its
+          //- neighbours identically — vertically as well as horizontally.
+          //- `dense` cut that to 4px, which read as fields stuck together, and
+          //- the alternative of hand-tuning a margin per field is what makes
+          //- forms drift apart as they are edited.
+        v-row
           v-col(
             v-for="field in visibleFieldsOf(section)"
             :key="field.name"
@@ -26,23 +33,29 @@ v-form(ref="formRef" :disabled="loading" @submit.prevent="submit")
             :md="field.md"
             :lg="field.lg"
           )
-            mura-form-field(
+            //- A slot per field, named after it. Lets one field be rendered by
+            //- hand — a bespoke picker, an inline preview — without dropping the
+            //- rest of the form back to hand-written markup.
+            slot(
+              :name="field.name"
               :field="field"
-              :model-value="values[field.name]"
+              :value="values[field.name]"
               :values="values"
-              :server-errors="serverErrors[field.name]"
-              @update:model-value="value => setValue(field, value)"
+              :set="(value: unknown) => setValue(field, value)"
             )
+              mura-form-field(
+                :field="resolveField(field)"
+                :model-value="values[field.name]"
+                :values="values"
+                :server-errors="serverErrors[field.name]"
+                @update:model-value="value => setValue(field, value)"
+              )
 
-  .d-flex.flex-wrap.align-center.ga-3(v-if="!hideActions")
-    v-btn(
-      type="submit"
-      color="primary"
-      variant="flat"
-      :loading="loading"
-      :disabled="loading || (requireChanges && !isDirty)"
-    ) {{ translate(schema.submitLabel) || t('common.save') }}
-
+  //- Cancel sits at the far left and the primary action at the far right: the
+    //- action that completes a form belongs at the end of its reading order,
+    //- under the last field it acts on, and putting the two apart makes the
+    //- destructive one hard to hit by accident.
+  .d-flex.flex-wrap.align-center.ga-3.mt-2(v-if="!hideActions")
     v-btn(
       v-if="showCancel"
       variant="text"
@@ -50,11 +63,21 @@ v-form(ref="formRef" :disabled="loading" @submit.prevent="submit")
       @click="emit('cancel')"
     ) {{ translate(schema.cancelLabel) || t('common.cancel') }}
 
-    v-spacer
-
     span.text-caption.text-medium-emphasis(v-if="isDirty" role="status") {{ t('form.unsavedChanges') }}
 
+    v-spacer
+
     slot(name="actions")
+
+    v-btn(
+      type="submit"
+      color="primary"
+      variant="flat"
+      rounded="lg"
+      :prepend-icon="schema.submitIcon"
+      :loading="loading"
+      :disabled="loading || (requireChanges && !isDirty)"
+    ) {{ translate(schema.submitLabel) || t('common.save') }}
 </template>
 
 <script setup lang="ts">
@@ -150,6 +173,30 @@ function visibleFieldsOf(section: FormSection): FormField[] {
 const activeFields = computed(() =>
   visibleSections.value.flatMap(section => visibleFieldsOf(section)),
 )
+
+/**
+ * Collapse a field's conditional predicates into plain flags.
+ *
+ * `requiredWhen`, `disabledWhen` and `readonlyWhen` are functions of the
+ * current values, so a field can depend on another — a delivery address that
+ * is only required once delivery is chosen, say.
+ *
+ * They are predicates rather than the expression strings this pattern is often
+ * written with: a string has to be evaluated with `new Function`, which cannot
+ * be typechecked, breaks under a strict content security policy, and executes
+ * whatever it is handed. A function is checked at compile time and has none of
+ * those problems.
+ */
+function resolveField(field: FormField): FormField {
+  if (!field.requiredWhen && !field.disabledWhen && !field.readonlyWhen) return field
+
+  return {
+    ...field,
+    required: field.requiredWhen ? field.requiredWhen(props.values) : field.required,
+    disabled: field.disabledWhen ? field.disabledWhen(props.values) : field.disabled,
+    readonly: field.readonlyWhen ? field.readonlyWhen(props.values) : field.readonly,
+  }
+}
 
 function setValue(field: FormField, value: unknown): void {
   const next = { ...props.values, [field.name]: value }

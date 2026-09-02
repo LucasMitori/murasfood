@@ -40,7 +40,8 @@
     "themeLight": "Light theme",
     "themeDark": "Dark theme",
     "menu": "Menu",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "create": "New"
   },
   "states": {
     "emptyTitle": "Nothing here",
@@ -103,7 +104,8 @@
     "currentPrice": "Current price",
     "lowestPrice": "Lowest",
     "highestPrice": "Highest",
-    "priceChange": "Change"
+    "priceChange": "Change",
+    "price": "Price"
   },
   "catalog": {
     "title": "Products",
@@ -512,7 +514,16 @@
     "quantityDeltaHint": "Use a negative number to remove stock",
     "movementType": "Movement type",
     "noExpenses": "No expenses recorded",
-    "noExpensesHint": "Expenses appear here once they are entered."
+    "noExpensesHint": "Expenses appear here once they are entered.",
+    "periods": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last_7": "Last 7 days",
+      "last_30": "Last 30 days",
+      "month": "This month",
+      "previous_month": "Last month"
+    },
+    "details": "Details"
   },
   "errors": {
     "generic": "We could not complete that operation.",

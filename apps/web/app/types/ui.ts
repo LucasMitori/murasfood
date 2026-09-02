@@ -113,6 +113,18 @@ export interface FormField {
    */
   visibleWhen?: (values: FormValues) => boolean
 
+  /**
+   * Conditional state, as functions of the whole form.
+   *
+   * Predicates rather than expression strings: a string needs `new Function` to
+   * evaluate, which cannot be typechecked, breaks under a strict content
+   * security policy, and runs whatever it is given. These are checked by the
+   * compiler and are ordinary code.
+   */
+  requiredWhen?: (values: FormValues) => boolean
+  disabledWhen?: (values: FormValues) => boolean
+  readonlyWhen?: (values: FormValues) => boolean
+
   /** Component to render for `type: 'custom'`. Receives modelValue + field. */
   component?: Component
 
@@ -143,6 +155,8 @@ export interface FormSchema {
   sections: FormSection[]
   /** i18n key for the submit button. */
   submitLabel?: string
+  /** Optional icon for the submit button, e.g. `mdi-send`. */
+  submitIcon?: string
   cancelLabel?: string
 }
 

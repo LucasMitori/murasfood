@@ -65,3 +65,60 @@ describe('locale parity', () => {
     })
   }
 })
+
+/**
+ * Every translation key the source actually asks for must exist.
+ *
+ * Parity between the locale files says they agree with each other; it says
+ * nothing about whether they agree with the code. `admin.period` shipped as a
+ * string label while the dashboard called `t('admin.period.today')` on it,
+ * treating a string as a namespace — identical in all three files, wrong in all
+ * three, and invisible to a parity check. The interface rendered the raw key
+ * path and only a console warning said so.
+ *
+ * Only statically analysable calls are checked: a key built at runtime cannot
+ * be resolved from the source, so those are skipped rather than guessed at.
+ */
+describe('translation keys used in source', () => {
+  const srcDir = fileURLToPath(new URL('../../app', import.meta.url))
+
+  function sourceFiles(dir: string): string[] {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) return sourceFiles(full)
+      return /\.(vue|ts)$/.test(entry.name) ? [full] : []
+    })
+  }
+
+  /** `t('a.b.c')` and `$t("a.b.c")` with a plain literal argument. */
+  const CALL = /\$?\bt\(\s*(['"])([A-Za-z][\w.]*)\1/g
+
+  it('resolve in every locale', () => {
+    const messages = Object.fromEntries(LOCALES.map(l => [l, load(l)]))
+    const known = Object.fromEntries(
+      LOCALES.map(l => [l, new Set(keyPaths(messages[l]!))]),
+    )
+
+    const missing: string[] = []
+
+    for (const file of sourceFiles(srcDir)) {
+      const source = fs.readFileSync(file, 'utf8')
+      const relative = path.relative(srcDir, file)
+
+      for (const match of source.matchAll(CALL)) {
+        const key = match[2]!
+
+        // Keys with no dot are usually a local variable named `t`, not a
+        // namespace path; and a bare word is rarely a real key.
+        if (!key.includes('.')) continue
+
+        for (const locale of LOCALES) {
+          if (!known[locale]!.has(key)) missing.push(`${relative}: ${key} (${locale})`)
+        }
+      }
+    }
+
+    expect(missing, `Translation keys used in source but absent:\n${missing.join('\n')}`)
+      .toEqual([])
+  })
+})

@@ -40,7 +40,8 @@
     "themeLight": "Tema claro",
     "themeDark": "Tema escuro",
     "menu": "Menu",
-    "skipToContent": "Ir para o conteúdo principal"
+    "skipToContent": "Ir para o conteúdo principal",
+    "create": "Novo"
   },
   "states": {
     "emptyTitle": "Nada por aqui",
@@ -103,7 +104,8 @@
     "currentPrice": "Preço atual",
     "lowestPrice": "Menor preço",
     "highestPrice": "Maior preço",
-    "priceChange": "Variação"
+    "priceChange": "Variação",
+    "price": "Preço"
   },
   "catalog": {
     "title": "Produtos",
@@ -512,7 +514,16 @@
     "quantityDeltaHint": "Use negativo para retirar do estoque",
     "movementType": "Tipo de movimento",
     "noExpenses": "Nenhuma despesa registrada",
-    "noExpensesHint": "As despesas aparecem aqui assim que forem lançadas."
+    "noExpensesHint": "As despesas aparecem aqui assim que forem lançadas.",
+    "periods": {
+      "today": "Hoje",
+      "yesterday": "Ontem",
+      "last_7": "Últimos 7 dias",
+      "last_30": "Últimos 30 dias",
+      "month": "Este mês",
+      "previous_month": "Mês passado"
+    },
+    "details": "Detalhes"
   },
   "errors": {
     "generic": "Não foi possível concluir a operação.",

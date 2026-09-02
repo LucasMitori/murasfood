@@ -47,7 +47,7 @@ div
   v-app-bar.mura-admin-bar(flat :height="64")
     v-app-bar-nav-icon.d-md-none(:aria-label="t('common.menu')" @click="drawer = !drawer")
 
-    div
+    .mura-admin-bar__title
       h1.text-subtitle-1.font-weight-bold.mb-0 {{ t('nav.admin') }}
       p.text-caption.text-medium-emphasis.mb-0 {{ tenant.storeName }}
 
@@ -74,6 +74,27 @@ div
   v-main
     #main-content.mura-container.py-6(tabindex="-1")
       slot
+
+  //- Where am I, and how do I get back?
+  //-
+  //- Derived from the route rather than declared per page, so a new screen gets
+  //- its trail without remembering to add one, and a page that moves cannot
+  //- leave a stale path behind.
+  //-
+  //- A sibling of `v-main`, not a child of it: Vuetify's layout system only
+  //- reserves space for `app` components it owns directly, and nesting this one
+  //- inside the main region took the whole dashboard down.
+  v-footer.mura-admin-foot(app)
+    .mura-container.d-flex.align-center.flex-wrap.ga-1
+      v-icon.mr-1(icon="mdi-map-marker-path" size="16" color="primary")
+      template(v-for="(crumb, index) in trail" :key="crumb.to")
+        v-icon(v-if="index > 0" icon="mdi-chevron-right" size="14" class="text-medium-emphasis")
+        nuxt-link.mura-admin-foot__crumb(v-if="index < trail.length - 1" :to="crumb.to") {{ crumb.label }}
+        span.mura-admin-foot__crumb.mura-admin-foot__crumb--current(v-else) {{ crumb.label }}
+
+      v-spacer
+
+      span.text-caption.text-medium-emphasis.d-none.d-sm-inline {{ tenant.storeName }}
 
   mura-floating-tools
 </template>
@@ -121,6 +142,45 @@ const entries = [
 const { can } = usePermission()
 const visibleEntries = computed(() => entries.filter(entry => can(entry.permission)))
 
+const route = useRoute()
+
+/**
+ * The path back out of wherever we are.
+ *
+ * Built from the URL and matched against the navigation entries, so a page
+ * inherits its trail from where it sits rather than declaring one. A segment
+ * with no matching entry (an id, say) falls back to a readable form of itself.
+ */
+const trail = computed(() => {
+  const segments = route.path.split('/').filter(Boolean)
+  const crumbs: { to: string, label: string }[] = []
+  let path = ''
+
+  for (const segment of segments) {
+    path += `/${segment}`
+    const entry = entries.find(candidate => candidate.to === path)
+
+    if (entry) {
+      crumbs.push({ to: path, label: t(entry.labelKey) })
+      continue
+    }
+
+    // An id or an unlisted leaf. A raw uuid tells the reader nothing, so it is
+    // shown as the action it represents where we know one, and otherwise as
+    // the segment with its separators softened.
+    const known: Record<string, string> = {
+      novo: t('common.create'),
+      editar: t('common.edit'),
+    }
+    const label = known[segment]
+      ?? (segment.length > 20 ? t('admin.details') : segment.replace(/[-_]/g, ' '))
+
+    crumbs.push({ to: path, label })
+  }
+
+  return crumbs
+})
+
 async function signOut(): Promise<void> {
   await auth.logout()
   await router.push('/')
@@ -128,11 +188,55 @@ async function signOut(): Promise<void> {
 </script>
 
 <style scoped>
+/*
+ * Matched to the app bar's 64px so the divider under this block lines up with
+ * the bottom of the header beside it. Left as free padding the two edges
+ * disagreed by a few pixels, which reads as a misaligned seam across the top.
+ */
 .mura-admin-nav__identity {
   display: flex;
+  min-height: 64px;
+  box-sizing: border-box;
   align-items: center;
   gap: 0.75rem;
-  padding: 1rem;
+  padding: 0 1rem;
+}
+
+/* The title was hard against the sidebar's edge; this gives it the same
+   breathing room the drawer's own content has. */
+.mura-admin-bar__title {
+  padding-inline-start: 0.5rem;
+}
+
+@media (min-width: 960px) {
+  .mura-admin-bar__title {
+    padding-inline-start: 1rem;
+  }
+}
+
+.mura-admin-foot {
+  min-height: 40px;
+  padding-block: 0;
+  border-top: 1px solid rgba(var(--v-border-color), 0.6);
+  background: rgb(var(--v-theme-surface));
+  font-size: 0.75rem;
+}
+
+.mura-admin-foot__crumb {
+  padding-inline: 0.25rem;
+  color: rgb(var(--v-theme-on-surface-variant));
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mura-admin-foot__crumb:hover {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: underline;
+}
+
+.mura-admin-foot__crumb--current {
+  color: rgb(var(--v-theme-on-surface));
+  font-weight: 600;
 }
 
 .mura-admin-nav__who {

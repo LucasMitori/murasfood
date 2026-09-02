@@ -72,7 +72,11 @@ div
             tbody
               tr(v-for="order in data.recent_orders" :key="order.id")
                 td
-                  nuxt-link.text-decoration-none(:to="`/admin/pedidos/${order.id}`") {{ order.number }}
+                  //- The orders screen opens the detail as a side sheet rather than a
+                    //- page, so the link carries the id as a query and that screen
+                    //- opens it. Pointing at `/admin/pedidos/<id>` matched no route
+                    //- at all, and every order number on this dashboard was dead.
+                  nuxt-link.text-decoration-none(:to="`/admin/pedidos?order=${order.id}`") {{ order.number }}
                 td
                   mura-status-badge(:status="order.status" size="x-small")
                 td.text-right.mura-price {{ money.format(order.total) }}
@@ -153,7 +157,10 @@ useSeoMeta({ title: () => t('admin.dashboard'), robots: 'noindex' })
 const periodOptions = computed(() =>
   ['today', 'yesterday', 'last_7', 'last_30', 'month', 'previous_month'].map(value => ({
     value,
-    label: t(`admin.period.${value}`),
+    // `admin.period` is the field's own label ("Period"); the options live
+    // under `admin.periods`. Reading them from the label treated a string as a
+    // namespace, so none of the six ever resolved.
+    label: t(`admin.periods.${value}`),
   })),
 )
 

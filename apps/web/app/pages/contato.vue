@@ -47,57 +47,19 @@
         //- Opens the visitor's own mail client rather than posting anywhere.
         //- There is no inbox behind this page, and a form that silently
         //- discarded messages would be worse than no form.
-        v-form(@submit.prevent="openMailClient")
-          //- Standard gutters: `dense` squeezed the row to 4px and put the
-          //- name and email fields almost against each other.
-          v-row
-            v-col(cols="12" sm="6")
-              v-text-field(
-                v-model="form.name"
-                :label="t('auth.firstName')"
-                :rules="[rules.required]"
-                variant="outlined"
-                density="comfortable"
-              )
-            v-col(cols="12" sm="6")
-              v-text-field(
-                v-model="form.email"
-                :label="t('auth.email')"
-                :rules="[rules.required, rules.email]"
-                type="email"
-                variant="outlined"
-                density="comfortable"
-              )
+        //-
+        //- Declared as a schema rather than hand-written inputs: every field
+        //- then owns a grid cell and the row's gutter spaces them all
+        //- identically. Written by hand, each field carried its own margin and
+        //- they disagreed — which is what left the name and e-mail row sitting
+        //- against the subject below it.
+        mura-form-builder(
+          v-model:values="form"
+          :schema="schema"
+          :card="false"
+          @submit="openMailClient"
+        )
 
-          v-text-field.mb-4(
-            v-model="form.subject"
-            :label="t('contact.subject')"
-            :rules="[rules.required]"
-            variant="outlined"
-            density="comfortable"
-          )
-
-          v-textarea.mb-4(
-            v-model="form.message"
-            :label="t('contact.message')"
-            :rules="[rules.required]"
-            variant="outlined"
-            rows="5"
-            auto-grow
-          )
-
-          //- Right-aligned: the action that ends a form belongs at the end of
-          //- the reading order, under the last field it acts on.
-          .d-flex.justify-end
-            v-btn(
-              type="submit"
-              color="primary"
-              variant="flat"
-              size="large"
-              rounded="lg"
-              append-icon="mdi-send"
-              :disabled="!canSend"
-            ) {{ t('contact.send') }}
 </template>
 
 <script setup lang="ts">
@@ -109,11 +71,11 @@
  * platform yet, and a form that accepted a message and dropped it would be a
  * worse answer than handing it to the visitor's mail client.
  */
-import { computed, reactive } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { FormSchema, FormValues } from '~/types/ui'
 import { useTenantStore } from '~/stores/tenant'
 import { formatPhone } from '~/utils/format'
-import * as validation from '~/utils/validation'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
@@ -123,16 +85,20 @@ useSeoMeta({
   description: () => t('contact.subtitle'),
 })
 
-const form = reactive({ name: '', email: '', subject: '', message: '' })
+const form = ref<FormValues>({ name: '', email: '', subject: '', message: '' })
 
-const rules = computed(() => ({
-  required: validation.required(t),
-  email: validation.email(t),
+const schema = computed<FormSchema>(() => ({
+  submitLabel: 'contact.send',
+  submitIcon: 'mdi-send',
+  sections: [{
+    fields: [
+      { name: 'name', type: 'text', label: 'auth.firstName', required: true, md: 6 },
+      { name: 'email', type: 'email', label: 'auth.email', required: true, md: 6 },
+      { name: 'subject', type: 'text', label: 'contact.subject', required: true },
+      { name: 'message', type: 'textarea', label: 'contact.message', required: true, rows: 5 },
+    ],
+  }],
 }))
-
-const canSend = computed(() =>
-  Boolean(form.name.trim() && form.email.trim() && form.subject.trim() && form.message.trim()),
-)
 
 const address = computed(() => {
   const parts = tenant.tenant?.address
@@ -147,13 +113,23 @@ const whatsapp = computed(() => {
   return number ? `https://wa.me/${number}` : ''
 })
 
-function openMailClient(): void {
+/**
+ * Hands the message to the visitor's own mail client.
+ *
+ * The builder only emits `submit` once its own validation has passed, so the
+ * values are known good by the time they arrive here.
+ */
+function openMailClient(values: FormValues): void {
   const to = tenant.tenant?.support_email
-  if (!to || !canSend.value) return
+  if (!to) return
 
-  const body = `${form.message}\n\n—\n${form.name} <${form.email}>`
-  window.location.href =
-    `mailto:${to}?subject=${encodeURIComponent(form.subject)}&body=${encodeURIComponent(body)}`
+  const body = `${values.message}
+
+—
+${values.name} <${values.email}>`
+  window.location.href
+    = `mailto:${to}?subject=${encodeURIComponent(String(values.subject))}`
+      + `&body=${encodeURIComponent(body)}`
 }
 </script>
 

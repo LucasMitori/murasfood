@@ -107,7 +107,7 @@ div
  * decides which move is legal. This screen only offers the moves it believes
  * are available; the API is what enforces them.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TableAction, TableColumn } from '~/types/ui'
 import { useServerTable } from '~/composables/useServerTable'
@@ -146,6 +146,8 @@ const ui = useUiStore()
 const { messageFor } = useApiError()
 
 useSeoMeta({ title: () => t('admin.orders') })
+
+const route = useRoute()
 
 const statusFilter = ref<string | null>(null)
 const detailOpen = ref(false)
@@ -204,6 +206,24 @@ function statusIcon(status: string): string {
   }
   return icons[status] ?? 'mdi-arrow-right'
 }
+
+/**
+ * Open the order named in `?order=`, once the table has it.
+ *
+ * The dashboard links here rather than to a detail page, so arriving with that
+ * query has to land on the same side sheet a click would open. It runs when the
+ * rows arrive because the id alone is not enough to render the sheet — the row
+ * carries the items and the transitions the server allows.
+ */
+watch(
+  () => [route.query.order, table.items.value] as const,
+  ([wanted]) => {
+    if (!wanted || detailOpen.value) return
+    const match = table.items.value.find(row => row.id === wanted)
+    if (match) openOrder(match)
+  },
+  { immediate: true },
+)
 
 function openOrder(row: OrderRow): void {
   selected.value = row
