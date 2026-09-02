@@ -354,9 +354,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Fill what the header and footer leave behind, so the card sits centred. */
-  min-height: calc(100vh - 220px);
-  padding: 2rem 1rem 3rem;
+  /*
+   * Fill the whole region under the header so the card sits in the middle of
+   * what the visitor can actually see.
+   *
+   * Matched to the content region rather than guessed at: `100vh` minus a
+   * number picked to allow for a footer meant the card drifted off centre
+   * whenever the footer was a different height. 120px is the header and its
+   * search bar, which is the only chrome above this.
+   *
+   * `svh` because on mobile `vh` is measured with the browser's chrome
+   * retracted, which makes the region taller than the screen and pushes the
+   * card below the fold on the very devices with least room to spare.
+   */
+  min-height: calc(100svh - 120px);
+  padding: 2rem 1rem;
 }
 
 .mura-auth__stage {

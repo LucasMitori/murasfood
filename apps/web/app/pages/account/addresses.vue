@@ -61,6 +61,7 @@
     mura-form-builder(
       ref="formRef"
       v-model:values="formValues"
+      :card="false"
       :schema="schema"
       :loading="saving"
       show-cancel

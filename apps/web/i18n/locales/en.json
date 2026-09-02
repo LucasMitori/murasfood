@@ -236,7 +236,14 @@
       "PAYMENT_FAILED": "Payment failed",
       "REFUNDED": "Refunded",
       "PARTIALLY_REFUNDED": "Partially refunded"
-    }
+    },
+    "progress": "Progress",
+    "refunded": "Refunded",
+    "estimatedReady": "Estimated: {at}",
+    "completePayment": "Complete payment",
+    "reorder": "Order again",
+    "reordered": "{count} item(s) added to the cart",
+    "reorderSkipped": "{count} unavailable item(s) were not added"
   },
   "auth": {
     "signIn": "Sign in",

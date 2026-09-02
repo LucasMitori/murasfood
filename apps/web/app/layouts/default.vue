@@ -25,7 +25,7 @@ div
         prepend-icon="mdi-tag-outline"
       ) {{ category.name }}
 
-  v-main
+  v-main.mura-main
     v-alert.rounded-0(
       v-if="!tenant.isOpenNow"
       type="info"
@@ -93,3 +93,24 @@ async function signOut(): Promise<void> {
   await router.push('/')
 }
 </script>
+
+<style scoped>
+/*
+ * Hold the content region to the height of the window.
+ *
+ * The footer is an ordinary block after `v-main`, so on a short page — an
+ * order list with one order, an empty cart — `v-main` collapsed to the height
+ * of its content and the footer rode up into the middle of the screen.
+ *
+ * `svh` rather than `vh`: on mobile `vh` is the height with the browser chrome
+ * *retracted*, so a `100vh` region is taller than what is actually visible and
+ * leaves a strip of footer showing under the fold. Only the height is
+ * constrained — a viewport width unit here would ignore the scrollbar and push
+ * the page sideways.
+ *
+ * 120px is the header and its search bar.
+ */
+.mura-main {
+  min-height: calc(100svh - 120px);
+}
+</style>

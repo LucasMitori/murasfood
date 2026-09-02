@@ -236,7 +236,14 @@
       "PAYMENT_FAILED": "Pago rechazado",
       "REFUNDED": "Reembolsado",
       "PARTIALLY_REFUNDED": "Reembolsado parcialmente"
-    }
+    },
+    "progress": "Progreso",
+    "refunded": "Reembolsado",
+    "estimatedReady": "Previsión: {at}",
+    "completePayment": "Completar pago",
+    "reorder": "Comprar de nuevo",
+    "reordered": "{count} artículo(s) añadidos al carrito",
+    "reorderSkipped": "{count} artículo(s) no disponibles no se añadieron"
   },
   "auth": {
     "signIn": "Iniciar sesión",

@@ -1,5 +1,5 @@
 <template lang="pug">
-.mura-container.mura-section.mura-cart
+.mura-container.mura-section
   h1.text-h5.mb-4 {{ t('cart.title') }}
 
   v-progress-linear(v-if="cart.loading" indeterminate color="primary")
@@ -271,22 +271,3 @@ function goToCheckout(): void {
   router.push(auth.isAuthenticated ? '/checkout' : { path: '/auth/login', query: { redirect: '/checkout' } })
 }
 </script>
-
-<style scoped>
-/*
- * Hold the page to the height of the window.
- *
- * An empty or short cart otherwise collapsed to a couple of hundred pixels and
- * pulled the whole footer up under the header, which read as a broken page
- * rather than an empty one. The header and its extension are 120px.
- */
-.mura-cart {
-  display: flex;
-  min-height: calc(100svh - 120px);
-  flex-direction: column;
-}
-
-.mura-cart > :last-child {
-  flex: 1 1 auto;
-}
-</style>

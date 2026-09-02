@@ -15,7 +15,12 @@ v-card.mura-card(:class="{ 'mura-card--interactive': Boolean(to || clickable) }"
 
   mura-error-state(v-else-if="error" :description="error" :on-retry="onRetry")
 
-  component(:is="padded ? 'v-card-text' : 'div'" v-else)
+  //- The component itself, not its name. A string `:is` resolves only against
+    //- globally registered components, and Vuetify's are imported per usage by
+    //- the build plugin, which cannot see a dynamic string — so this rendered a
+    //- literal `<v-card-text>` element with none of the padding every panel in
+    //- the app depends on.
+  component(:is="padded ? VCardText : 'div'" v-else)
     slot
 
   v-card-actions(v-if="$slots.footer")
@@ -30,6 +35,8 @@ v-card.mura-card(:class="{ 'mura-card--interactive': Boolean(to || clickable) }"
  * Using it rather than a bare `v-card` is what keeps those states consistent —
  * and present at all, which is the more common failure.
  */
+import { VCardText } from 'vuetify/components'
+
 withDefaults(defineProps<{
   title?: string
   subtitle?: string

@@ -9,8 +9,15 @@ v-form(ref="formRef" :disabled="loading" @submit.prevent="submit")
   ) {{ generalError }}
 
   template(v-for="(section, index) in visibleSections" :key="`section-${index}`")
-    component.mura-card.mb-4(:is="card ? 'v-card' : 'div'" :flat="card ? true : undefined")
-      component(:is="card ? 'v-card-text' : 'div'")
+    //- Real components, not names.
+      //- `:is` with a *string* only resolves against globally registered
+      //- components, and Vuetify's are imported per-usage by the build plugin,
+      //- which cannot see a dynamic string. Vue fell back to emitting literal
+      //- `<v-card>` and `<v-card-text>` elements: no card, and — because the
+      //- padding that cancels the row's negative gutter lives on `v-card-text`
+      //- — every field sat flush against the edge of the panel.
+    component.mura-card.mb-4(:is="card ? VCard : 'div'" :flat="card ? true : undefined")
+      component(:is="card ? VCardText : 'div'" :class="card ? undefined : 'mura-form__body'")
         .mb-4(v-if="section.title")
           .d-flex.align-center.ga-2
             v-icon(v-if="section.icon" :icon="section.icon" color="primary" size="small")
@@ -105,6 +112,7 @@ v-form(ref="formRef" :disabled="loading" @submit.prevent="submit")
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { VCard, VCardText } from 'vuetify/components'
 import type { FormField, FormSchema, FormSection, FormValues } from '~/types/ui'
 import { ApiRequestError } from '~/utils/api-client'
 
@@ -329,3 +337,15 @@ function slugify(value: string): string {
 
 defineExpose({ applyApiError, markPristine, isDirty, submit })
 </script>
+
+<style scoped>
+/*
+ * A `v-row` pulls itself 12px outwards to make its gutters line up. Inside a
+ * `v-card-text` that is cancelled by the card's own padding; standing on its
+ * own — which is what `:card="false"` means — there is nothing to cancel it
+ * against, so the same padding is restored here.
+ */
+.mura-form__body {
+  padding-inline: 12px;
+}
+</style>

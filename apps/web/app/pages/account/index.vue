@@ -8,6 +8,7 @@
         mura-form-builder(
           ref="profileForm"
           v-model:values="profileValues"
+          :card="false"
           :schema="profileSchema"
           :loading="savingProfile"
           @submit="saveProfile"
@@ -17,6 +18,7 @@
         mura-form-builder(
           ref="passwordForm"
           v-model:values="passwordValues"
+          :card="false"
           :schema="passwordSchema"
           :loading="savingPassword"
           @submit="changePassword"
