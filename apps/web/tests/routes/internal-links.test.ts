@@ -66,6 +66,23 @@ function collectLinks(): { file: string, line: number, link: string }[] {
     /\bto:\s*["'](\/[^"'`]*)["']/g,
   ]
 
+  /*
+   * Paths built as template literals, which the quoted patterns cannot see.
+   *
+   * Skipping them let five dead links through the rename to English: three
+   * `/admin/users/${id}/editar`, and — worse — the redirect checkout makes
+   * after placing an order, to `/account/orders/${number}/pagamento`. Each was
+   * a path split by an interpolation, so a segment-wise replacement never
+   * matched it and no test looked.
+   *
+   * Every `${...}` becomes one placeholder segment, which the resolver already
+   * matches against a dynamic route exactly as a real id would.
+   */
+  const templatePatterns = [
+    /:to="`(\/[^`]*)`"/g,
+    /(?:router\.push|navigateTo)\(\s*`(\/[^`]*)`/g,
+  ]
+
   const found: { file: string, line: number, link: string }[] = []
 
   for (const file of walk(path.join(webRoot, 'app')).filter(f => /\.(vue|ts)$/.test(f))) {
@@ -77,6 +94,21 @@ function collectLinks(): { file: string, line: number, link: string }[] {
           const link = match[1]!
           // `/api/...` is the backend, not a page; `${...}` is built at runtime.
           if (link.startsWith('/api') || link.includes('${')) continue
+          found.push({ file: path.relative(webRoot, file), line: index + 1, link })
+        }
+      }
+
+      for (const pattern of templatePatterns) {
+        pattern.lastIndex = 0
+        let match: RegExpExecArray | null
+        while ((match = pattern.exec(line))) {
+          const raw = match[1]!
+          if (raw.startsWith('/api')) continue
+
+          // One interpolation stands for one segment; a query string is not
+          // part of the route.
+          const link = raw.replace(/\$\{[^}]*\}/g, 'x').replace(/\?.*$/, '')
+          if (link.includes('${')) continue
           found.push({ file: path.relative(webRoot, file), line: index + 1, link })
         }
       }

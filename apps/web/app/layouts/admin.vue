@@ -170,9 +170,13 @@ const trail = computed(() => {
     // An id or an unlisted leaf. A raw uuid tells the reader nothing, so it is
     // shown as the action it represents where we know one, and otherwise as
     // the segment with its separators softened.
+    // Kept in step with the route segments themselves; these were still the
+    // Portuguese ones after the rename, so the trail read "… › edit".
     const known: Record<string, string> = {
-      novo: t('common.create'),
-      editar: t('common.edit'),
+      new: t('common.create'),
+      edit: t('common.edit'),
+      alerts: t('admin.stockHealth'),
+      expiry: t('admin.expiry'),
     }
     const label = known[segment]
       ?? (segment.length > 20 ? t('admin.details') : segment.replace(/[-_]/g, ' '))

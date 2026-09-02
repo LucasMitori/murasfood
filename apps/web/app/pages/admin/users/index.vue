@@ -47,12 +47,12 @@ div
     template(#item.roles="{ item }")
       .d-flex.flex-wrap.ga-1
         v-chip(
-          v-for="role in (item.roles as string[]) ?? []"
+          v-for="role in item.roles ?? []"
           :key="role"
           size="x-small"
           variant="tonal"
         ) {{ role }}
-        span.text-caption.text-medium-emphasis(v-if="!(item.roles as string[])?.length") —
+        span.text-caption.text-medium-emphasis(v-if="!item.roles?.length") —
 
     template(#item.is_active="{ item }")
       v-chip(
@@ -68,7 +68,7 @@ div
  * User and role administration.
  *
  * The list only lists. Creating and editing are real pages
- * (`/novo`, `/:id/editar`) rather than a dialog, because the editor carries
+ * (`/new`, `/:id/edit`) rather than a dialog, because the editor carries
  * tabs and two transfer lists — far too much for a modal, and a URL worth
  * linking to.
  */
@@ -83,7 +83,24 @@ import { initials } from '~/utils/format'
 
 definePageMeta({ layout: 'admin', middleware: 'merchant', permission: 'perm.admin.users' })
 
-type UserRow = Record<string, unknown>
+/**
+ * Typed rather than `Record<string, unknown>`.
+ *
+ * The template previously cast with `item.roles as string[]`. A template
+ * expression is compiled to plain JavaScript, so the cast reached the browser
+ * as a syntax error and this page has never once rendered — while ESLint and
+ * `vue-tsc` both passed, because neither reads a Pug template. Typing the row
+ * removes the reason to cast at all.
+ */
+interface UserRow {
+  id: string
+  email: string
+  full_name: string
+  user_type: string
+  roles: string[]
+  is_active: boolean
+  [key: string]: unknown
+}
 
 const { t } = useI18n()
 const router = useRouter()
@@ -138,7 +155,7 @@ async function onAction(payload: { key: string, row: UserRow }): Promise<void> {
     return
   }
   if (key === 'edit') {
-    await router.push(`/admin/users/${row.id}/editar`)
+    await router.push(`/admin/users/${row.id}/edit`)
     return
   }
 

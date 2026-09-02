@@ -77,3 +77,52 @@ describe('row action contract', () => {
       .toEqual([])
   })
 })
+
+/**
+ * Pug templates must not contain TypeScript.
+ *
+ * A template expression is compiled to plain JavaScript, so a cast written
+ * there — `item.roles as string[]` — reaches the browser verbatim and throws
+ * `SyntaxError: Unexpected identifier 'as'` the moment the chunk is imported.
+ * The page never renders.
+ *
+ * Nothing else can see this. `vue-tsc` does not type-check Pug, ESLint's Vue
+ * parser does not read it either, and the dev server compiles and serves the
+ * broken module without complaint. `/admin/users` carried two such casts and
+ * had never once rendered.
+ */
+describe('pug templates', () => {
+  function templateOf(source: string): string {
+    const open = source.indexOf('<template')
+    const close = source.lastIndexOf('</template>')
+    if (open === -1 || close === -1) return ''
+    return source.slice(open, close)
+  }
+
+  it('contain no TypeScript casts', () => {
+    const offenders: string[] = []
+    const roots = ['app/pages', 'app/components', 'app/layouts']
+
+    for (const root of roots) {
+      for (const file of walk(path.join(webRoot, root))) {
+        const source = fs.readFileSync(file, 'utf8')
+        if (!source.includes('lang="pug"')) continue
+
+        templateOf(source).split('\n').forEach((line, index) => {
+          // Comment lines are prose and may say "as" freely.
+          if (/^\s*\/\//.test(line)) return
+          // A cast follows a value and precedes a type: `x as Foo`, `) as Foo`,
+          // `x as string[]`. The type may be a primitive, so it is matched
+          // case-insensitively — requiring a capital missed `as string[]`,
+          // which is exactly the cast that broke /admin/users.
+          if (/[\w)\]] as [A-Za-z][\w<>[\]|]*/.test(line)) {
+            offenders.push(`${path.relative(webRoot, file)}:${index + 1}: ${line.trim()}`)
+          }
+        })
+      }
+    }
+
+    expect(offenders, `TypeScript casts inside Pug templates:\n${offenders.join('\n')}`)
+      .toEqual([])
+  })
+})

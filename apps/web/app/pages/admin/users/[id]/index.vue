@@ -11,7 +11,7 @@ div
         :label="t('common.edit')"
         icon="mdi-pencil-outline"
         permission="users.manage"
-        @click="router.push(`/admin/users/${userId}/editar`)"
+        @click="router.push(`/admin/users/${userId}/edit`)"
       )
 
   mura-loading(v-if="pending" skeleton="card")

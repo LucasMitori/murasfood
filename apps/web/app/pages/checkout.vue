@@ -201,7 +201,7 @@ async function placeOrder(): Promise<void> {
     )
 
     await cart.fetch()
-    await router.push(`/account/orders/${order.number}/pagamento`)
+    await router.push(`/account/orders/${order.number}/payment`)
   }
   catch (error) {
     submitError.value = messageFor(error)

@@ -121,7 +121,7 @@ async function create(values: FormValues): Promise<void> {
 
     // Straight into the editor: permissions and extra roles come next, and the
     // account is not much use until they are set.
-    await router.push(`/admin/users/${created.id}/editar`)
+    await router.push(`/admin/users/${created.id}/edit`)
   }
   catch (error) {
     formRef.value?.applyApiError(error)
