@@ -23,6 +23,8 @@ export const StorageKeys = {
   theme: 'murasfood.theme',
   tenant: 'murasfood.tenant',
   recentlyViewed: 'murasfood.recently_viewed',
+  /** Whether the dashboard's navigation is collapsed to its rail. */
+  adminRail: 'murasfood.admin_rail',
 } as const
 
 export function readStorage(key: string): string | null {

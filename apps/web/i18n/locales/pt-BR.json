@@ -580,7 +580,12 @@
     "stockHealthEmpty": "Nada a fazer aqui",
     "stockHealthEmptyHint": "Nenhum produto nesta situação no momento.",
     "productImages": "Imagens do produto",
-    "productImagesHint": "A primeira imagem é a principal. Arraste para reordenar."
+    "productImagesHint": "A primeira imagem é a principal. Arraste para reordenar.",
+    "collapseMenu": "Recolher menu",
+    "expandMenu": "Expandir menu",
+    "searchPlaceholder": "Buscar páginas e ações do painel",
+    "searchResults": "{count} resultado(s)",
+    "searchEmpty": "Nada encontrado"
   },
   "errors": {
     "generic": "Não foi possível concluir a operação.",

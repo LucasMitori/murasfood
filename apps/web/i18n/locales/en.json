@@ -580,7 +580,12 @@
     "stockHealthEmpty": "Nothing to do here",
     "stockHealthEmptyHint": "No products are in this state right now.",
     "productImages": "Product images",
-    "productImagesHint": "The first image is the primary one. Drag to reorder."
+    "productImagesHint": "The first image is the primary one. Drag to reorder.",
+    "collapseMenu": "Collapse menu",
+    "expandMenu": "Expand menu",
+    "searchPlaceholder": "Search dashboard pages and actions",
+    "searchResults": "{count} result(s)",
+    "searchEmpty": "Nothing found"
   },
   "errors": {
     "generic": "We could not complete that operation.",
