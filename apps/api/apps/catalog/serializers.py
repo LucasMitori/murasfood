@@ -16,10 +16,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.common.money import money_str
 from apps.common.serializers import MoneySerializerField, QuantitySerializerField
+from apps.media.models import MediaAsset
 from apps.media.serializers import MediaAssetSerializer
 
 from .models import (
@@ -280,6 +282,18 @@ class ProductAdminSerializer(serializers.ModelSerializer):
     """Merchant view: includes cost, stock and lifecycle fields."""
 
     images = ProductImageSerializer(many=True, read_only=True)
+
+    #: Write side of ``images``. The nested serializer stays read-only because
+    #: what a client sends is a list of already-uploaded assets, not image rows:
+    #: the file goes to ``/media/upload/`` first and this attaches the result.
+    image_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        write_only=True,
+        required=False,
+        queryset=MediaAsset.objects.all(),
+        help_text=_("Media assets to show for this product, in order. The first is primary."),
+    )
+
     barcodes = ProductBarcodeSerializer(many=True, read_only=True)
     translations = ProductTranslationSerializer(many=True, required=False)
     tags = serializers.PrimaryKeyRelatedField(
@@ -315,6 +329,7 @@ class ProductAdminSerializer(serializers.ModelSerializer):
             "tax_category",
             "max_quantity_per_order",
             "images",
+            "image_ids",
             "barcodes",
             "translations",
             "price",
@@ -348,16 +363,48 @@ class ProductAdminSerializer(serializers.ModelSerializer):
 
     def update(self, instance: Product, validated_data: dict[str, Any]) -> Product:
         translations = validated_data.pop("translations", None)
+        images = validated_data.pop("image_ids", None)
         product = super().update(instance, validated_data)
         if translations is not None:
             self._sync_translations(product, translations)
+        # `None` means the client did not mention images; an empty list means it
+        # asked for none. Only the second should clear them.
+        if images is not None:
+            self._sync_images(product, images)
         return product
 
     def create(self, validated_data: dict[str, Any]) -> Product:
         translations = validated_data.pop("translations", [])
+        images = validated_data.pop("image_ids", [])
         product = super().create(validated_data)
         self._sync_translations(product, translations)
+        self._sync_images(product, images)
         return product
+
+    @staticmethod
+    def _sync_images(product: Product, assets: list[Any]) -> None:
+        """Replace the product's images with exactly this list, in this order.
+
+        Rows are rebuilt rather than diffed because position and primacy are
+        properties of the *list*, not of any one row: dragging the third image
+        to the front changes two rows, and reconciling that is more code than
+        writing the four rows again.
+        """
+        product.images.all().delete()
+
+        ProductImage.objects.bulk_create(
+            [
+                ProductImage(
+                    tenant_id=product.tenant_id,
+                    product=product,
+                    asset=asset,
+                    position=index,
+                    # Exactly one primary, and it is the one shown first.
+                    is_primary=index == 0,
+                )
+                for index, asset in enumerate(assets)
+            ]
+        )
 
     @staticmethod
     def _sync_translations(product: Product, translations: list[dict[str, Any]]) -> None:

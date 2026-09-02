@@ -96,7 +96,32 @@ import { useUiStore } from '~/stores/ui'
 
 definePageMeta({ layout: 'admin', middleware: 'merchant', permission: 'perm.admin.products' })
 
-type ProductRow = Record<string, unknown>
+/**
+ * Typed rather than `Record<string, unknown>`.
+ *
+ * An untyped row forces a cast wherever a field is used for anything but
+ * display — and a cast written into a template is compiled to plain JavaScript
+ * and throws in the browser, which is exactly how /admin/users came to never
+ * render. Declaring the shape once removes the reason to reach for one.
+ */
+interface ProductRow {
+  id: string
+  name: string
+  sku: string
+  slug: string
+  category: string | null
+  short_description: string
+  description: string
+  sale_unit: string
+  base_price: string
+  cost_price: string | null
+  product_type: string
+  status: string
+  requires_weighing: boolean
+  is_featured: boolean
+  images?: { asset?: { id: string } }[]
+  [key: string]: unknown
+}
 
 const { t } = useI18n()
 const money = useMoney()
@@ -178,6 +203,23 @@ const formRef = ref<{
 
 const schema = computed<FormSchema>(() => ({
   sections: [
+    {
+      //- The gallery first: a product without a picture is the one thing a
+      //- shopper will not click, so it should not be the last thing asked for.
+      title: 'admin.productImages',
+      icon: 'mdi-image-multiple-outline',
+      fields: [
+        {
+          name: 'image_ids',
+          type: 'image',
+          label: 'admin.productImages',
+          folder: 'products',
+          multiple: true,
+          max: 6,
+          hint: 'admin.productImagesHint',
+        },
+      ],
+    },
     {
       title: 'admin.productDetails',
       icon: 'mdi-package-variant-closed',
@@ -279,6 +321,9 @@ function openEdit(row: ProductRow): void {
     product_type: row.product_type,
     requires_weighing: row.requires_weighing,
     is_featured: row.is_featured,
+    // The API reads a list of asset ids and returns full image rows, so the
+    // form is loaded with the ids the upload widget speaks.
+    image_ids: (row.images ?? []).map(image => image.asset?.id).filter(Boolean),
   }
   formOpen.value = true
 }

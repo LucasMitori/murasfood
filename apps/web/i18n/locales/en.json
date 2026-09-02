@@ -578,7 +578,9 @@
     "healthy": "Healthy",
     "untracked": "Not tracked",
     "stockHealthEmpty": "Nothing to do here",
-    "stockHealthEmptyHint": "No products are in this state right now."
+    "stockHealthEmptyHint": "No products are in this state right now.",
+    "productImages": "Product images",
+    "productImagesHint": "The first image is the primary one. Drag to reorder."
   },
   "errors": {
     "generic": "We could not complete that operation.",

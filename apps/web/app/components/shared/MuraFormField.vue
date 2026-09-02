@@ -130,6 +130,8 @@ mura-image-upload(
   :model-value="modelValue"
   :label="label"
   :folder="field.folder"
+  :multiple="field.multiple"
+  :max="field.max"
   :error-messages="errorMessages"
   :disabled="isDisabled"
   @update:model-value="update"
