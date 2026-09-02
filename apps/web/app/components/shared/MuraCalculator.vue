@@ -7,18 +7,19 @@ mura-dialog(
   @update:model-value="value => emit('update:modelValue', value)"
 )
   .mura-calc(@keydown="onKey")
-    output.mura-calc__screen(:aria-live="'polite'")
+    output.mura-calc__screen(aria-live="polite")
       span.mura-calc__history {{ history }}
-      span.mura-calc__value {{ display }}
+      //- The value shrinks as it lengthens rather than scrolling: a number you
+        //- have to scroll to read is not a readout.
+      span.mura-calc__value(:style="{ fontSize: valueSize }") {{ display }}
 
     .mura-calc__grid
-      v-btn(
+      button.mura-calc__key(
         v-for="key in keys"
         :key="key.label"
-        :class="key.wide ? 'mura-calc__key--wide' : ''"
-        :color="key.color"
-        :variant="key.variant || 'tonal'"
-        size="large"
+        :class="`mura-calc__key--${key.tone}`"
+        type="button"
+        :aria-label="key.aria || key.label"
         @click="press(key)"
       ) {{ key.label }}
 
@@ -52,12 +53,22 @@ const ui = useUiStore()
 
 type Operator = '+' | '-' | '×' | '÷'
 
-interface CalcKey {
+/**
+ * What a key *does*. The keyboard produces these too, and a physical key has
+ * no appearance to describe — which is why the visual role lives on `CalcKey`
+ * below rather than here.
+ */
+interface KeyAction {
   label: string
   kind: 'digit' | 'operator' | 'equals' | 'clear' | 'sign' | 'percent' | 'dot' | 'back'
-  color?: string
-  variant?: 'flat' | 'tonal' | 'text'
-  wide?: boolean
+}
+
+/** A key on the pad: what it does, plus how it looks. */
+interface CalcKey extends KeyAction {
+  /** Visual role; the styling is keyed off this rather than off the label. */
+  tone: 'digit' | 'operator' | 'equals' | 'clear' | 'muted'
+  /** Spoken name where the glyph is not one, e.g. "⌫". */
+  aria?: string
 }
 
 /** Four decimal places: enough for unit prices and percentage work. */
@@ -74,26 +85,41 @@ const history = computed(() =>
 )
 
 const keys: CalcKey[] = [
-  { label: 'C', kind: 'clear', color: 'error', variant: 'tonal' },
-  { label: '±', kind: 'sign' },
-  { label: '%', kind: 'percent' },
-  { label: '÷', kind: 'operator', color: 'primary' },
-  { label: '7', kind: 'digit' },
-  { label: '8', kind: 'digit' },
-  { label: '9', kind: 'digit' },
-  { label: '×', kind: 'operator', color: 'primary' },
-  { label: '4', kind: 'digit' },
-  { label: '5', kind: 'digit' },
-  { label: '6', kind: 'digit' },
-  { label: '-', kind: 'operator', color: 'primary' },
-  { label: '1', kind: 'digit' },
-  { label: '2', kind: 'digit' },
-  { label: '3', kind: 'digit' },
-  { label: '+', kind: 'operator', color: 'primary' },
-  { label: '0', kind: 'digit', wide: true },
-  { label: ',', kind: 'dot' },
-  { label: '=', kind: 'equals', color: 'primary', variant: 'flat' },
+  { label: 'C', kind: 'clear', tone: 'clear' },
+  { label: '⌫', kind: 'back', tone: 'muted', aria: 'Backspace' },
+  { label: '%', kind: 'percent', tone: 'muted' },
+  { label: '÷', kind: 'operator', tone: 'operator' },
+  { label: '7', kind: 'digit', tone: 'digit' },
+  { label: '8', kind: 'digit', tone: 'digit' },
+  { label: '9', kind: 'digit', tone: 'digit' },
+  { label: '×', kind: 'operator', tone: 'operator' },
+  { label: '4', kind: 'digit', tone: 'digit' },
+  { label: '5', kind: 'digit', tone: 'digit' },
+  { label: '6', kind: 'digit', tone: 'digit' },
+  { label: '-', kind: 'operator', tone: 'operator' },
+  { label: '1', kind: 'digit', tone: 'digit' },
+  { label: '2', kind: 'digit', tone: 'digit' },
+  { label: '3', kind: 'digit', tone: 'digit' },
+  { label: '+', kind: 'operator', tone: 'operator' },
+  { label: '±', kind: 'sign', tone: 'muted' },
+  { label: '0', kind: 'digit', tone: 'digit' },
+  { label: ',', kind: 'dot', tone: 'digit' },
+  { label: '=', kind: 'equals', tone: 'equals' },
 ]
+
+/**
+ * Shrink the readout as the number grows.
+ *
+ * Five sizes rather than a continuous scale, so a digit landing does not nudge
+ * every other character sideways by a fraction.
+ */
+const valueSize = computed(() => {
+  const length = display.value.length
+  if (length <= 8) return '2.5rem'
+  if (length <= 11) return '2rem'
+  if (length <= 14) return '1.625rem'
+  return '1.375rem'
+})
 
 /** Parse the display into scaled integer units. */
 function toUnits(text: string): number {
@@ -117,7 +143,7 @@ function apply(a: number, b: number, op: Operator): number | null {
   }
 }
 
-function press(key: CalcKey): void {
+function press(key: KeyAction): void {
   switch (key.kind) {
     case 'digit':
       current.value = replace.value ? key.label : (current.value + key.label).slice(0, 14)
@@ -188,7 +214,7 @@ function resolve(): void {
 
 /** Physical keyboards are how anyone actually uses a calculator. */
 function onKey(event: KeyboardEvent): void {
-  const map: Record<string, CalcKey | undefined> = {
+  const map: Record<string, KeyAction | undefined> = {
     '/': { label: '÷', kind: 'operator' },
     '*': { label: '×', kind: 'operator' },
     '+': { label: '+', kind: 'operator' },
@@ -231,31 +257,44 @@ void props
 </script>
 
 <style scoped>
+/*
+ * The keys are plain buttons rather than `v-btn`.
+ *
+ * A calculator wants twenty identical, densely packed targets; `v-btn` brings
+ * its own min-width, ripple and elevation, and fighting those produces more CSS
+ * than starting from a button does. Every colour below is a theme token, so the
+ * pad reads the same way in light and dark.
+ */
 .mura-calc__screen {
   display: flex;
-  min-height: 5rem;
+  min-height: 6.25rem;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: center;
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.75rem;
-  border-radius: 12px;
-  background: rgb(var(--v-theme-surface-variant));
+  justify-content: flex-end;
+  padding: 1rem 1.125rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(var(--v-border-color), 0.65);
+  border-radius: 16px;
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 .mura-calc__history {
-  min-height: 1rem;
+  min-height: 1.125rem;
   color: rgb(var(--v-theme-on-surface-variant));
   font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 .mura-calc__value {
-  overflow-x: auto;
   max-width: 100%;
-  font-size: 2rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  /* Long results wrap rather than overflow the panel. */
+  overflow-wrap: anywhere;
+  transition: font-size 120ms ease;
 }
 
 .mura-calc__grid {
@@ -264,7 +303,85 @@ void props
   gap: 0.5rem;
 }
 
-.mura-calc__key--wide {
-  grid-column: span 2;
+.mura-calc__key {
+  height: 3.5rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    transform 90ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.mura-calc__key:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* Presses read as a press. Kept small — a calculator is used quickly. */
+.mura-calc__key:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mura-calc__key {
+    transition: background-color 140ms ease;
+  }
+
+  .mura-calc__key:active {
+    transform: none;
+  }
+}
+
+.mura-calc__key--digit {
+  border-color: rgba(var(--v-border-color), 0.6);
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.mura-calc__key--digit:hover {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.mura-calc__key--muted {
+  background: rgba(var(--v-theme-on-surface), 0.07);
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+
+.mura-calc__key--muted:hover {
+  background: rgba(var(--v-theme-on-surface), 0.12);
+}
+
+.mura-calc__key--operator {
+  background: rgba(var(--v-theme-primary), 0.13);
+  color: rgb(var(--v-theme-primary));
+  font-size: 1.25rem;
+}
+
+.mura-calc__key--operator:hover {
+  background: rgba(var(--v-theme-primary), 0.2);
+}
+
+.mura-calc__key--clear {
+  background: rgba(var(--v-theme-error), 0.13);
+  color: rgb(var(--v-theme-error));
+}
+
+.mura-calc__key--clear:hover {
+  background: rgba(var(--v-theme-error), 0.2);
+}
+
+.mura-calc__key--equals {
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+  font-size: 1.25rem;
+}
+
+.mura-calc__key--equals:hover {
+  filter: brightness(1.08);
 }
 </style>
