@@ -194,6 +194,30 @@ class TenantBranding(BaseModel):
         return f"{self.tenant} branding"
 
 
+#: Shortcuts the floating button can offer. The catalogue lives here rather
+#: than in the frontend because it is what the API validates against — a client
+#: that invents a key must be refused, not quietly ignored.
+FLOATING_TOOL_KEYS = ("calculator", "whatsapp", "cart", "lists", "theme", "top")
+
+FLOATING_POSITIONS = ("bottom-right", "bottom-left", "top-right", "top-left")
+
+
+def default_floating_tools() -> dict:
+    """Everything on, in the order a shop is most likely to want it.
+
+    A callable rather than a literal: a mutable default on a model field is
+    shared between every row that uses it, so one tenant editing their tools
+    would edit everyone's.
+    """
+    return {
+        "enabled": True,
+        "icon": "mdi-apps",
+        "color": "primary",
+        "position": "bottom-right",
+        "actions": list(FLOATING_TOOL_KEYS),
+    }
+
+
 class TenantSettings(BaseModel):
     """Operational configuration a merchant can change without a deploy."""
 
@@ -241,6 +265,13 @@ class TenantSettings(BaseModel):
     # --- Legal ---------------------------------------------------------------
     privacy_policy_url = models.URLField(_("privacy policy URL"), blank=True)
     terms_url = models.URLField(_("terms of use URL"), blank=True)
+
+    # --- Floating tools ------------------------------------------------------
+    floating_tools = models.JSONField(
+        _("floating tools"),
+        default=default_floating_tools,
+        help_text=_("Which shortcuts the floating button offers, and in what order."),
+    )
 
     class Meta:
         verbose_name = _("tenant settings")

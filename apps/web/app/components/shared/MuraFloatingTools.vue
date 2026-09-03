@@ -1,5 +1,6 @@
 <template lang="pug">
 .mura-fab(
+  v-if="config.enabled"
   ref="rootRef"
   :class="{ 'mura-fab--open': open, 'mura-fab--dragging': dragging }"
   :style="rootStyle"
@@ -25,11 +26,11 @@
           )
 
   v-btn.mura-fab__trigger(
-    :icon="open ? 'mdi-close' : 'mdi-apps'"
+    :icon="open ? 'mdi-close' : config.icon"
     :aria-label="open ? t('tools.close') : t('tools.open')"
     :aria-expanded="open"
     aria-haspopup="true"
-    color="primary"
+    :color="config.color"
     size="large"
     elevation="8"
     @pointerdown="onPointerDown"
@@ -62,6 +63,7 @@ import { useRouter } from 'vue-router'
 import { useCartStore } from '~/stores/cart'
 import { useTenantStore } from '~/stores/tenant'
 import { useUiStore } from '~/stores/ui'
+import type { FloatingToolKey, FloatingToolsConfig } from '~/types/api'
 import { readJson, writeJson } from '~/utils/storage'
 
 interface ToolAction {
@@ -93,6 +95,27 @@ const reducedMotion = ref(false)
 /** Distance from the right and bottom edges, so the button survives a resize. */
 const position = ref({ right: 24, bottom: 24 })
 
+/**
+ * Turn a configured corner into edge distances.
+ *
+ * Everything downstream — the drag, the arc, the resize clamp — is expressed as
+ * distance from the right and bottom, so a corner is converted once here rather
+ * than teaching the rest of the component about four cases.
+ */
+function cornerFor(corner: string): { right: number, bottom: number } {
+  const inset = 24
+  const width = typeof window === 'undefined' ? 1280 : window.innerWidth
+  const height = typeof window === 'undefined' ? 800 : window.innerHeight
+  const far = 80
+
+  switch (corner) {
+    case 'bottom-left': return { right: Math.max(width - far, inset), bottom: inset }
+    case 'top-right': return { right: inset, bottom: Math.max(height - far, inset) }
+    case 'top-left': return { right: Math.max(width - far, inset), bottom: Math.max(height - far, inset) }
+    default: return { right: inset, bottom: inset }
+  }
+}
+
 let pointerId: number | null = null
 let start = { x: 0, y: 0, right: 0, bottom: 0 }
 let moved = false
@@ -107,53 +130,71 @@ const whatsappUrl = computed(() => {
   return number ? `https://wa.me/${number}` : ''
 })
 
-const actions = computed<ToolAction[]>(() => {
-  const list: ToolAction[] = [
-    {
-      key: 'calculator',
-      icon: 'mdi-calculator-variant-outline',
-      label: t('tools.calculator'),
-      run: () => { calculatorOpen.value = true },
-    },
-    {
-      key: 'cart',
-      icon: 'mdi-cart-outline',
-      label: t('nav.cart'),
-      run: () => void router.push('/cart'),
-    },
-    {
-      key: 'lists',
-      icon: 'mdi-format-list-checks',
-      label: t('lists.title'),
-      run: () => void router.push('/account/lists'),
-    },
-    {
-      key: 'theme',
-      icon: ui.isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night',
-      label: ui.isDark ? t('common.themeLight') : t('common.themeDark'),
-      run: () => { ui.toggleTheme() },
-    },
-    {
-      key: 'top',
-      icon: 'mdi-arrow-up',
-      label: t('tools.backToTop'),
-      run: () => window.scrollTo({ top: 0, behavior: reducedMotion.value ? 'auto' : 'smooth' }),
-    },
-  ]
+/**
+ * Every shortcut this button knows how to offer, keyed by name.
+ *
+ * A catalogue rather than a list, because the merchant chooses which of these
+ * appear and in what order; the configuration names keys, and this turns a key
+ * into something runnable.
+ */
+const catalogue = computed<Record<FloatingToolKey, ToolAction | null>>(() => ({
+  calculator: {
+    key: 'calculator',
+    icon: 'mdi-calculator-variant-outline',
+    label: t('tools.calculator'),
+    run: () => { calculatorOpen.value = true },
+  },
+  // Offered only when the merchant published a number: a WhatsApp button that
+  // opens nothing is worse than no button.
+  whatsapp: whatsappUrl.value
+    ? {
+        key: 'whatsapp',
+        icon: 'mdi-whatsapp',
+        label: t('tools.whatsapp'),
+        color: 'success',
+        run: () => window.open(whatsappUrl.value, '_blank', 'noopener,noreferrer'),
+      }
+    : null,
+  cart: {
+    key: 'cart',
+    icon: 'mdi-cart-outline',
+    label: t('nav.cart'),
+    run: () => void router.push('/cart'),
+  },
+  lists: {
+    key: 'lists',
+    icon: 'mdi-format-list-checks',
+    label: t('lists.title'),
+    run: () => void router.push('/account/lists'),
+  },
+  theme: {
+    key: 'theme',
+    icon: ui.isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night',
+    label: ui.isDark ? t('common.themeLight') : t('common.themeDark'),
+    run: () => { ui.toggleTheme() },
+  },
+  top: {
+    key: 'top',
+    icon: 'mdi-arrow-up',
+    label: t('tools.backToTop'),
+    run: () => window.scrollTo({ top: 0, behavior: reducedMotion.value ? 'auto' : 'smooth' }),
+  },
+}))
 
-  // Only offered when the merchant actually published a number.
-  if (whatsappUrl.value) {
-    list.splice(1, 0, {
-      key: 'whatsapp',
-      icon: 'mdi-whatsapp',
-      label: t('tools.whatsapp'),
-      color: 'success',
-      run: () => window.open(whatsappUrl.value, '_blank', 'noopener,noreferrer'),
-    })
-  }
-
-  return list
+/** The merchant's choice, or everything when they have not made one. */
+const config = computed<FloatingToolsConfig>(() => tenant.tenant?.settings?.floating_tools ?? {
+  enabled: true,
+  icon: 'mdi-apps',
+  color: 'primary',
+  position: 'bottom-right',
+  actions: ['calculator', 'whatsapp', 'cart', 'lists', 'theme', 'top'],
 })
+
+const actions = computed<ToolAction[]>(() =>
+  config.value.actions
+    .map(key => catalogue.value[key])
+    .filter((action): action is ToolAction => action !== null && action !== undefined),
+)
 
 /** Viewport size, tracked so the quadrant can be derived without a DOM read. */
 const viewport = ref({ width: 1280, height: 800 })
@@ -314,10 +355,20 @@ function onResize(): void {
 onMounted(() => {
   reducedMotion.value = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
+  /*
+   * A position the visitor dragged wins over the merchant's default.
+   *
+   * The configured corner is where the button *starts*; someone who moved it
+   * out of the way of something they were reading should not find it back
+   * there on the next page.
+   */
   const saved = readJson<{ right: number, bottom: number } | null>(POSITION_KEY, null)
   if (saved && Number.isFinite(saved.right) && Number.isFinite(saved.bottom)) {
     position.value = saved
     onResize()
+  }
+  else {
+    position.value = cornerFor(config.value.position)
   }
 
   measureViewport()

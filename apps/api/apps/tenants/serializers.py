@@ -9,11 +9,19 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.media.serializers import MediaAssetSerializer
 
-from .models import BusinessHours, Tenant, TenantBranding, TenantSettings
+from .models import (
+    FLOATING_POSITIONS,
+    FLOATING_TOOL_KEYS,
+    BusinessHours,
+    Tenant,
+    TenantBranding,
+    TenantSettings,
+)
 
 
 class BusinessHoursSerializer(serializers.ModelSerializer):
@@ -65,6 +73,16 @@ class TenantBrandingSerializer(serializers.ModelSerializer):
 
 
 class TenantSettingsSerializer(serializers.ModelSerializer):
+    """Merchant-editable settings.
+
+    `floating_tools` is validated rather than trusted: it is free-form JSON in
+    the database, so without a check a typo in a tool name would be stored
+    happily and then silently drop that shortcut from the storefront.
+    """
+
+    def validate_floating_tools(self, value: Any) -> dict:
+        return _validate_floating_tools(value)
+
     class Meta:
         model = TenantSettings
         fields = [
@@ -81,6 +99,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             "email_reply_to",
             "privacy_policy_url",
             "terms_url",
+            "floating_tools",
         ]
 
 
@@ -137,6 +156,10 @@ class TenantPublicSerializer(serializers.ModelSerializer):
             "allow_orders_when_closed": settings.allow_orders_when_closed,
             "privacy_policy_url": settings.privacy_policy_url,
             "terms_url": settings.terms_url,
+            # The storefront needs this to draw its floating button at all.
+            # Without it the merchant's choices are stored and never read, and
+            # the button silently falls back to showing everything.
+            "floating_tools": settings.floating_tools,
         }
 
     def get_delivery(self, obj: Tenant) -> dict[str, Any]:
@@ -186,3 +209,39 @@ class TenantAdminSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "slug", "status", "is_active", "created_at", "updated_at"]
+
+
+def _validate_floating_tools(value: Any) -> dict:
+    """Check the shape of the floating-button configuration.
+
+    Order matters and duplicates do not, so `actions` is a list rather than a
+    set — but a repeated key would render the same shortcut twice, so it is
+    refused rather than de-duplicated silently.
+    """
+    if not isinstance(value, dict):
+        raise serializers.ValidationError(_("Expected an object."))
+
+    actions = value.get("actions", [])
+    if not isinstance(actions, list):
+        raise serializers.ValidationError({"actions": _("Expected a list.")})
+
+    unknown = [key for key in actions if key not in FLOATING_TOOL_KEYS]
+    if unknown:
+        raise serializers.ValidationError(
+            {"actions": _("Unknown tools: %(keys)s") % {"keys": ", ".join(map(str, unknown))}}
+        )
+
+    if len(set(actions)) != len(actions):
+        raise serializers.ValidationError({"actions": _("A tool cannot be listed twice.")})
+
+    position = value.get("position", "bottom-right")
+    if position not in FLOATING_POSITIONS:
+        raise serializers.ValidationError({"position": _("Unknown position.")})
+
+    return {
+        "enabled": bool(value.get("enabled", True)),
+        "icon": str(value.get("icon") or "mdi-apps")[:64],
+        "color": str(value.get("color") or "primary")[:32],
+        "position": position,
+        "actions": actions,
+    }

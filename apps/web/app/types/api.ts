@@ -101,9 +101,24 @@ export interface Tenant {
     allow_orders_when_closed?: boolean
     privacy_policy_url?: string
     terms_url?: string
+    floating_tools?: FloatingToolsConfig
   }
   delivery: DeliveryConfig
   is_open_now?: boolean
+}
+
+/** Shortcuts the floating button can offer. Mirrors the API's catalogue. */
+export type FloatingToolKey = 'calculator' | 'whatsapp' | 'cart' | 'lists' | 'theme' | 'top'
+
+export type FloatingPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+
+export interface FloatingToolsConfig {
+  enabled: boolean
+  icon: string
+  color: string
+  position: FloatingPosition
+  /** Display order. The API refuses duplicates and unknown keys. */
+  actions: FloatingToolKey[]
 }
 
 // =============================================================================
