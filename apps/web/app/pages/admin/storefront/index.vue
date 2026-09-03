@@ -12,51 +12,97 @@ div
 
   mura-error-state(v-else-if="error" :on-retry="() => refresh()")
 
-  mura-empty-state(
-    v-else-if="!banners.length"
-    :title="t('admin.noBanners')"
-    :description="t('admin.noBannersHint')"
-    icon="mdi-image-multiple-outline"
-  )
-    template(#action)
-      v-btn(color="primary" variant="flat" @click="openCreate") {{ t('admin.newBanner') }}
+  v-row(v-else)
+    //- Preview on the left and wide, because it is the thing being edited; the
+      //- controls are the instrument, not the subject.
+    v-col(cols="12" lg="9")
+      .mura-preview
+        .d-flex.align-center.ga-2.mb-2
+          v-icon(icon="mdi-monitor-eye" size="18" color="primary")
+          span.text-subtitle-2 {{ t('admin.preview') }}
+          v-chip(size="x-small" variant="tonal") {{ t('admin.activeCount', { count: activeBanners.length }) }}
+          v-spacer
+          v-btn(
+            to="/"
+            target="_blank"
+            variant="tonal"
+            size="small"
+            rounded="lg"
+            prepend-icon="mdi-open-in-new"
+          ) {{ t('admin.openStorefront') }}
 
-  template(v-else)
-    p.text-body-2.text-medium-emphasis.mb-4 {{ t('admin.bannersOrderHint') }}
+        //- The real hero, not a drawing of one. It takes its banners as a prop,
+          //- so the preview cannot drift from what a visitor sees the way a
+          //- hand-built mock-up would.
+        .mura-preview__frame(v-if="activeBanners.length")
+          mura-hero(:banners="activeBanners" :autoplay="false")
 
-    v-row
-      v-col(v-for="banner in banners" :key="banner.id" cols="12" md="6")
-        v-card.mura-banner-card(flat border)
-          .mura-banner-card__preview
-            v-img(
-              :src="banner.image?.variants?.medium || banner.image?.url"
-              :alt="banner.title"
-              height="160"
-              cover
-            )
-            .mura-banner-card__scrim(:style="{ background: `rgba(10,8,9,${(banner.overlay_opacity ?? 45) / 100})` }")
-            .mura-banner-card__text(:class="`is-${(banner.text_align || 'CENTER').toLowerCase()}`")
-              p.text-caption.text-white.mb-1(v-if="banner.subtitle") {{ banner.subtitle }}
-              p.text-subtitle-2.text-white.font-weight-bold.mb-0 {{ banner.title }}
+        .mura-preview__empty(v-else)
+          v-icon(icon="mdi-image-off-outline" size="32" color="on-surface-variant")
+          p.text-body-2.text-medium-emphasis.mb-0.mt-2 {{ t('admin.previewEmpty') }}
 
-            v-chip.mura-banner-card__state(
-              :color="banner.is_active ? 'success' : 'secondary'"
-              size="x-small"
-              variant="flat"
-            ) {{ banner.is_active ? t('admin.active') : t('admin.inactive') }}
+    //- Controls on the right, narrow and scrolling past the preview.
+    v-col(cols="12" lg="3")
+      mura-card(:title="t('admin.banners')" icon="mdi-image-multiple-outline" :padded="false")
+        template(#actions)
+          v-btn(
+            color="primary"
+            variant="text"
+            size="small"
+            prepend-icon="mdi-plus"
+            @click="openCreate"
+          ) {{ t('common.create') }}
 
-          v-card-text.pb-2
-            .d-flex.flex-wrap.ga-2
-              v-chip(size="x-small" variant="tonal" prepend-icon="mdi-sort-numeric-variant") {{ t('admin.priority') }} {{ banner.priority }}
-              v-chip(size="x-small" variant="tonal" :prepend-icon="alignIcon(banner.text_align)") {{ t(`admin.align.${(banner.text_align || 'CENTER').toLowerCase()}`) }}
-              v-chip(v-if="banner.cta_label" size="x-small" variant="tonal" prepend-icon="mdi-gesture-tap-button") {{ banner.cta_label }}
-              v-chip(size="x-small" variant="tonal" prepend-icon="mdi-eye-outline") {{ banner.impression_count }}
+        mura-empty-state(
+          v-if="!banners.length"
+          :title="t('admin.noBanners')"
+          :description="t('admin.noBannersHint')"
+          icon="mdi-image-multiple-outline"
+        )
 
-          v-card-actions
-            v-btn(variant="text" size="small" prepend-icon="mdi-arrow-up" :disabled="banner.priority >= 100" @click="bump(banner, 10)") {{ t('admin.promote') }}
-            v-btn(variant="text" size="small" prepend-icon="mdi-pencil-outline" @click="openEdit(banner)") {{ t('common.edit') }}
-            v-spacer
-            v-btn(variant="text" size="small" color="error" icon="mdi-delete-outline" :aria-label="t('common.remove')" @click="askRemove(banner)")
+        v-list(v-else density="comfortable" bg-color="transparent")
+          template(v-for="(banner, index) in banners" :key="banner.id")
+            v-divider(v-if="index > 0")
+            v-list-item.py-2(:active="focused === banner.id" @click="focus(banner)")
+              template(#prepend)
+                v-avatar(rounded="lg" size="44")
+                  v-img(:src="banner.image?.variants?.thumbnail || banner.image?.url" :alt="banner.title" cover)
+
+              v-list-item-title.text-body-2 {{ banner.title }}
+              v-list-item-subtitle
+                v-chip.mr-1(
+                  :color="banner.is_active ? 'success' : 'secondary'"
+                  size="x-small"
+                  variant="tonal"
+                ) {{ banner.is_active ? t('admin.active') : t('admin.inactive') }}
+                span.text-caption {{ t('admin.priority') }} {{ banner.priority }}
+
+              template(#append)
+                v-btn(
+                  icon="mdi-arrow-up"
+                  variant="text"
+                  size="x-small"
+                  :disabled="banner.priority >= 100"
+                  :aria-label="t('admin.promote')"
+                  @click.stop="bump(banner, 10)"
+                )
+                v-btn(
+                  icon="mdi-pencil-outline"
+                  variant="text"
+                  size="x-small"
+                  :aria-label="t('common.edit')"
+                  @click.stop="openEdit(banner)"
+                )
+                v-btn(
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="x-small"
+                  color="error"
+                  :aria-label="t('common.remove')"
+                  @click.stop="askRemove(banner)"
+                )
+
+      p.text-caption.text-medium-emphasis.mt-3.mb-0 {{ t('admin.bannersOrderHint') }}
 
   mura-dialog(v-model="dialogOpen" :title="editing ? t('admin.editBanner') : t('admin.newBanner')" :max-width="880" scrollable)
     mura-form-builder(
@@ -130,6 +176,22 @@ const { data, pending, error, refresh } = await useAsyncData<{ results: AdminBan
 const banners = computed(() =>
   [...(data.value?.results ?? [])].sort((a, b) => b.priority - a.priority),
 )
+
+/**
+ * What the preview shows: exactly what a visitor would get.
+ *
+ * Inactive banners stay in the list on the right — they are still yours to edit
+ * — but showing them in the preview would make it a picture of the editor's
+ * intentions rather than of the site.
+ */
+const activeBanners = computed(() => banners.value.filter(banner => banner.is_active))
+
+/** The banner the operator last touched, highlighted in the list. */
+const focused = ref<string | null>(null)
+
+function focus(banner: Banner): void {
+  focused.value = banner.id
+}
 
 const schema = computed<FormSchema>(() => ({
   submitLabel: 'common.save',
@@ -216,11 +278,6 @@ const schema = computed<FormSchema>(() => ({
   ],
 }))
 
-function alignIcon(align: string | undefined): string {
-  return align === 'LEFT'
-    ? 'mdi-format-align-left'
-    : align === 'RIGHT' ? 'mdi-format-align-right' : 'mdi-format-align-center'
-}
 
 function openCreate(): void {
   editing.value = null
@@ -334,5 +391,48 @@ async function remove(): Promise<void> {
   position: absolute;
   top: 8px;
   right: 8px;
+}
+
+/*
+ * The preview stays put while the controls scroll past it.
+ *
+ * `top` clears the dashboard's app bar and its search row, so the frame docks
+ * just under them rather than sliding beneath.
+ */
+@media (min-width: 1280px) {
+  .mura-preview {
+    position: sticky;
+    top: 136px;
+  }
+}
+
+/*
+ * A window onto the storefront, not the storefront itself.
+ *
+ * The hero is `100svh` by design — it is meant to fill a screen. Here it is
+ * being looked *at*, so the frame caps the height and the hero fills the frame.
+ */
+.mura-preview__frame {
+  overflow: hidden;
+  height: min(60vh, 520px);
+  border: 1px solid rgba(var(--v-border-color), 0.8);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px -24px rgba(var(--v-theme-on-surface), 0.5);
+}
+
+.mura-preview__frame :deep(.mura-hero) {
+  height: 100%;
+  min-height: 0;
+}
+
+.mura-preview__empty {
+  display: flex;
+  height: 240px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(var(--v-border-color), 0.9);
+  border-radius: 16px;
+  text-align: center;
 }
 </style>

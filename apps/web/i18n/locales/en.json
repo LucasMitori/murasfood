@@ -585,7 +585,12 @@
     "expandMenu": "Expand menu",
     "searchPlaceholder": "Search dashboard pages and actions",
     "searchResults": "{count} result(s)",
-    "searchEmpty": "Nothing found"
+    "searchEmpty": "Nothing found",
+    "preview": "Preview",
+    "previewEmpty": "No active banner to show",
+    "openStorefront": "Open the storefront",
+    "activeCount": "{count} active",
+    "banners": "Banners"
   },
   "errors": {
     "generic": "We could not complete that operation.",

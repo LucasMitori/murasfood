@@ -585,7 +585,12 @@
     "expandMenu": "Expandir menú",
     "searchPlaceholder": "Buscar páginas y acciones del panel",
     "searchResults": "{count} resultado(s)",
-    "searchEmpty": "Nada encontrado"
+    "searchEmpty": "Nada encontrado",
+    "preview": "Vista previa",
+    "previewEmpty": "Ningún banner activo para mostrar",
+    "openStorefront": "Abrir la tienda",
+    "activeCount": "{count} activo(s)",
+    "banners": "Banners"
   },
   "errors": {
     "generic": "No pudimos completar la operación.",
