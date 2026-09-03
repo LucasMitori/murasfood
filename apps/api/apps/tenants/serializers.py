@@ -80,8 +80,32 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
     happily and then silently drop that shortcut from the storefront.
     """
 
+    #: Accepted but never returned. A password the API hands back is a password
+    #: in every browser cache and log that ever saw the response.
+    smtp_password = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, style={"input_type": "password"}
+    )
+
+    #: So the interface can say "a password is set" without being told what it
+    #: is, and can leave it alone rather than clearing it on every save.
+    smtp_password_set = serializers.SerializerMethodField()
+
+    def get_smtp_password_set(self, obj: TenantSettings) -> bool:
+        return bool(obj.smtp_password)
+
     def validate_floating_tools(self, value: Any) -> dict:
         return _validate_floating_tools(value)
+
+    def update(self, instance: TenantSettings, validated_data: dict) -> TenantSettings:
+        """An omitted password means "leave it"; an empty one means "clear it".
+
+        Without this an edit to any other field would blank the password,
+        because a form that does not know the secret cannot send it back.
+        """
+        if "smtp_password" not in self.initial_data:
+            validated_data.pop("smtp_password", None)
+
+        return super().update(instance, validated_data)
 
     class Meta:
         model = TenantSettings
@@ -100,6 +124,13 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             "privacy_policy_url",
             "terms_url",
             "floating_tools",
+            "smtp_host",
+            "smtp_port",
+            "smtp_username",
+            "smtp_password",
+            "smtp_use_tls",
+            "smtp_from_email",
+            "smtp_password_set",
         ]
 
 

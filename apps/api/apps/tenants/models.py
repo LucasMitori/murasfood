@@ -266,6 +266,18 @@ class TenantSettings(BaseModel):
     privacy_policy_url = models.URLField(_("privacy policy URL"), blank=True)
     terms_url = models.URLField(_("terms of use URL"), blank=True)
 
+    # --- Outgoing mail -------------------------------------------------------
+    #
+    # Blank host means "use the platform's own server". A white-label merchant
+    # who wants mail to come from their domain fills these in; everyone else
+    # inherits the deployment's configuration and never sees the difference.
+    smtp_host = models.CharField(_("SMTP host"), max_length=255, blank=True)
+    smtp_port = models.PositiveIntegerField(_("SMTP port"), null=True, blank=True)
+    smtp_username = models.CharField(_("SMTP username"), max_length=255, blank=True)
+    smtp_password = models.CharField(_("SMTP password"), max_length=255, blank=True)
+    smtp_use_tls = models.BooleanField(_("use TLS"), default=True)
+    smtp_from_email = models.EmailField(_("from address"), blank=True)
+
     # --- Floating tools ------------------------------------------------------
     floating_tools = models.JSONField(
         _("floating tools"),

@@ -394,7 +394,7 @@
     "archive": "Arquivar",
     "archived": "Produto arquivado",
     "archiveConfirm": "Arquivar este produto? Ele sai da vitrine, mas o histórico de pedidos é mantido.",
-    "updatedAt": "Atualizado em",
+    "updatedAt": "Atualizado",
     "users": "Usuários e permissões",
     "usersSubtitle": "Gerencie contas, papéis e permissões",
     "newUser": "Novo usuário",
@@ -618,6 +618,58 @@
       "lists": "Minhas listas",
       "theme": "Tema",
       "top": "Voltar ao topo"
+    },
+    "emails": "E-mails",
+    "emailsSubtitle": "Modelos das mensagens automáticas e envio",
+    "emailTemplates": "Modelos",
+    "emailTemplate": "Modelo",
+    "emailContent": "Conteúdo",
+    "emailVariables": "Variáveis",
+    "emailVariablesHint": "Use estes marcadores no assunto ou no corpo. São substituídos no envio.",
+    "emailNoVariables": "Este modelo não usa marcadores.",
+    "emailTest": "Teste",
+    "emailTestHint": "Envia este modelo com valores de exemplo, para conferir o servidor de e-mail.",
+    "emailSendTest": "Enviar teste",
+    "emailTestSent": "Enviado. Confira a caixa de entrada.",
+    "emailSubject": "Assunto",
+    "emailHtml": "Corpo em HTML",
+    "emailText": "Versão em texto",
+    "emailTextHint": "Usada por clientes que não mostram HTML. Se vazia, é gerada do HTML.",
+    "emailRender": "Atualizar prévia",
+    "emailNoPreview": "Sem prévia ainda",
+    "emailNoPreviewHint": "Clique em atualizar para renderizar com valores de exemplo.",
+    "emailSaved": "Modelo salvo",
+    "status": "Situação",
+    "smtp": "Servidor de e-mail",
+    "smtpHint": "Deixe o servidor em branco para usar o da plataforma.",
+    "smtpHost": "Servidor",
+    "smtpPort": "Porta",
+    "smtpUser": "Usuário",
+    "smtpPassword": "Senha",
+    "smtpPasswordStored": "Senha (já configurada)",
+    "smtpPasswordHint": "Deixe em branco para manter a senha atual.",
+    "smtpFrom": "Endereço remetente",
+    "smtpPlatform": "Servidor da plataforma",
+    "smtpSaved": "Servidor de e-mail salvo",
+    "emailKeys": {
+      "account": {
+        "verify": "Confirmação de e-mail",
+        "welcome": "Boas-vindas",
+        "password_reset": "Redefinição de senha"
+      },
+      "order": {
+        "created": "Pedido recebido",
+        "payment_confirmed": "Pagamento confirmado",
+        "preparing": "Pedido em preparação",
+        "ready": "Pronto para retirada",
+        "out_for_delivery": "Saiu para entrega",
+        "delivered": "Pedido entregue",
+        "cancelled": "Pedido cancelado",
+        "refunded": "Reembolso"
+      },
+      "inventory": {
+        "low_stock": "Alerta de estoque baixo"
+      }
     }
   },
   "errors": {

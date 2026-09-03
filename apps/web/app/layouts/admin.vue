@@ -259,6 +259,7 @@ const entries = [
   { to: '/admin/users', icon: 'mdi-shield-account-outline', labelKey: 'admin.users', permission: 'perm.admin.users' },
   { to: '/admin/storefront', icon: 'mdi-home-edit-outline', labelKey: 'admin.homeConfig', permission: 'perm.admin.settings' },
   { to: '/admin/tools', icon: 'mdi-gesture-tap-button', labelKey: 'admin.floatingTools', permission: 'perm.admin.settings' },
+  { to: '/admin/emails', icon: 'mdi-email-multiple-outline', labelKey: 'admin.emails', permission: 'perm.admin.settings' },
 ]
 
 const { can } = usePermission()

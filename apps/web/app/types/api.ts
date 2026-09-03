@@ -102,6 +102,8 @@ export interface Tenant {
     privacy_policy_url?: string
     terms_url?: string
     floating_tools?: FloatingToolsConfig
+    /** Whether an SMTP password is stored. The secret itself is never sent. */
+    smtp_password_set?: boolean
   }
   delivery: DeliveryConfig
   is_open_now?: boolean

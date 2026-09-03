@@ -618,6 +618,58 @@
       "lists": "Mis listas",
       "theme": "Tema",
       "top": "Volver arriba"
+    },
+    "emails": "Correos",
+    "emailsSubtitle": "Plantillas de los mensajes automáticos y envío",
+    "emailTemplates": "Plantillas",
+    "emailTemplate": "Plantilla",
+    "emailContent": "Contenido",
+    "emailVariables": "Variables",
+    "emailVariablesHint": "Usa estos marcadores en el asunto o el cuerpo. Se sustituyen al enviar.",
+    "emailNoVariables": "Esta plantilla no usa marcadores.",
+    "emailTest": "Prueba",
+    "emailTestHint": "Envía esta plantilla con valores de ejemplo, para comprobar el servidor.",
+    "emailSendTest": "Enviar prueba",
+    "emailTestSent": "Enviado. Revisa la bandeja de entrada.",
+    "emailSubject": "Asunto",
+    "emailHtml": "Cuerpo en HTML",
+    "emailText": "Versión en texto",
+    "emailTextHint": "La usan los clientes que no muestran HTML. Si se deja vacía, se genera del HTML.",
+    "emailRender": "Actualizar vista previa",
+    "emailNoPreview": "Sin vista previa todavía",
+    "emailNoPreviewHint": "Actualiza para renderizarla con valores de ejemplo.",
+    "emailSaved": "Plantilla guardada",
+    "status": "Estado",
+    "smtp": "Servidor de correo",
+    "smtpHint": "Deja el servidor vacío para usar el de la plataforma.",
+    "smtpHost": "Servidor",
+    "smtpPort": "Puerto",
+    "smtpUser": "Usuario",
+    "smtpPassword": "Contraseña",
+    "smtpPasswordStored": "Contraseña (ya configurada)",
+    "smtpPasswordHint": "Déjala vacía para mantener la actual.",
+    "smtpFrom": "Dirección remitente",
+    "smtpPlatform": "Servidor de la plataforma",
+    "smtpSaved": "Servidor de correo guardado",
+    "emailKeys": {
+      "account": {
+        "verify": "Confirmación de correo",
+        "welcome": "Bienvenida",
+        "password_reset": "Restablecer contraseña"
+      },
+      "order": {
+        "created": "Pedido recibido",
+        "payment_confirmed": "Pago confirmado",
+        "preparing": "Pedido en preparación",
+        "ready": "Listo para recoger",
+        "out_for_delivery": "En reparto",
+        "delivered": "Pedido entregado",
+        "cancelled": "Pedido cancelado",
+        "refunded": "Reembolso"
+      },
+      "inventory": {
+        "low_stock": "Alerta de stock bajo"
+      }
     }
   },
   "errors": {

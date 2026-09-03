@@ -618,6 +618,58 @@
       "lists": "My lists",
       "theme": "Theme",
       "top": "Back to top"
+    },
+    "emails": "Emails",
+    "emailsSubtitle": "Templates for automatic messages, and sending",
+    "emailTemplates": "Templates",
+    "emailTemplate": "Template",
+    "emailContent": "Content",
+    "emailVariables": "Variables",
+    "emailVariablesHint": "Use these placeholders in the subject or body. They are replaced when sending.",
+    "emailNoVariables": "This template uses no placeholders.",
+    "emailTest": "Test",
+    "emailTestHint": "Sends this template with sample values, to check the mail server.",
+    "emailSendTest": "Send test",
+    "emailTestSent": "Sent. Check the inbox.",
+    "emailSubject": "Subject",
+    "emailHtml": "HTML body",
+    "emailText": "Plain-text version",
+    "emailTextHint": "Used by clients that do not show HTML. Generated from the HTML if left empty.",
+    "emailRender": "Refresh preview",
+    "emailNoPreview": "No preview yet",
+    "emailNoPreviewHint": "Refresh to render it with sample values.",
+    "emailSaved": "Template saved",
+    "status": "Status",
+    "smtp": "Mail server",
+    "smtpHint": "Leave the host empty to use the platform’s own server.",
+    "smtpHost": "Host",
+    "smtpPort": "Port",
+    "smtpUser": "Username",
+    "smtpPassword": "Password",
+    "smtpPasswordStored": "Password (already set)",
+    "smtpPasswordHint": "Leave empty to keep the current password.",
+    "smtpFrom": "From address",
+    "smtpPlatform": "Platform server",
+    "smtpSaved": "Mail server saved",
+    "emailKeys": {
+      "account": {
+        "verify": "Email confirmation",
+        "welcome": "Welcome",
+        "password_reset": "Password reset"
+      },
+      "order": {
+        "created": "Order received",
+        "payment_confirmed": "Payment confirmed",
+        "preparing": "Order being prepared",
+        "ready": "Ready for pickup",
+        "out_for_delivery": "Out for delivery",
+        "delivered": "Order delivered",
+        "cancelled": "Order cancelled",
+        "refunded": "Refund"
+      },
+      "inventory": {
+        "low_stock": "Low stock alert"
+      }
     }
   },
   "errors": {

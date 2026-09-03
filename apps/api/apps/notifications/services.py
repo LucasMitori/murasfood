@@ -182,7 +182,8 @@ def deliver_email(log: EmailLog, context: dict[str, Any]) -> bool:
 
     settings_row = getattr(tenant, "settings", None)
     sender_name = (settings_row.email_sender_name if settings_row else "") or tenant.trade_name
-    from_email = f"{sender_name} <{settings.DEFAULT_FROM_EMAIL}>"
+    address = (settings_row.smtp_from_email if settings_row else "") or settings.DEFAULT_FROM_EMAIL
+    from_email = f"{sender_name} <{address}>"
 
     message = EmailMultiAlternatives(
         subject=subject,
@@ -192,6 +193,7 @@ def deliver_email(log: EmailLog, context: dict[str, Any]) -> bool:
         reply_to=[settings_row.email_reply_to]
         if settings_row and settings_row.email_reply_to
         else None,
+        connection=connection_for(tenant),
     )
     message.attach_alternative(html_body, "text/html")
 
@@ -308,4 +310,33 @@ def notify_staff_new_order(order: Order) -> EmailLog | None:
         related_type="order",
         related_id=str(order.pk),
         idempotency_key=f"staff-order:{order.pk}",
+    )
+
+
+def connection_for(tenant: Tenant | None) -> Any:
+    """The mail connection a tenant's messages should go out on.
+
+    ``None`` means Django's default, which is the platform's own server. A
+    merchant who has filled in their own host gets a connection built from it,
+    so their mail leaves from their domain and their deliverability is their
+    own.
+
+    The host is the switch: a half-filled form — a username with no server —
+    must not silently produce a broken connection, so anything without a host
+    falls back rather than failing.
+    """
+    from django.core.mail import get_connection
+
+    row = getattr(tenant, "settings", None)
+    if row is None or not row.smtp_host:
+        return None
+
+    return get_connection(
+        backend="django.core.mail.backends.smtp.EmailBackend",
+        host=row.smtp_host,
+        port=row.smtp_port or 587,
+        username=row.smtp_username or None,
+        password=row.smtp_password or None,
+        use_tls=row.smtp_use_tls,
+        fail_silently=False,
     )
