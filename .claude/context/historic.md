@@ -204,6 +204,30 @@ and it runs in a worker nobody waits on.
 
 ---
 
+### M8 — Concluding the app does not scroll the window, from a scroll that was blocked
+
+**What happened.** The band parallax did not move. `window.scrollY` read 0 after
+`window.scrollBy(0, 300)` and after setting `document.documentElement.scrollTop`
+directly, so I concluded the app scrolls an inner container and that a `window`
+scroll listener could never fire. The band was rewritten around a frame loop on
+that basis, with a comment saying so.
+
+**What was actually true.** *Scripted* scrolling is blocked in this browser
+automation. A real scroll event moved the page immediately — `scrollTop: 500`,
+`window.scrollY: 500` — and the hero's plain `window` scroll listener had been
+working the whole time, translating its image 200 px and its title 70 px.
+
+**Outcome.** The frame loop was kept, because it is the right mechanism for an
+element in the middle of a page: its position changes for reasons a scroll event
+does not report, such as an image above it finishing loading. But the *comment*
+was wrong and was corrected — a true fix resting on a false explanation will
+mislead whoever reads it next.
+
+**Rule adopted.** When a browser probe returns a surprising zero, first test
+whether the probe itself worked.
+
+---
+
 ## Part III — The pattern
 
 Recorded separately because it shaped how everything since has been

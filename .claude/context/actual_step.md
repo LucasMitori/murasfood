@@ -24,8 +24,8 @@ reads as considered rather than decorative.
 
 | # | Item | State |
 |---|---|---|
-| 5.1 | Parallax home — alternating `v-parallax` bands and content, titles parallaxed, admin-toggleable | ◀ in progress |
-| 5.2 | `/products` filters — richer, with a search input | not started |
+| 5.1 | Parallax home — alternating bands and content, titles parallaxed, admin-toggleable | ✅ done |
+| 5.2 | `/products` filters — richer, with a search input | ◀ next |
 | 5.3 | Categories as clickable cards under the title, rendering below dynamically | not started |
 | 5.4 | Animations — gentle, modern, professional | not started |
 | 5.5 | Sale/discount card and dedicated product page treatment | not started |
@@ -56,10 +56,27 @@ Everything below was observed, not inferred.
 | Private downloads reachable | Report downloaded from the host: `200`, correct content |
 | Order emails reach both parties | Two `EmailLog` rows, both **SENT**, distinct idempotency keys, correct per-audience links |
 
+### From 5.1, confirmed on the running storefront
+
+| Claim | Evidence |
+|---|---|
+| The page has the requested rhythm | `HERO (720px) → Categorias → BAND (504px) → Ofertas → Destaques → BAND (504px) → Mais vendidos → Novidades`, read from the live DOM |
+| 70vh and 100vh are real | 504 px is 70% of the 720 px viewport |
+| Band layers move at different rates | media `translate3d(0, 194.5px, 0)` vs text `77.8px` — the 0.4/0.16 ratio exactly |
+| The hero moves its title too | media `200px`, content `70px` at 500 px of scroll — 0.4/0.14 |
+| No hydration mismatch | zero console errors on first paint with bands and hero parallax on |
+| The API resolves band images server-side | `image=yes` on both bands in `/catalog/home/`, no extra round trip |
+| A scripted link is refused | `javascript:`, `data:`, `vbscript:` all 400 |
+| Bands are optional | a layout with no bands validates and renders a short page |
+
+19 new backend tests cover the band shape, the hero settings, and that the
+public serializer carries `hero` — the allow-list that has now been forgotten
+twice.
+
 ### Suite state
 
 ```
-429 API tests · 242 web tests
+458 API tests · 242 web tests
 ruff check · ruff format · eslint · vue-tsc — all clean
 OpenAPI schema regenerated and deterministic
 ```
@@ -77,7 +94,7 @@ Recording these matters as much as the confirmations.
 | — `/admin/storefront` Layout + Appearance tabs | backend proven end to end | " |
 | — cost-of-goods tile on `/admin/finance` | `cogs` present in payload and in all three locales | " |
 | — export menu in the table toolbar | all four endpoints return 200 with correct content type | " |
-| Parallax under SSR | not built yet | build, then check for hydration mismatch |
+| The band editor in `/admin/storefront` | no merchant session in the browser available to me | a merchant opens the Layout tab and adds a band |
 | Real-world import at scale | tested at 51 rows | a merchant's own 400-row sheet |
 
 ---
@@ -120,9 +137,9 @@ easier to reason about and reuses the drag-to-reorder UI that exists.
 
 ## Definition of done for phase 5
 
-- [ ] Parallax bands render without hydration mismatch, verified in the browser
-- [ ] Bands are configurable and switchable off from `/admin/storefront`
-- [ ] `prefers-reduced-motion` honoured throughout
+- [x] Parallax bands render without hydration mismatch, verified in the browser
+- [x] Bands are configurable and switchable off from `/admin/storefront` *(built; the screen itself is unverified — see above)*
+- [x] `prefers-reduced-motion` honoured throughout
 - [ ] `/products` filters usable against a 400-product catalogue
 - [ ] Categories render as cards and filter in place
 - [ ] Sale treatment visible on card and product page
