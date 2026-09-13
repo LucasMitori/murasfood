@@ -25,6 +25,15 @@
  * Readiness is judged on the routes rendering and their assets being served.
  * Requiring *every* linked stylesheet would be wrong by construction, since
  * that list includes components the page never renders.
+ *
+ * The warm-up runs ONCE per container, and every probe after it is a single
+ * cheap request. That distinction matters more than it looks: warming fetches
+ * ~350 modules through Vite's dev transform pipeline, and repeating it every
+ * fifteen seconds grew the Nitro worker by about 150 MB a minute until it hit
+ * Node's 2 GB heap limit and every route began answering
+ * "Worker terminated due to reaching memory limit". A health probe has to be
+ * cheap enough to run forever; warming is a startup job that happens to be
+ * measurable, and conflating the two broke the server it was meant to protect.
  */
 
 const ORIGIN = process.env.HEALTHCHECK_ORIGIN ?? 'http://127.0.0.1:3000'
@@ -83,7 +92,54 @@ async function warm(route) {
   return { route, ok: true, status: 200, warmed, total: assets.length }
 }
 
+/** Written after a successful warm. */
+const WARMED_MARKER = '/tmp/.murasfood-warmed'
+
+/**
+ * Has *this* server process been warmed?
+ *
+ * Not simply "does the marker exist": `docker compose restart` keeps the
+ * container's filesystem while replacing the Nuxt process, so a stale marker
+ * would skip the warm-up at exactly the moment it is needed — every restart
+ * during development. The marker counts only if it was written after the
+ * current process booted, which `/_health` reports as its uptime.
+ */
+async function warmedThisBoot() {
+  const { stat } = await import('node:fs/promises')
+
+  try {
+    const [marker, health] = await Promise.all([
+      stat(WARMED_MARKER),
+      get(`${ORIGIN}/_health`).then(response => (response.ok ? response.json() : null)),
+    ])
+    if (!health) return false
+
+    const bootedAt = Date.now() - health.uptime * 1000
+    return marker.mtimeMs > bootedAt
+  }
+  catch {
+    return false
+  }
+}
+
+async function markWarmed() {
+  const { writeFile } = await import('node:fs/promises')
+  await writeFile(WARMED_MARKER, new Date().toISOString()).catch(() => {})
+}
+
 try {
+  if (await warmedThisBoot()) {
+    // The cheap path, which is what runs for the life of the container. It hits
+    // a route that renders nothing: probing `/` meant a full SSR render every
+    // interval, which in dev is ~30 MB the worker does not get back.
+    const alive = await get(`${ORIGIN}/_health`)
+    if (!alive.ok) {
+      console.error(`not alive: ${alive.status}`)
+      process.exit(1)
+    }
+    process.exit(0)
+  }
+
   const results = []
   for (const route of ROUTES) {
     // Sequential across routes on purpose: each compiles a slice of the
@@ -98,12 +154,14 @@ try {
     process.exit(1)
   }
 
+  await markWarmed()
+
   const warmed = results.reduce((sum, result) => sum + result.warmed, 0)
   const total = results.reduce((sum, result) => sum + result.total, 0)
   // Docker shows this line in `docker inspect`'s health log, which is the only
   // place a healthcheck can say how much it actually did.
   // eslint-disable-next-line no-console
-  console.log(`ready: ${results.length} routes, ${warmed}/${total} assets warmed`)
+  console.log(`ready: ${results.length} routes, ${warmed}/${total} assets warmed (once)`)
   process.exit(0)
 }
 catch (error) {

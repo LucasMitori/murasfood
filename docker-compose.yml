@@ -146,6 +146,14 @@ services:
       dockerfile: infrastructure/docker/web.Dockerfile
       target: development
     command: npm run dev -- --host 0.0.0.0
+    environment:
+      # Node defaults the Nitro dev worker to ~2 GB, which this project's module
+      # graph plus Vite's transform cache can reach on a long-running dev
+      # session. The failure is opaque when it happens — every route answers
+      # "Worker terminated due to reaching memory limit" — so the headroom is
+      # worth more than the RAM.
+      NUXT_DEV_MEMORY_LIMIT: "4096"
+      NODE_OPTIONS: "--max-old-space-size=4096"
     env_file:
       - .env
     volumes:
@@ -164,10 +172,13 @@ services:
     # warm-up happens here rather than in someone's browser.
     healthcheck:
       test: ["CMD", "node", "/app/scripts/healthcheck.mjs"]
-      interval: 15s
-      timeout: 30s
+      # The first run warms the app; every run after it is one cheap request.
+      # 30s rather than 15s because nothing here needs sub-minute detection, and
+      # a dev server has better things to do than answer probes.
+      interval: 30s
+      timeout: 60s
       retries: 10
-      start_period: 90s
+      start_period: 120s
 
 volumes:
   postgres_data:

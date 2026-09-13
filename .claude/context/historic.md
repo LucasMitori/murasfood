@@ -228,6 +228,50 @@ whether the probe itself worked.
 
 ---
 
+### M9 — A healthcheck that killed the thing it was checking
+
+**What happened.** The dev server began answering every route with
+`Worker terminated due to reaching memory limit: JS heap out of memory`. The
+user hit it in the browser; nothing rendered at all.
+
+**Cause — mine.** The healthcheck added in phase 4 warmed five routes *and every
+asset they reference* (~350 modules through Vite's dev transform pipeline), and
+Docker ran it on `interval: 15s` **forever**. Measured: the Nitro worker grew
+about 150 MB per minute and reached Node's 2 GB ceiling in roughly four
+minutes.
+
+Warming is a **startup** job. A health probe runs for the life of the process
+and has to be cheap enough to do so. Conflating the two meant the thing meant to
+prove the server was healthy was steadily making it less so.
+
+**Second mistake inside the fix.** Making it warm "once per container" used a
+marker file in `/tmp`. But `docker compose restart` keeps the filesystem and
+replaces the process, so the marker would skip the warm-up at exactly the moment
+it was needed — every restart during development. The marker now counts only if
+it was written after the current process booted, which `/_health` reports.
+
+**Third:** even the cheap path hit `/`, which is a full SSR render — about 30 MB
+per probe. It now hits `/_health`, a Nitro route that renders nothing.
+
+**Measured, before and after**
+
+| | growth |
+|---|---|
+| before | ~150 MB/min → dead in ~4 min |
+| warm-once, probing `/` | ~64 MB/min |
+| warm-once, probing `/_health` | **612 → 614 MB over 3 min** |
+
+The dev heap limit was also raised from 2 GB to 4 GB — a project this size
+legitimately needs the headroom, and the failure mode is opaque when it runs
+out.
+
+**Rule adopted.** Anything that runs on a timer forever must be measured over
+time, not just observed to work once. "It passes" and "it is safe to repeat
+every fifteen seconds until the heat death of the universe" are different
+claims.
+
+---
+
 ## Part III — The pattern
 
 Recorded separately because it shaped how everything since has been
