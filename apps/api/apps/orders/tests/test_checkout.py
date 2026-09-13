@@ -251,3 +251,63 @@ class TestCheckoutApi:
             "/api/v1/orders/checkout/", {"delivery_method": "PICKUP"}, format="json"
         )
         assert response.status_code in (401, 403)
+
+
+class TestOrderPlacedNotifications:
+    """Placing an order has to tell someone.
+
+    It told nobody. `notify_order_status` fires on a *transition*, and an order
+    is born in PENDING_PAYMENT rather than moving into it, so the
+    `order.created` template that status maps to had no caller at all.
+    `notify_staff_new_order` had none either — dead code behind
+    `notify_on_new_order`, a setting that defaults to on, so a shop could enable
+    new-order alerts and never receive one. A customer paid and heard nothing;
+    the shop was never told to start packing.
+
+    Nothing failed. Checkout returned 201, the order was correct, and the only
+    symptom was silence.
+    """
+
+    def test_customer_is_emailed_that_the_order_was_received(
+        self, tenant: Any, customer: Any, filled_cart: Any
+    ) -> None:
+        from apps.notifications.models import EmailLog
+
+        order = create_order_from_cart(
+            tenant=tenant, cart=filled_cart, delivery_method="PICKUP", customer=customer
+        )
+
+        sent = EmailLog.objects.filter(related_id=str(order.pk), template_key="order.created")
+        assert sent.filter(recipient=customer.email).exists()
+
+    def test_merchant_is_told_a_new_order_came_in(
+        self, tenant: Any, customer: Any, filled_cart: Any
+    ) -> None:
+        from apps.notifications.models import EmailLog
+
+        order = create_order_from_cart(
+            tenant=tenant, cart=filled_cart, delivery_method="PICKUP", customer=customer
+        )
+
+        assert EmailLog.objects.filter(
+            related_id=str(order.pk), recipient=tenant.support_email
+        ).exists()
+
+    def test_merchant_opting_out_is_respected(
+        self, tenant: Any, customer: Any, filled_cart: Any
+    ) -> None:
+        """The setting has to still mean something once it is wired up."""
+        from apps.notifications.models import EmailLog
+
+        tenant.settings.notify_on_new_order = False
+        tenant.settings.save(update_fields=["notify_on_new_order"])
+
+        order = create_order_from_cart(
+            tenant=tenant, cart=filled_cart, delivery_method="PICKUP", customer=customer
+        )
+
+        assert not EmailLog.objects.filter(
+            related_id=str(order.pk), recipient=tenant.support_email
+        ).exists()
+        # The customer is still told; only the staff copy is opted out of.
+        assert EmailLog.objects.filter(related_id=str(order.pk), recipient=customer.email).exists()

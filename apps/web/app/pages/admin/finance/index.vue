@@ -11,22 +11,35 @@ div
   mura-error-state(v-else-if="error" :on-retry="() => refresh()")
 
   template(v-else)
+    //- Four figures, not three: revenue minus cost of goods minus expenses is
+      //- the result. `total_expenses` counts operating costs only — rent, fees,
+      //- delivery — so leaving cost of goods out of the row made the tiles
+      //- contradict each other. A shop with R$ 313,50 of sales and R$ 221,00 of
+      //- goods read "Receita 313,50 / Despesas 0,00 / Resultado 92,50", with
+      //- nothing on screen accounting for the missing 221.
     v-row
-      v-col(cols="12" sm="4")
+      v-col(cols="12" sm="6" lg="3")
         mura-stat-card(
           :label="t('admin.revenue')"
           :value="money.format(statement.revenue)"
           icon="mdi-trending-up"
           color="success"
         )
-      v-col(cols="12" sm="4")
+      v-col(cols="12" sm="6" lg="3")
+        mura-stat-card(
+          :label="t('admin.cogs')"
+          :value="money.format(statement.cogs)"
+          icon="mdi-package-variant-closed"
+          color="warning"
+        )
+      v-col(cols="12" sm="6" lg="3")
         mura-stat-card(
           :label="t('admin.expenses')"
           :value="money.format(statement.total_expenses)"
           icon="mdi-trending-down"
           color="warning"
         )
-      v-col(cols="12" sm="4")
+      v-col(cols="12" sm="6" lg="3")
         mura-stat-card(
           :label="t('admin.result')"
           :value="money.format(statement.net_result)"
@@ -62,13 +75,18 @@ div
       :title="t('admin.finance')"
       searchable
     )
-      template(#item.direction="{ item }")
+      //- Keyed on `transaction_type`, which is what the API actually sends.
+        //- This read `item.direction` — a field no endpoint has ever returned —
+        //- so every row took the else branch and revenue was labelled as money
+        //- going out. The table was empty until the ledger projection was
+        //- scheduled, so nobody had seen a row to notice.
+      template(#item.transaction_type="{ item }")
         v-chip(
-          :color="item.direction === 'INFLOW' ? 'success' : 'warning'"
-          :prepend-icon="item.direction === 'INFLOW' ? 'mdi-arrow-down-left' : 'mdi-arrow-up-right'"
+          :color="item.transaction_type === 'REVENUE' ? 'success' : 'warning'"
+          :prepend-icon="item.transaction_type === 'REVENUE' ? 'mdi-arrow-down-left' : 'mdi-arrow-up-right'"
           size="x-small"
           variant="tonal"
-        ) {{ item.direction === 'INFLOW' ? t('admin.inflow') : t('admin.outflow') }}
+        ) {{ item.transaction_type === 'REVENUE' ? t('admin.inflow') : t('admin.outflow') }}
 </template>
 
 <script setup lang="ts">
@@ -103,6 +121,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, 
 interface Statement {
   revenue: string
   total_expenses: string
+  cogs: string
   net_result: string
   gross_profit: string
 }
@@ -118,7 +137,7 @@ interface TransactionRow {
   description: string
   category_name?: string
   amount: string
-  direction: string
+  transaction_type: string
   occurred_on: string
   [key: string]: unknown
 }
@@ -134,7 +153,10 @@ const { data, pending, error, refresh } = await useAsyncData<FinanceSummary>(
   () => useNuxtApp().$api.get<FinanceSummary>('/admin/finance/summary/'),
   {
     default: () => ({
-      statement: { revenue: '0.00', total_expenses: '0.00', net_result: '0.00', gross_profit: '0.00' },
+      statement: {
+        revenue: '0.00', cogs: '0.00', total_expenses: '0.00',
+        net_result: '0.00', gross_profit: '0.00',
+      },
       monthly: [],
       expenses_by_category: [],
     }),
@@ -142,7 +164,8 @@ const { data, pending, error, refresh } = await useAsyncData<FinanceSummary>(
 )
 
 const statement = computed(() => data.value?.statement ?? {
-  revenue: '0.00', total_expenses: '0.00', net_result: '0.00', gross_profit: '0.00',
+  revenue: '0.00', cogs: '0.00', total_expenses: '0.00',
+  net_result: '0.00', gross_profit: '0.00',
 })
 
 const byCategory = computed(() => data.value?.expenses_by_category ?? [])
@@ -206,6 +229,6 @@ const columns: TableColumn<TransactionRow>[] = [
   { key: 'description', title: 'admin.description', sortable: false },
   { key: 'category_name', title: 'admin.category', sortable: false, hideBelow: 'md', value: row => row.category_name ?? '—' },
   { key: 'amount', title: 'admin.amount', sortable: true, format: 'money', align: 'end' },
-  { key: 'direction', title: 'admin.direction', sortable: false, align: 'center' },
+  { key: 'transaction_type', title: 'admin.direction', sortable: false, align: 'center' },
 ]
 </script>

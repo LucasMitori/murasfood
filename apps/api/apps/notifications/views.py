@@ -34,6 +34,9 @@ class NotificationViewSet(TenantScopedMixin, viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self) -> Any:
+        if getattr(self, "swagger_fake_view", False):
+            return Notification.objects.none()
+
         return Notification.objects.filter(
             tenant_id=self.tenant_id, user=self.request.user
         ).order_by("-created_at")
@@ -132,7 +135,7 @@ class EmailTemplatePreviewView(TenantScopedMixin, APIView):
         "quantity": "3",
     }
 
-    @extend_schema(responses={200: dict}, operation_id="admin_email_template_preview")
+    @extend_schema(request=dict, responses={200: dict}, operation_id="admin_email_template_preview")
     def post(self, request: Request, pk: str) -> Response:
         template = EmailTemplate.objects.filter(pk=pk, tenant_id=self.tenant_id).first()
         if template is None:
@@ -196,7 +199,7 @@ class EmailTemplateTestView(TenantScopedMixin, APIView):
 
         try:
             message.send(fail_silently=False)
-        except Exception as exc:  # noqa: BLE001 - the reason is the whole point
+        except Exception as exc:
             # Reported rather than raised: a failed test is a *result*, and the
             # operator needs the server's own words to fix their settings.
             return Response({"sent": False, "detail": str(exc)[:400]}, status=200)

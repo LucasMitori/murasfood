@@ -4,6 +4,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildSrcSet,
+  formatDate,
+  formatDateTime,
   formatMinutes,
   formatPhone,
   formatPostalCode,
@@ -97,6 +99,34 @@ describe('buildSrcSet', () => {
     )
   })
 
+  it('separates the AVIF variants from the WebP ones', () => {
+    /*
+     * Both formats live in one `variants` map, AVIF under a prefix, so that
+     * anything reading it the old way keeps working. The two `<source>` tags
+     * must therefore never mix: offering a WebP file under `type="image/avif"`
+     * would make a browser decode it as AVIF and fail.
+     */
+    const variants = {
+      small: 'https://cdn.test/s.webp',
+      large: 'https://cdn.test/l.webp',
+      avif_small: 'https://cdn.test/s.avif',
+      avif_large: 'https://cdn.test/l.avif',
+    }
+
+    expect(buildSrcSet(variants)).toBe(
+      'https://cdn.test/s.webp 320w, https://cdn.test/l.webp 1280w',
+    )
+    expect(buildSrcSet(variants, 'avif_')).toBe(
+      'https://cdn.test/s.avif 320w, https://cdn.test/l.avif 1280w',
+    )
+  })
+
+  it('ignores derivative names it does not know', () => {
+    // A format added to the API later must not leak into an existing srcset
+    // with an invented width.
+    expect(buildSrcSet({ jxl_small: 'https://cdn.test/s.jxl' })).toBe('')
+  })
+
   it('returns an empty string when processing has not run yet', () => {
     expect(buildSrcSet(undefined)).toBe('')
     expect(buildSrcSet({})).toBe('')
@@ -124,5 +154,47 @@ describe('order status presentation', () => {
   it('distinguishes success from failure', () => {
     expect(orderStatusColor('COMPLETED')).toBe('success')
     expect(orderStatusColor('CANCELLED')).toBe('error')
+  })
+})
+
+/**
+ * Dates that arrive without a time.
+ *
+ * `new Date('2026-08-10')` is parsed as UTC midnight, so under any timezone
+ * west of Greenwich it formats as the *previous* day. The suite runs in
+ * America/Sao_Paulo (UTC-3), which is where the shops are, so these would fail
+ * against the old implementation.
+ *
+ * It was visible in two places at once: a ledger entry from the 10th shown as
+ * the 9th, and a stock batch expiring today shown as expiring yesterday.
+ */
+describe('formatDate', () => {
+  it('keeps the day of a date-only value', () => {
+    expect(formatDate('2026-08-10')).toBe('10/08/2026')
+  })
+
+  it('keeps the day at the start of a month', () => {
+    // The worst case: the shift moves the month and, in January, the year.
+    expect(formatDate('2026-01-01')).toBe('01/01/2026')
+  })
+
+  it('still renders a real timestamp in local time', () => {
+    // 12:00 UTC is 09:00 in Sao Paulo, and stays the same day.
+    expect(formatDate('2026-08-10T12:00:00Z')).toBe('10/08/2026')
+  })
+
+  it('renders a dash for missing or unparseable values', () => {
+    expect(formatDate(null)).toBe('—')
+    expect(formatDate('not a date')).toBe('—')
+  })
+})
+
+describe('formatDateTime', () => {
+  it('converts a UTC instant to local time', () => {
+    expect(formatDateTime('2026-08-10T12:00:00Z')).toBe('10/08/2026, 09:00')
+  })
+
+  it('does not shift a date-only value across midnight', () => {
+    expect(formatDateTime('2026-08-10')).toBe('10/08/2026, 00:00')
   })
 })

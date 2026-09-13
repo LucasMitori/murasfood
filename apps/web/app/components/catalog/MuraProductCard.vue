@@ -6,17 +6,19 @@ v-card.mura-pcard(
   flat
 )
   .mura-pcard__media
-    v-img.mura-pcard__img(
-      :src="imageUrl"
-      :srcset="srcSet"
+    //- The shared component rather than a bare `v-img`: it emits AVIF with a
+      //- WebP fallback, which is about a third fewer bytes for the dozens of
+      //- photos on a catalogue page — most of what a shopper on mobile data
+      //- pays to open the shop.
+    mura-image.mura-pcard__img(
+      :asset="product.image"
       :alt="imageAlt"
-      :aspect-ratio="1"
-      cover
+      variant="medium"
       sizes="(max-width: 600px) 45vw, 244px"
+      :aspect-ratio="1"
+      :rounded="false"
+      cover
     )
-      template(#placeholder)
-        .d-flex.align-center.justify-center.fill-height.bg-surface-variant
-          v-icon(icon="mdi-image-outline" size="32" color="on-surface-variant")
 
     //- Discount ribbon. The saving in money sits under the percentage because
     //- "R$ 4,50 off" lands harder than "-15%" when you are comparing shelves.
@@ -97,7 +99,6 @@ v-card.mura-pcard(
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Product } from '~/types/api'
-import { buildSrcSet } from '~/utils/format'
 import { useMoney } from '~/composables/useMoney'
 import { discountPercentage, fromCents, toCents } from '~/utils/money'
 import { useHydrated } from '~/composables/useHydrated'
@@ -124,8 +125,6 @@ const hydrated = useHydrated()
 const showFavorite = computed(() => hydrated.value && props.isFavorite)
 
 const productLink = computed(() => `/products/${props.product.slug}`)
-const imageUrl = computed(() => props.product.image?.variants?.medium ?? props.product.image?.url ?? '')
-const srcSet = computed(() => buildSrcSet(props.product.image?.variants))
 
 /** Falls back to the product name so the image is never unlabelled. */
 const imageAlt = computed(() => props.product.image?.alt_text || props.product.name)

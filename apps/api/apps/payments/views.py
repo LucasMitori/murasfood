@@ -8,7 +8,7 @@ from typing import Any
 from django.conf import settings
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status as http_status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -60,6 +60,25 @@ class PaymentWebhookView(APIView):
         headers = dict(request.headers.items())
         result = process_webhook(raw_body=request.body, headers=headers, provider_name=provider)
         return Response(result, status=http_status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        request=None,
+        responses={200: dict},
+        operation_id="payments_webhook_by_provider",
+        description="Provider payment callback, with the provider named in the path.",
+    )
+)
+class PaymentWebhookByProviderView(PaymentWebhookView):
+    """The same handler, addressed with the provider in the path.
+
+    Behaviourally identical — it exists so the two routes do not share one
+    `operationId`. They did, and the generator resolved the collision by
+    appending a numeral, which is decided by route order: reordering `urls.py`
+    would silently rename an operation and break every generated client that
+    referred to it.
+    """
 
 
 class PaymentDetailView(TenantScopedMixin, APIView):

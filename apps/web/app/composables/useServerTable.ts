@@ -289,6 +289,16 @@ export function useServerTable<TRow = Record<string, unknown>>(config: ServerTab
     isEmpty,
     range,
 
+    /**
+     * Where this table reads from, and the query it is currently showing.
+     *
+     * An export has to reproduce the screen — same filters, same search — and
+     * the only place that knows both is here. Exposed as functions rather than
+     * values so a caller always gets the state at the moment it downloads.
+     */
+    resolveEndpoint,
+    buildQuery,
+
     // Actions
     load,
     refresh,

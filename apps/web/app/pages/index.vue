@@ -15,62 +15,52 @@ div
         p.text-h6.text-medium-emphasis.mb-6(v-if="tenant.branding?.tagline") {{ tenant.branding.tagline }}
         v-btn(to="/products" color="primary" size="x-large" variant="flat" append-icon="mdi-arrow-right") {{ t('home.browseCatalog') }}
 
-    section.mura-container.mura-section(v-if="home.categories.length" aria-labelledby="home-categories")
-      .mura-section__title
-        div
-          h2#home-categories.text-h5.font-weight-bold {{ t('nav.categories') }}
-          p.text-body-2.text-medium-emphasis.mb-0 {{ t('home.categoriesHint') }}
+    //- Rendered from the layout the merchant chose, rather than from a fixed
+      //- list in this file. The order, the headings and which bands appear at
+      //- all are theirs; before this the only thing they could change about
+      //- their own front page was which pictures went in the hero.
+    template(v-for="section in sections" :key="section.key")
+      section.mura-container.mura-section(
+        v-if="section.key === 'categories' && home.categories.length"
+        aria-labelledby="home-categories"
+      )
+        .mura-section__title
+          div
+            h2#home-categories.text-h5.font-weight-bold {{ section.title || t('nav.categories') }}
+            p.text-body-2.text-medium-emphasis.mb-0 {{ t('home.categoriesHint') }}
 
-      .mura-category-grid
-        nuxt-link.mura-category(
-          v-for="category in home.categories"
-          :key="category.id"
-          :to="`/products?category=${category.slug}`"
-        )
-          .mura-category__art
-            v-img(
-              v-if="category.image"
-              :src="category.image.url"
-              :alt="category.image.alt_text || category.name"
-              cover
-              height="100%"
-            )
-            .mura-category__fallback(v-else)
-              v-icon(icon="mdi-basket-outline" size="28")
-          span.mura-category__name {{ category.name }}
+        .mura-category-grid
+          nuxt-link.mura-category(
+            v-for="category in home.categories"
+            :key="category.id"
+            :to="`/products?category=${category.slug}`"
+          )
+            .mura-category__art
+              v-img(
+                v-if="category.image"
+                :src="category.image.url"
+                :alt="category.image.alt_text || category.name"
+                cover
+                height="100%"
+              )
+              .mura-category__fallback(v-else)
+                v-icon(icon="mdi-basket-outline" size="28")
+            span.mura-category__name {{ category.name }}
 
-    mura-product-rail(
-      v-if="home.on_sale.length"
-      :title="t('catalog.onSale')"
-      :subtitle="t('home.onSaleHint')"
-      :products="home.on_sale"
-      to="/products?on_sale=true"
-      highlight
-    )
+      mura-product-rail(
+        v-else-if="section.key !== 'categories' && railOf(section.key).length"
+        :title="section.title || t(RAIL_COPY[section.key].title)"
+        :subtitle="t(RAIL_COPY[section.key].subtitle)"
+        :products="railOf(section.key)"
+        :to="RAIL_COPY[section.key].to"
+        :highlight="section.key === 'on_sale'"
+      )
 
-    mura-trust-strip
+      //- The trust strip sits after the first rail wherever that lands, so it
+        //- keeps its job of breaking up the page rather than a fixed position
+        //- that a reordering could push to the very bottom.
+      mura-trust-strip(v-if="section.key === firstRailKey")
 
-    mura-product-rail(
-      v-if="home.featured.length"
-      :title="t('catalog.featured')"
-      :subtitle="t('home.featuredHint')"
-      :products="home.featured"
-      to="/products"
-    )
-    mura-product-rail(
-      v-if="home.best_sellers.length"
-      :title="t('catalog.bestSellers')"
-      :subtitle="t('home.bestSellersHint')"
-      :products="home.best_sellers"
-      to="/products?sort=best_sellers"
-    )
-    mura-product-rail(
-      v-if="home.new_arrivals.length"
-      :title="t('catalog.newArrivals')"
-      :subtitle="t('home.newArrivalsHint')"
-      :products="home.new_arrivals"
-      to="/products?sort=newest"
-    )
 </template>
 
 <script setup lang="ts">
@@ -81,16 +71,44 @@ div
  * — so a mobile visitor does not pay for a waterfall of round trips.
  */
 import { useI18n } from 'vue-i18n'
-import type { StorefrontHome } from '~/types/api'
+import { computed } from 'vue'
+import type { HomeSectionKey, Product, StorefrontHome } from '~/types/api'
 import { useTenantStore } from '~/stores/tenant'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
 
+/**
+ * Default copy and destination per rail.
+ *
+ * The merchant may override the heading; the sub-heading and the "see all"
+ * link stay ours, because those describe what the rail *is* rather than what
+ * this shop calls it.
+ */
+const RAIL_COPY: Record<Exclude<HomeSectionKey, 'categories'>, { title: string, subtitle: string, to: string }> = {
+  on_sale: { title: 'catalog.onSale', subtitle: 'home.onSaleHint', to: '/products?on_sale=true' },
+  featured: { title: 'catalog.featured', subtitle: 'home.featuredHint', to: '/products' },
+  best_sellers: { title: 'catalog.bestSellers', subtitle: 'home.bestSellersHint', to: '/products?sort=best_sellers' },
+  new_arrivals: { title: 'catalog.newArrivals', subtitle: 'home.newArrivalsHint', to: '/products?sort=newest' },
+}
+
 const { data: home, pending, error, refresh } = await useAsyncData<StorefrontHome>(
   'storefront-home',
   () => useNuxtApp().$api.get<StorefrontHome>('/catalog/home/'),
 )
+
+/** Only the bands that are switched on, in the merchant's order. */
+const sections = computed(() => (home.value?.layout ?? []).filter(section => section.enabled))
+
+/** The first band that is a product rail, for placing the trust strip. */
+const firstRailKey = computed(
+  () => sections.value.find(section => section.key !== 'categories')?.key,
+)
+
+function railOf(key: HomeSectionKey): Product[] {
+  if (!home.value || key === 'categories') return []
+  return home.value[key] ?? []
+}
 
 useSeoMeta({
   title: () => tenant.storeName,

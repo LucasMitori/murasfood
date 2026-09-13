@@ -287,6 +287,7 @@ def run_report_job(job: ReportJob) -> ReportJob:
         from apps.tenants.selectors import tenant_timezone
 
         params = job.parameters or {}
+        content_type = "application/pdf"
         period = build_period(
             key=params.get("period", "custom"),
             start_date=date.fromisoformat(params["start"]),
@@ -297,7 +298,10 @@ def run_report_job(job: ReportJob) -> ReportJob:
         end_label = period.end_date.strftime("%d/%m/%Y")
         label = f"Período: {start_label} a {end_label}"
 
-        if job.report_type == ReportType.FINANCIAL:
+        if job.output_format == ReportFormat.CSV:
+            content, filename = _render_csv(job=job, period=period)
+            content_type = "text/csv; charset=utf-8"
+        elif job.report_type == ReportType.FINANCIAL:
             from apps.finance.services import expense_breakdown, profit_and_loss
 
             content = render_financial_report(
@@ -326,7 +330,7 @@ def run_report_job(job: ReportJob) -> ReportJob:
             tenant=job.tenant,
             content=content,
             filename=filename,
-            content_type="application/pdf",
+            content_type=content_type,
         )
         job.status = ReportStatus.COMPLETED
         job.error_message = ""
@@ -340,6 +344,57 @@ def run_report_job(job: ReportJob) -> ReportJob:
     job.completed_at = timezone.now()
     job.save()
     return job
+
+
+def _render_csv(*, job: ReportJob, period: Any) -> tuple[bytes, str]:
+    """Render a report as a spreadsheet rather than a page.
+
+    `output_format` was accepted, stored, and then ignored: every job rendered a
+    PDF and was filed under a `.pdf` name, so a merchant who asked for CSV
+    received a PDF and no error. Reports are what an accountant reconciles
+    against, and a PDF of a table is the one shape they cannot use.
+
+    The sales report becomes its per-product breakdown and the financial one its
+    line items — in both cases the rows behind the summary, which is what a
+    spreadsheet is wanted for in the first place.
+    """
+    from apps.common.spreadsheets import CSV, Column, render
+
+    if job.report_type == ReportType.FINANCIAL:
+        from apps.finance.services import expense_breakdown, profit_and_loss
+
+        statement = profit_and_loss(
+            tenant_id=job.tenant_id, start=period.start_date, end=period.end_date
+        )
+        columns = [Column("item", "Item"), Column("value", "Valor")]
+        rows = [
+            {"item": "Receita", "value": statement["revenue"]},
+            {"item": "Custo das mercadorias", "value": statement["cogs"]},
+            {"item": "Lucro bruto", "value": statement["gross_profit"]},
+            {"item": "Despesas operacionais", "value": statement["total_expenses"]},
+            {"item": "Resultado", "value": statement["net_result"]},
+        ]
+        rows += [
+            {"item": entry["category"], "value": entry["total"]}
+            for entry in expense_breakdown(
+                tenant_id=job.tenant_id, start=period.start_date, end=period.end_date
+            )
+        ]
+        stem = "financeiro"
+    else:
+        data = sales_report(tenant=job.tenant, period=period)
+        columns = [
+            Column("sku", "SKU"),
+            Column("name", "Produto"),
+            Column("units", "Unidades"),
+            Column("revenue", "Receita"),
+            Column("estimated_margin", "Margem estimada"),
+        ]
+        rows = data["products"]
+        stem = "vendas"
+
+    content = render(columns=columns, rows=rows, fmt=CSV)
+    return content, f"{stem}-{period.start_date}-{period.end_date}.csv"
 
 
 def queue_report(

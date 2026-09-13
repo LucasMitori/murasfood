@@ -149,9 +149,7 @@ class TestPasswordSecrecy:
         assert body["smtp_password_set"] is True
         assert "hunter2" not in str(body)
 
-    def test_editing_another_field_keeps_the_password(
-        self, admin_client: Any, tenant: Any
-    ) -> None:
+    def test_editing_another_field_keeps_the_password(self, admin_client: Any, tenant: Any) -> None:
         """The form cannot send back a secret it was never given."""
         admin_client.patch(
             "/api/v1/tenants/admin/settings/",

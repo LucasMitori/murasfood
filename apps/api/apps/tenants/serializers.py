@@ -17,6 +17,8 @@ from apps.media.serializers import MediaAssetSerializer
 from .models import (
     FLOATING_POSITIONS,
     FLOATING_TOOL_KEYS,
+    HOME_SECTION_KEYS,
+    HOME_SECTION_MAX_LIMIT,
     BusinessHours,
     Tenant,
     TenantBranding,
@@ -96,6 +98,9 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
     def validate_floating_tools(self, value: Any) -> dict:
         return _validate_floating_tools(value)
 
+    def validate_home_layout(self, value: Any) -> list[dict]:
+        return _validate_home_layout(value)
+
     def update(self, instance: TenantSettings, validated_data: dict) -> TenantSettings:
         """An omitted password means "leave it"; an empty one means "clear it".
 
@@ -124,6 +129,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             "privacy_policy_url",
             "terms_url",
             "floating_tools",
+            "home_layout",
             "smtp_host",
             "smtp_port",
             "smtp_username",
@@ -191,6 +197,11 @@ class TenantPublicSerializer(serializers.ModelSerializer):
             # Without it the merchant's choices are stored and never read, and
             # the button silently falls back to showing everything.
             "floating_tools": settings.floating_tools,
+            # Same reasoning: the dashboard's layout editor reads the tenant
+            # through this serializer, so omitting it here would leave that
+            # screen permanently showing the default order no matter what was
+            # saved. Not sensitive either way — it describes a public page.
+            "home_layout": settings.home_layout,
         }
 
     def get_delivery(self, obj: Tenant) -> dict[str, Any]:
@@ -240,6 +251,62 @@ class TenantAdminSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "slug", "status", "is_active", "created_at", "updated_at"]
+
+
+def _validate_home_layout(value: Any) -> list[dict]:
+    """Check the shape of the home page layout.
+
+    Order is the substance here — it is the order the rails render in — so this
+    is a list, and the client's order is preserved exactly. Every known section
+    must appear once: a missing one would silently vanish from the page with no
+    way to bring it back, and a repeated one would render the same rail twice.
+
+    An empty `title` is meaningful and kept: it means "use the translated
+    heading", so a shop that never renames a rail still reads correctly in every
+    language rather than in whichever one the owner happened to be using.
+    """
+    if not isinstance(value, list):
+        raise serializers.ValidationError(_("Expected a list."))
+
+    keys = [section.get("key") if isinstance(section, dict) else None for section in value]
+
+    unknown = [key for key in keys if key not in HOME_SECTION_KEYS]
+    if unknown:
+        raise serializers.ValidationError(
+            _("Unknown sections: %(keys)s") % {"keys": ", ".join(map(str, unknown))}
+        )
+
+    if len(set(keys)) != len(keys):
+        raise serializers.ValidationError(_("A section cannot be listed twice."))
+
+    missing = [key for key in HOME_SECTION_KEYS if key not in keys]
+    if missing:
+        raise serializers.ValidationError(
+            _("Missing sections: %(keys)s") % {"keys": ", ".join(missing)}
+        )
+
+    cleaned = []
+    for section in value:
+        try:
+            limit = int(section.get("limit", 12))
+        except (TypeError, ValueError):
+            raise serializers.ValidationError({"limit": _("Expected a whole number.")}) from None
+
+        if not 1 <= limit <= HOME_SECTION_MAX_LIMIT:
+            raise serializers.ValidationError(
+                {"limit": _("Between 1 and %(max)s.") % {"max": HOME_SECTION_MAX_LIMIT}}
+            )
+
+        cleaned.append(
+            {
+                "key": section["key"],
+                "enabled": bool(section.get("enabled", True)),
+                "title": str(section.get("title") or "")[:80],
+                "limit": limit,
+            }
+        )
+
+    return cleaned
 
 
 def _validate_floating_tools(value: Any) -> dict:

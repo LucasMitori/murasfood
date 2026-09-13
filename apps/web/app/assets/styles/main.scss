@@ -46,6 +46,22 @@ body {
   text-rendering: optimizelegibility;
 }
 
+/*
+ * The typeface, stated here rather than left to Vuetify's SASS variable.
+ *
+ * `$body-font-family` in `settings.scss` only applies when the build compiles
+ * Vuetify from SASS, which it does for production but not for dev — dev serves
+ * the precompiled CSS so the page is not waiting on fifty stylesheets that
+ * compile on demand. Without this, dev fell back to Vuetify's own Roboto and
+ * looked subtly unlike the thing being shipped.
+ */
+.v-application,
+.v-application .v-card,
+.v-application .v-btn,
+.v-overlay-container {
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+}
+
 // --- Layout helpers ---------------------------------------------------------
 .mura-container {
   width: 100%;

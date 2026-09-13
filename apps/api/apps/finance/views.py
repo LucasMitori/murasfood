@@ -68,6 +68,7 @@ class FinancialTransactionViewSet(TenantScopedMixin, viewsets.ModelViewSet):
         "default": ["finance.manage"],
     }
     filterset_fields = ["transaction_type", "category", "account", "status"]
+    search_fields = ["description", "note", "reference_id", "category__name"]
 
     def get_queryset(self) -> Any:
         queryset = (

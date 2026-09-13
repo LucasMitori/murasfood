@@ -16,7 +16,7 @@ v-row(dense)
           @click="addAll"
         )
 
-      v-text-field.px-3(
+      v-text-field.px-3.mura-transfer__search(
         v-model="availableSearch"
         :placeholder="t('table.searchPlaceholder')"
         :aria-label="t('common.search')"
@@ -79,7 +79,7 @@ v-row(dense)
           @click="removeAll"
         )
 
-      v-text-field.px-3(
+      v-text-field.px-3.mura-transfer__search(
         v-model="assignedSearch"
         :placeholder="t('table.searchPlaceholder')"
         :aria-label="t('common.search')"
@@ -288,6 +288,14 @@ function onAssignedChange(event: DraggableChange): void {
 
 .mura-transfer--assigned {
   border-color: rgb(var(--v-theme-primary));
+}
+
+/* Vuetify gives `.v-input` `flex: 1 1 auto`. Inside this fixed-height flex
+   column that made the search box grow to swallow the free space, so the list
+   underneath collapsed towards its 80px minimum and the permissions were
+   barely visible. The field should take the height it needs and no more. */
+.mura-transfer__search {
+  flex: 0 0 auto;
 }
 
 .mura-transfer__list {

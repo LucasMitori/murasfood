@@ -19,7 +19,7 @@ import os
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from django.conf import settings
@@ -114,13 +114,32 @@ class S3CompatibleStorage(StorageBackend):
 
         self.bucket = settings.S3_BUCKET
         self.default_ttl = settings.S3_SIGNED_URL_TTL_SECONDS
-        self._client = boto3.client(
-            "s3",
-            endpoint_url=settings.S3_ENDPOINT or None,
-            aws_access_key_id=settings.S3_ACCESS_KEY or None,
-            aws_secret_access_key=settings.S3_SECRET_KEY or None,
-            region_name=settings.S3_REGION,
-            config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
+
+        def client_for(endpoint: str) -> Any:
+            return boto3.client(
+                "s3",
+                endpoint_url=endpoint or None,
+                aws_access_key_id=settings.S3_ACCESS_KEY or None,
+                aws_secret_access_key=settings.S3_SECRET_KEY or None,
+                region_name=settings.S3_REGION,
+                config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
+            )
+
+        self._client = client_for(settings.S3_ENDPOINT)
+
+        # A second client, bound to the address a browser can reach.
+        #
+        # SigV4 signs the Host header, so a URL signed for the internal endpoint
+        # cannot simply have its host swapped afterwards — the signature stops
+        # matching. It has to be signed for the host it will be requested on.
+        #
+        # Without this, every private download in Docker pointed at
+        # `http://minio:9000/...`, which resolves inside the compose network and
+        # nowhere else: reports were generated correctly and then handed to the
+        # browser as an unreachable link.
+        public_endpoint = settings.S3_PUBLIC_ENDPOINT or settings.S3_ENDPOINT
+        self._signing_client = (
+            self._client if public_endpoint == settings.S3_ENDPOINT else client_for(public_endpoint)
         )
 
     def save(self, key: str, content: IO[bytes], *, content_type: str, public: bool) -> str:
@@ -154,7 +173,7 @@ class S3CompatibleStorage(StorageBackend):
     def url(self, key: str, *, expires_in: int | None = None, public: bool = False) -> str:
         if public and settings.S3_PUBLIC_ENDPOINT:
             return f"{settings.S3_PUBLIC_ENDPOINT.rstrip('/')}/{self.bucket}/{quote(key)}"
-        return self._client.generate_presigned_url(
+        return self._signing_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": self.bucket, "Key": key},
             ExpiresIn=expires_in or self.default_ttl,

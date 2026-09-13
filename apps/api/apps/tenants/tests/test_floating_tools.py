@@ -64,9 +64,7 @@ class TestValidation:
         assert response.status_code == 400
 
     def test_an_unknown_position_is_refused(self, admin_client: Any) -> None:
-        response = self._patch(
-            admin_client, {"actions": ["cart"], "position": "middle-of-nowhere"}
-        )
+        response = self._patch(admin_client, {"actions": ["cart"], "position": "middle-of-nowhere"})
 
         assert response.status_code == 400
 
@@ -118,9 +116,9 @@ class TestReachesTheStorefront:
             content_type="application/json",
         )
 
-        body = client.get(
-            "/api/v1/tenants/current/", headers={"X-Tenant": tenant.slug}
-        ).json()["settings"]["floating_tools"]
+        body = client.get("/api/v1/tenants/current/", headers={"X-Tenant": tenant.slug}).json()[
+            "settings"
+        ]["floating_tools"]
 
         assert body["actions"] == ["cart", "calculator"]
         assert body["position"] == "top-left"

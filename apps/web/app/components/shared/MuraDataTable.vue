@@ -31,6 +31,26 @@ v-card.mura-card(flat)
       @click="table.refresh()"
     )
 
+    //- Exports what is on screen, filters and search included, because a
+      //- merchant who narrowed to "sem estoque" means that list rather than all
+      //- four hundred rows.
+    v-menu(v-if="exportable" location="bottom end")
+      template(#activator="{ props: menuProps }")
+        v-btn(
+          v-bind="menuProps"
+          :aria-label="t('table.export')"
+          icon="mdi-tray-arrow-down"
+          variant="text"
+          density="comfortable"
+          :loading="exporting"
+        )
+      v-list(density="compact")
+        v-list-subheader {{ t('table.export') }}
+        v-list-item(prepend-icon="mdi-file-excel-outline" @click="download('xlsx')")
+          v-list-item-title Excel (.xlsx)
+        v-list-item(prepend-icon="mdi-file-delimited-outline" @click="download('csv')")
+          v-list-item-title CSV
+
     slot(name="actions")
 
   v-divider
@@ -156,7 +176,8 @@ import type { useServerTable } from '~/composables/useServerTable'
 import { ITEMS_PER_PAGE_OPTIONS } from '~/composables/useServerTable'
 import { useAuthStore } from '~/stores/auth'
 import { useMoney } from '~/composables/useMoney'
-import { formatDate, formatDateTime } from '~/utils/format'
+import { formatDate, formatDateTime, saveFile } from '~/utils/format'
+import { useUiStore } from '~/stores/ui'
 
 type TableInstance = ReturnType<typeof useServerTable<Record<string, unknown>>>
 type Row = Record<string, unknown>
@@ -170,6 +191,10 @@ const props = withDefaults(defineProps<{
   title?: string
   subtitle?: string
   searchable?: boolean
+  /** Offer a download of the current view. The endpoint gains `/export/`. */
+  exportable?: boolean
+  /** Filename stem, before the date. */
+  exportName?: string
   clickable?: boolean
   selectable?: boolean
   selected?: unknown[]
@@ -186,6 +211,8 @@ const props = withDefaults(defineProps<{
   title: '',
   subtitle: '',
   searchable: false,
+  exportable: false,
+  exportName: 'export',
   clickable: false,
   selectable: false,
   selected: () => [],
@@ -195,6 +222,8 @@ const props = withDefaults(defineProps<{
   emptyDescription: '',
   emptyIcon: 'mdi-table-off',
 })
+
+const ui = useUiStore()
 
 const emit = defineEmits<{
   /**
@@ -366,6 +395,33 @@ function onSearchInput(value: string | null): void {
   // Debounced inside the composable; page always resets to 1 there.
   props.table.setSearch(searchDraft.value)
 }
+/**
+ * Download the current view.
+ *
+ * The same endpoint plus `/export/`, with the query the table is showing, so
+ * the file matches the screen rather than the whole table. It goes through the
+ * API client rather than a link because the export needs the access token, and
+ * an `<a href>` cannot carry one.
+ */
+const exporting = ref(false)
+
+async function download(fmt: 'csv' | 'xlsx'): Promise<void> {
+  exporting.value = true
+  try {
+    const endpoint = `${props.table.resolveEndpoint().replace(/\/$/, '')}/export/`
+    const { page: _page, page_size: _size, ...query } = props.table.buildQuery()
+
+    const file = await useNuxtApp().$api.download(endpoint, { query: { ...query, fmt } })
+    saveFile(file.blob, file.filename)
+  }
+  catch {
+    ui.error(t('table.exportFailed'))
+  }
+  finally {
+    exporting.value = false
+  }
+}
+
 
 function onRowClick(_event: unknown, context: { item: Row }): void {
   if (props.clickable) emit('row-click', context.item)

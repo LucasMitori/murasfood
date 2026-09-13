@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from apps.catalog.models import Product, ProductImage
+from apps.catalog.models import ProductImage
 
 pytestmark = pytest.mark.django_db
 

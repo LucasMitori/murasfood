@@ -7,6 +7,7 @@ from .views import (
     PaymentDetailView,
     PaymentEventViewSet,
     PaymentRefundViewSet,
+    PaymentWebhookByProviderView,
     PaymentWebhookView,
     SandboxWebhookSimulatorView,
 )
@@ -21,7 +22,11 @@ router.register("admin/refunds", PaymentRefundViewSet, basename="admin-refund")
 urlpatterns = [
     # Provider callbacks. Unauthenticated by necessity, signature-verified.
     path("webhooks/", PaymentWebhookView.as_view(), name="webhook"),
-    path("webhooks/<str:provider>/", PaymentWebhookView.as_view(), name="webhook-provider"),
+    path(
+        "webhooks/<str:provider>/",
+        PaymentWebhookByProviderView.as_view(),
+        name="webhook-provider",
+    ),
     path("", OrderPaymentView.as_view(), name="create"),
     path("<uuid:pk>/", PaymentDetailView.as_view(), name="detail"),
     path(

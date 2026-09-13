@@ -1,10 +1,18 @@
 # API
 
 Base path: `/api/v1/`. The schema in [`openapi.yaml`](openapi.yaml) is generated
-from the code, so it cannot drift from the implementation. Regenerate it with:
+from the code. Regenerate it after any change to a view, serializer or route:
 
 ```bash
 make openapi
+```
+
+Being generated is not the same as being current — the committed copy once sat a
+month behind the code, missing entire endpoints, while every test passed. Check
+it, and fail if it has drifted:
+
+```bash
+make openapi-check
 ```
 
 Interactive documentation runs alongside the API at `/api/docs/` (Swagger) and

@@ -13,6 +13,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 # --- Paths -------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -162,6 +163,46 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.notifications.tasks.retry_failed_emails",
         "schedule": 600.0,
     },
+    # --- Everything below was written to run periodically and never scheduled.
+    # Each was reachable only from a test or the demo seeder, so the behaviour
+    # its docstring describes had never happened in a running system.
+    #
+    # A lost webhook leaves a paid order unfulfilled; this is the polling
+    # backstop the provider integration was designed around.
+    "reconcile-pending-payments": {
+        "task": "apps.payments.tasks.reconcile_pending_payments",
+        "schedule": 600.0,
+    },
+    # Revenue reaches the finance ledger only through this projection. Without
+    # it the finance pages showed the demo seed and nothing a customer bought.
+    "project-paid-orders-to-ledger": {
+        "task": "apps.reports.tasks.project_paid_orders_to_ledger",
+        "schedule": 300.0,
+    },
+    # The backstop for an order whose payment row was never created.
+    "expire-unpaid-orders": {
+        "task": "apps.orders.tasks.expire_unpaid_orders",
+        "schedule": 900.0,
+    },
+    # Morning restocking advice, once per day rather than hourly: it is a
+    # digest, and a shop that reads it six times before lunch stops reading it.
+    "notify-low-stock": {
+        "task": "apps.inventory.tasks.notify_low_stock_all_tenants",
+        "schedule": crontab(hour=7, minute=0),
+    },
+    # Housekeeping. Daily, off-peak, because each one deletes.
+    "cleanup-orphaned-assets": {
+        "task": "apps.media.tasks.cleanup_orphaned_assets",
+        "schedule": crontab(hour=3, minute=30),
+    },
+    "cleanup-old-report-jobs": {
+        "task": "apps.reports.tasks.cleanup_old_report_jobs",
+        "schedule": crontab(hour=3, minute=45),
+    },
+    "cleanup-old-notifications": {
+        "task": "apps.notifications.tasks.cleanup_old_notifications",
+        "schedule": crontab(hour=4, minute=0),
+    },
 }
 
 # --- Authentication ----------------------------------------------------------
@@ -217,6 +258,10 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": (
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
+        # Without this, `search_fields` on a viewset is decoration: DRF only
+        # reads it through SearchFilter. Every admin table sends `?search=`,
+        # and seven of the eight silently ignored it.
+        "rest_framework.filters.SearchFilter",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.common.exceptions.api_exception_handler",
@@ -267,7 +312,12 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": "/api/v1",
     "COMPONENT_SPLIT_REQUEST": True,
-    "SORT_OPERATIONS": False,
+    # Sorted, so the generated schema is byte-stable. Left unsorted, operation
+    # order follows Python's hash order and two runs over identical code produce
+    # different files — the same operations, shuffled within their path. That
+    # makes the committed copy impossible to diff, which is what `make
+    # openapi-check` needs in order to notice real drift.
+    "SORT_OPERATIONS": True,
     "ENUM_NAME_OVERRIDES": {
         "OrderStatusEnum": "apps.orders.constants.OrderStatus.choices",
         "PaymentStatusEnum": "apps.payments.constants.PaymentStatus.choices",
@@ -330,6 +380,25 @@ MEDIA_IMAGE_DERIVATIVES = {
     "medium": 640,
     "large": 1280,
 }
+
+# The stored master is capped and re-encoded rather than kept as uploaded.
+#
+# A shopkeeper photographs a shelf with their phone and uploads six megabytes at
+# 4000x3000. Nothing ever renders it: the storefront serves a derivative, and
+# the largest of those is 1280px wide. Measured on one such photo, the original
+# was 6.9 MB of the 7.6 MB the upload cost — ninety per cent of the storage,
+# write-only. Four hundred products at three photos each is nine gigabytes, of
+# which eight are never read.
+#
+# 2048 leaves comfortable headroom above the largest derivative, so a future
+# larger size can still be generated from the master without going back to the
+# customer for the photo. Set to 0 to keep originals untouched.
+MEDIA_IMAGE_MAX_DIMENSION = env.int("MEDIA_IMAGE_MAX_DIMENSION", default=2048)
+
+# AVIF alongside WebP: about a third smaller at the same quality, which is a
+# third off what a shopper on mobile data pays for a page of product photos.
+# Browsers that do not understand it fall back to the WebP source.
+MEDIA_IMAGE_AVIF = env.bool("MEDIA_IMAGE_AVIF", default=True)
 
 # --- Email -------------------------------------------------------------------
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

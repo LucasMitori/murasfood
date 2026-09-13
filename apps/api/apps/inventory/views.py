@@ -7,14 +7,17 @@ from typing import Any
 
 from django.db.models import F, Q
 from django.utils.translation import gettext_lazy as _
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.models import Product
+from apps.common import spreadsheets
 from apps.common.exceptions import NotFoundError
 from apps.common.permissions import HasTenantPermission
 from apps.common.views import TenantScopedMixin
@@ -22,8 +25,8 @@ from apps.common.views import TenantScopedMixin
 from .models import InventoryItem, StockBatch, StockMovement, StockReservation
 from .serializers import (
     InventoryItemSerializer,
-    StockBatchSerializer,
     StockAdjustmentSerializer,
+    StockBatchSerializer,
     StockCountSerializer,
     StockMovementSerializer,
     StockReservationSerializer,
@@ -43,6 +46,30 @@ class InventoryItemViewSet(TenantScopedMixin, viewsets.ModelViewSet):
     }
     queryset = InventoryItem.objects.select_related("product", "product__sale_unit").all()
     filterset_fields = ["track_stock", "product"]
+    search_fields = ["product__name", "product__sku", "location"]
+
+    @extend_schema(
+        parameters=[OpenApiParameter("fmt", str, description="csv or xlsx")],
+        responses={200: OpenApiTypes.BINARY},
+        operation_id="admin_inventory_export",
+    )
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request: Request) -> Any:
+        """The stock list, for counting against on paper.
+
+        Exports what the screen is showing — the same filters and search — so a
+        merchant who narrowed to "out of stock" gets that list rather than all
+        four hundred items.
+        """
+        from apps.common.exports import INVENTORY_COLUMNS, inventory_rows
+
+        return spreadsheets.download(
+            columns=INVENTORY_COLUMNS,
+            rows=inventory_rows(self.filter_queryset(self.get_queryset())),
+            stem="estoque",
+            fmt=request.query_params.get("fmt", spreadsheets.XLSX),
+        )
+
     http_method_names = ["get", "patch", "head", "options"]
 
     def get_queryset(self) -> Any:
@@ -183,7 +210,9 @@ class StockBatchViewSet(TenantScopedMixin, viewsets.ModelViewSet):
             except ValueError:
                 # A malformed window is a caller bug, not a reason to answer
                 # with every batch ever received.
-                raise ValidationError({"expiring_days": _("Must be a whole number of days.")})
+                raise ValidationError(
+                    {"expiring_days": _("Must be a whole number of days.")}
+                ) from None
             queryset = queryset.expiring_within(max(days, 0))
 
         return queryset
@@ -205,7 +234,7 @@ class ExpiryReportView(TenantScopedMixin, APIView):
         try:
             days = int(request.query_params.get("days", 7))
         except ValueError:
-            raise ValidationError({"days": _("Must be a whole number of days.")})
+            raise ValidationError({"days": _("Must be a whole number of days.")}) from None
 
         days = max(days, 0)
         batches = StockBatch.objects.for_tenant(request.tenant)

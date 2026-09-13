@@ -43,7 +43,8 @@
     "skipToContent": "Ir para o conteúdo principal",
     "create": "Novo",
     "unknown": "Desconhecido",
-    "delete": "Excluir"
+    "delete": "Excluir",
+    "done": "Pronto"
   },
   "states": {
     "emptyTitle": "Nada por aqui",
@@ -670,6 +671,40 @@
       "inventory": {
         "low_stock": "Alerta de estoque baixo"
       }
+    },
+    "tabBanners": "Banners",
+    "tabLayout": "Layout",
+    "tabAppearance": "Aparência",
+    "homeSections": "Seções da página inicial",
+    "homeSectionsHint": "Arraste para reordenar. A ordem aqui é a ordem na loja.",
+    "sectionTitle": "Título",
+    "sectionLimit": "Itens",
+    "sectionEnabled": "Mostrar seção",
+    "sectionDefaultTitle": "Título padrão",
+    "sectionHero": "Banner principal",
+    "sectionsAllOff": "Nenhuma seção ativa: a loja mostrará apenas o banner.",
+    "layoutSaved": "Layout salvo.",
+    "brandingSaved": "Aparência salva.",
+    "palette": "Paleta",
+    "paletteHint": "As cores da sua marca em toda a loja.",
+    "colorAccent": "Destaque",
+    "colorDark": "Primária (tema escuro)",
+    "colorPrimaryHint": "Botões, links e cabeçalhos.",
+    "colorAccentHint": "Selos, promoções e avisos.",
+    "colorDarkHint": "Um tom mais claro, legível sobre fundo escuro.",
+    "identity": "Identidade",
+    "tagline": "Slogan",
+    "taglineHint": "Uma linha sobre a sua loja.",
+    "about": "Sobre",
+    "links": "Links",
+    "website": "Site",
+    "sampleBadge": "Oferta",
+    "section": {
+      "categories": "Categorias",
+      "on_sale": "Ofertas",
+      "featured": "Destaques",
+      "best_sellers": "Mais vendidos",
+      "new_arrivals": "Novidades"
     }
   },
   "errors": {
@@ -772,7 +807,9 @@
     "refresh": "Atualizar",
     "page": "Página {page} de {pages}",
     "nextPage": "Próxima página",
-    "previousPage": "Página anterior"
+    "previousPage": "Página anterior",
+    "export": "Exportar",
+    "exportFailed": "Não foi possível exportar."
   },
   "form": {
     "unsavedChanges": "Há alterações não salvas",
@@ -784,7 +821,8 @@
     "selectFile": "Escolher arquivo",
     "dropFile": "Arraste um arquivo ou clique para escolher",
     "removeFile": "Remover arquivo",
-    "maxFileSize": "Tamanho máximo: {size}"
+    "maxFileSize": "Tamanho máximo: {size}",
+    "pickColour": "Escolher cor"
   },
   "transfer": {
     "available": "Disponíveis",
@@ -907,5 +945,62 @@
     "copyResult": "Copiar resultado",
     "copied": "Resultado copiado",
     "cannotDivide": "Não dá para dividir por zero"
+  },
+  "import": {
+    "action": "Importar",
+    "title": "Importar produtos",
+    "templateHint": "Nao sabe o formato? Baixe o modelo e preencha.",
+    "downloadTemplate": "Baixar modelo",
+    "chooseFile": "Arquivo",
+    "chooseFileHint": "CSV ou Excel (.xlsx), ate 5 MB.",
+    "createMissing": "Criar categorias e marcas que faltarem",
+    "createMissingHint": "Desligado, linhas com nomes desconhecidos sao recusadas.",
+    "preview": "Conferir",
+    "apply": "Importar",
+    "readyToApply": "Tudo certo",
+    "hasErrors": "Corrija antes de importar",
+    "willCreate": "{count} a criar",
+    "willUpdate": "{count} a atualizar",
+    "rowsRead": "{count} linhas lidas",
+    "line": "Linha",
+    "problem": "Problema",
+    "moreErrors": "e mais {count} linhas com problema.",
+    "nothingApplied": "Nada foi gravado: corrija as linhas acima e envie de novo.",
+    "done": "{created} criados, {updated} atualizados."
+  },
+  "reports": {
+    "title": "Relatórios",
+    "subtitle": "Vendas, estoque e clientes",
+    "sales": "Vendas",
+    "inventory": "Estoque",
+    "customers": "Clientes",
+    "export": "Gerar relatório",
+    "generate": "Gerar",
+    "whichReport": "Qual relatório",
+    "formatHint": "PDF para arquivar ou imprimir. CSV para abrir na planilha.",
+    "preparing": "Preparando o arquivo…",
+    "ready": "Relatório pronto.",
+    "download": "Baixar",
+    "failed": "Não foi possível gerar o relatório.",
+    "revenueOverTime": "Receita no período",
+    "byCategory": "Por categoria",
+    "topProducts": "Produtos mais vendidos",
+    "units": "Unidades",
+    "margin": "Margem estimada",
+    "orders": "Pedidos",
+    "averageTicket": "Ticket médio",
+    "discounts": "Descontos",
+    "stockValue": "Valor em estoque",
+    "itemsTracked": "Itens controlados",
+    "losses": "Perdas registradas",
+    "unitCost": "Custo unitário",
+    "value": "Valor",
+    "newCustomers": "Novos clientes",
+    "activeCustomers": "Clientes ativos",
+    "repeatCustomers": "Clientes que voltaram",
+    "repeatRate": "Taxa de retorno",
+    "repeatExplainer": "Como ler estes números",
+    "repeatHint": "Clientes ativos compraram no período. Os que voltaram já haviam comprado antes dele — é a medida de quem a loja está conseguindo manter.",
+    "noneInPeriod": "Nada registrado neste período."
   }
 }

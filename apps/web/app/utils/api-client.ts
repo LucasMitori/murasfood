@@ -102,6 +102,44 @@ export class ApiClient {
     return this.unwrap<T>(response)
   }
 
+  /**
+   * Fetch a file rather than JSON.
+   *
+   * `request` parses every response body as JSON, which a spreadsheet is not.
+   * This keeps the same authentication and token-refresh behaviour and hands
+   * back the bytes together with the name the server chose.
+   *
+   * The filename is only readable because the export endpoints expose
+   * `Content-Disposition` across origins; without that the browser would save
+   * every download as "export".
+   */
+  async download(
+    path: string,
+    options: Omit<RequestOptions, 'method' | 'body'> = {},
+  ): Promise<{ blob: Blob, filename: string }> {
+    let response = await this.send(path, { ...options, method: 'GET' })
+
+    if (response.status === 401 && !options.anonymous && this.options.getRefreshToken()) {
+      if (await this.refreshOnce()) {
+        response = await this.send(path, { ...options, method: 'GET' })
+      }
+      else {
+        this.options.onAuthenticationLost()
+      }
+    }
+
+    if (!response.ok) {
+      // Errors still come back as JSON, so the normal unwrapping raises the
+      // usual ApiRequestError and the caller shows the usual message.
+      return this.unwrap(response)
+    }
+
+    return {
+      blob: await response.blob(),
+      filename: filenameFrom(response.headers.get('Content-Disposition')),
+    }
+  }
+
   get<T>(path: string, options: Omit<RequestOptions, 'method' | 'body'> = {}): Promise<T> {
     return this.request<T>(path, { ...options, method: 'GET' })
   }
@@ -260,4 +298,16 @@ export function newIdempotencyKey(): string {
   const cryptoObj = globalThis.crypto
   if (cryptoObj?.randomUUID) return cryptoObj.randomUUID()
   return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+}
+
+/**
+ * Pull the filename out of a `Content-Disposition` header.
+ *
+ * Falls back to a generic name rather than failing: a download with an
+ * awkward name is still a download, and the header is the server's courtesy
+ * rather than something the client can insist on.
+ */
+function filenameFrom(header: string | null): string {
+  const match = header?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+  return match?.[1] ? decodeURIComponent(match[1]) : 'download'
 }

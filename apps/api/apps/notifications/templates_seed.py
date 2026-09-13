@@ -98,9 +98,9 @@ def button(label: str, url: str) -> str:
         'style="margin:20px 0;"><tr><td align="center" '
         f'style="background:{BRAND};border-radius:10px;">'
         f'<a href="{url}" style="display:inline-block;padding:13px 26px;'
-        'font-family:system-ui,-apple-system,\'Segoe UI\',sans-serif;font-size:15px;'
+        "font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;"
         'font-weight:600;color:#FFFFFF;text-decoration:none;">'
-        f'{label}</a></td></tr></table>'
+        f"{label}</a></td></tr></table>"
     )
 
 
@@ -138,8 +138,10 @@ DEFAULT_TEMPLATES: tuple[dict[str, Any], ...] = (
             "<p>Olá, {{ first_name }}!</p>"
             "<p>Confirme seu endereço de e-mail para ativar sua conta.</p>"
             + button("Confirmar e-mail", "{{ verification_url }}")
-            + note("O link expira em {{ expires_in_hours }} horas. "
-                   "Se não foi você quem criou a conta, ignore este e-mail.")
+            + note(
+                "O link expira em {{ expires_in_hours }} horas. "
+                "Se não foi você quem criou a conta, ignore este e-mail."
+            )
         ),
         "text": (
             "Olá, {{ first_name }}!\n\n"
@@ -164,8 +166,10 @@ DEFAULT_TEMPLATES: tuple[dict[str, Any], ...] = (
             "<p>Olá, {{ first_name }}!</p>"
             "<p>Recebemos um pedido para redefinir sua senha.</p>"
             + button("Criar nova senha", "{{ reset_url }}")
-            + note("O link expira em {{ expires_in_hours }} horas. "
-                   "Se não foi você, ignore este e-mail e sua senha continuará a mesma.")
+            + note(
+                "O link expira em {{ expires_in_hours }} horas. "
+                "Se não foi você, ignore este e-mail e sua senha continuará a mesma."
+            )
         ),
         "text": (
             "Olá, {{ first_name }}!\n\n"

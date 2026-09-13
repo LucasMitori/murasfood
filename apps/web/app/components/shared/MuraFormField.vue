@@ -137,6 +137,35 @@ mura-image-upload(
   @update:model-value="update"
 )
 
+mura-color-field(
+  v-else-if="field.type === 'color'"
+  :model-value="modelValue"
+  :label="label"
+  :hint="hint"
+  :rules="rules"
+  :error-messages="errorMessages"
+  :disabled="isDisabled"
+  :readonly="field.readonly"
+  @update:model-value="update"
+)
+
+//- One component for all three: a date, a time, and the two together are the
+  //- same question asked at different resolutions.
+mura-date-time-field(
+  v-else-if="field.type === 'date' || field.type === 'time' || field.type === 'datetime'"
+  :model-value="modelValue"
+  :mode="field.type"
+  :label="label"
+  :hint="hint"
+  :placeholder="field.placeholder"
+  :rules="rules"
+  :error-messages="errorMessages"
+  :disabled="isDisabled"
+  :readonly="field.readonly"
+  :clearable="field.clearable !== false"
+  @update:model-value="update"
+)
+
 mura-file-upload(
   v-else-if="field.type === 'file'"
   :model-value="modelValue"
@@ -250,14 +279,9 @@ const inputType = computed(() => {
       return 'tel'
     case 'url':
       return 'url'
-    case 'date':
-      return 'date'
-    case 'time':
-      return 'time'
-    case 'datetime':
-      return 'datetime-local'
-    case 'color':
-      return 'text'
+    // `date`, `time`, `datetime` and `color` never reach here — they are
+    // rendered by their own picker above, rather than by the browser's native
+    // input, which looked nothing like the rest of the form.
     default:
       // Money and quantity stay `text` so a comma decimal separator is typable
       // and the browser does not impose its own numeric formatting.

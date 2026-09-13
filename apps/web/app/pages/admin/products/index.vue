@@ -7,6 +7,13 @@ div
   )
     template(#actions)
       mura-button(
+        :label="t('import.action')"
+        icon="mdi-database-import-outline"
+        variant="tonal"
+        permission="catalog.create"
+        @click="importOpen = true"
+      )
+      mura-button(
         :label="t('admin.newProduct')"
         icon="mdi-plus"
         permission="catalog.create"
@@ -19,6 +26,7 @@ div
     :actions="rowActions"
     :title="t('admin.products')"
     searchable
+    exportable
     clickable
     @action="onAction"
     @row-click="openEdit"
@@ -75,6 +83,15 @@ div
     template(#actions)
       v-btn(variant="text" :disabled="saving" @click="formOpen = false") {{ t('common.cancel') }}
       v-btn(color="primary" variant="flat" :loading="saving" @click="formRef?.submit()") {{ t('common.save') }}
+
+  //- Bringing a catalogue in is the first thing a new shop does, so it lives
+    //- on the products screen rather than behind a settings page.
+  mura-import-dialog(
+    v-model="importOpen"
+    endpoint="/admin/products/"
+    @imported="table.refresh()"
+  )
+
 </template>
 
 <script setup lang="ts">
@@ -192,6 +209,7 @@ const { data: units } = await useAsyncData<UnitOfMeasure[]>(
 
 // --- Form -------------------------------------------------------------------
 const formOpen = ref(false)
+const importOpen = ref(false)
 const saving = ref(false)
 const editing = ref<string | null>(null)
 const formValues = ref<FormValues>({})

@@ -47,11 +47,31 @@ export default defineNuxtConfig({
     // plugin list is readonly in the hook's type, so it is appended to rather
     // than replaced.
     'vite:extendConfig': (config) => {
+      /*
+       * Precompiled CSS in dev, compiled SASS for the build.
+       *
+       * `styles: { configFile }` makes the plugin emit one virtual stylesheet
+       * per component and compile each from SASS on demand. That is what we
+       * want in a build — it applies our variables and drops Vuetify's colour
+       * pack — but in dev it meant the page was served about two seconds after
+       * boot while referencing fifty stylesheets that took another twenty
+       * seconds to exist. They 404'd, the page rendered unstyled, and because a
+       * failed module request is cached per tab, client-side navigation stayed
+       * broken until a hard reload.
+       *
+       * `styles: true` serves Vuetify's own precompiled CSS instead: one file,
+       * nothing to compile, nothing to race. The variables it skips are three —
+       * the colour pack (bundle size only, which dev does not care about),
+       * the root radius and the body font — and the last two are restored from
+       * `main.scss` so dev still looks like production.
+       */
+      const useSassConfig = process.env.NODE_ENV === 'production'
+
       config.plugins?.push(
         vuetify({
           autoImport: true,
           // Resolved relative to Nuxt's srcDir, which is `app/` in Nuxt 4.
-          styles: { configFile: 'assets/styles/settings.scss' },
+          styles: useSassConfig ? { configFile: 'assets/styles/settings.scss' } : true,
         }),
       )
     },

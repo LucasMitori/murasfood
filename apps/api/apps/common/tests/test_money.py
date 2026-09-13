@@ -12,6 +12,7 @@ from apps.common.money import (
     gross_margin,
     gross_margin_percentage,
     markup_percentage,
+    money_display,
     money_multiply,
     quantize_money,
     quantize_quantity,
@@ -81,3 +82,33 @@ class TestMarginMetrics:
 def test_clamp_non_negative() -> None:
     assert clamp_non_negative("-5.00") == Decimal("0.00")
     assert clamp_non_negative("5.00") == Decimal("5.00")
+
+
+class TestMoneyDisplay:
+    """What a customer reads, as opposed to what the API sends.
+
+    The order confirmation said "Total: BRL 24.90" while the merchant's preview
+    of that same template showed "R$ 128,40". Neither was checked against the
+    other, because the email had no caller and was never sent to anyone.
+    """
+
+    def test_brazilian_amounts_use_the_local_convention(self) -> None:
+        assert money_display(Decimal("24.90")) == "R$ 24,90"
+        # Separators are the other way round here — a thousands dot and a
+        # decimal comma — which default formatting gets backwards.
+        assert money_display(Decimal("1234.50")) == "R$ 1.234,50"
+        assert money_display(Decimal("0")) == "R$ 0,00"
+
+    def test_a_refund_reads_as_negative(self) -> None:
+        assert money_display(Decimal("-15.50")) == "-R$ 15,50"
+
+    def test_other_currencies_keep_their_own_convention(self) -> None:
+        """Formatting dollars the Brazilian way would be its own bug."""
+        assert money_display(Decimal("1234.56"), "USD") == "$ 1,234.56"
+
+    def test_unknown_currency_keeps_its_code(self) -> None:
+        """Wrong-looking but unambiguous, and never a bare number."""
+        assert money_display(Decimal("9.90"), "XYZ") == "XYZ 9.90"
+
+    def test_none_is_zero_not_a_crash(self) -> None:
+        assert money_display(None) == "R$ 0,00"

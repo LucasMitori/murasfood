@@ -4,14 +4,21 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.http import HttpResponse
+from django.utils.translation import gettext_lazy as _
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.audit.services import record_audit
+from apps.common import spreadsheets
 from apps.common.exceptions import NotFoundError
 from apps.common.permissions import HasTenantPermission
 from apps.common.views import TenantScopedMixin
@@ -193,18 +200,55 @@ class StorefrontHomeView(TenantScopedMixin, APIView):
         def cards(queryset: Any) -> list[dict[str, Any]]:
             return ProductListSerializer(queryset, many=True, context=context).data
 
-        return Response(
-            {
-                "banners": BannerPublicSerializer(banners, many=True).data,
-                "categories": CategorySerializer(
+        # The merchant decides which rails appear, in what order, how long, and
+        # under what heading. Applying it here rather than in the client means a
+        # rail nobody will render is never queried or serialised — and the
+        # preview in the dashboard reads the same endpoint, so it cannot drift
+        # from the real page.
+        layout = self._layout()
+        sources = {
+            "featured": featured_products,
+            "on_sale": discounted_products,
+            "best_sellers": best_sellers,
+            "new_arrivals": new_arrivals,
+        }
+
+        payload: dict[str, Any] = {
+            "banners": BannerPublicSerializer(banners, many=True).data,
+            "layout": layout,
+            "categories": [],
+            "featured": [],
+            "on_sale": [],
+            "best_sellers": [],
+            "new_arrivals": [],
+        }
+
+        for section in layout:
+            if not section["enabled"]:
+                continue
+
+            key = section["key"]
+            if key == "categories":
+                payload["categories"] = CategorySerializer(
                     category_tree(self.tenant_id), many=True, context=context
-                ).data,
-                "featured": cards(featured_products(self.tenant_id)),
-                "on_sale": cards(discounted_products(self.tenant_id)),
-                "best_sellers": cards(best_sellers(self.tenant_id)),
-                "new_arrivals": cards(new_arrivals(self.tenant_id)),
-            }
-        )
+                ).data
+            elif key in sources:
+                payload[key] = cards(sources[key](self.tenant_id, limit=section["limit"]))
+
+        return Response(payload)
+
+    def _layout(self) -> list[dict[str, Any]]:
+        """The tenant's layout, falling back to the shipped default.
+
+        A tenant row predating this setting has no layout stored, and a shop
+        should never lose its home page to a missing key.
+        """
+        from apps.tenants.models import default_home_layout
+
+        settings_row = getattr(self.tenant, "settings", None)
+        stored = getattr(settings_row, "home_layout", None)
+
+        return stored if isinstance(stored, list) and stored else default_home_layout()
 
 
 class SearchSuggestionView(TenantScopedMixin, APIView):
@@ -274,6 +318,12 @@ class FavoriteViewSet(TenantScopedMixin, viewsets.ModelViewSet):
     http_method_names = ["get", "post", "delete", "head", "options"]
 
     def get_queryset(self) -> Any:
+        # The schema generator instantiates the view without a real request, so
+        # filtering by `request.user` raises on an AnonymousUser and the model
+        # cannot be derived. An empty set is enough for introspection.
+        if getattr(self, "swagger_fake_view", False):
+            return Favorite.objects.none()
+
         return (
             Favorite.objects.filter(customer=self.request.user, tenant_id=self.tenant_id)
             .select_related("product", "product__sale_unit", "product__brand")
@@ -318,6 +368,16 @@ class FavoriteViewSet(TenantScopedMixin, viewsets.ModelViewSet):
 # =============================================================================
 # Merchant administration
 # =============================================================================
+#: Generous for a catalogue, small enough that a mis-picked file (a photo, a
+#: database dump) is refused before it is parsed.
+MAX_IMPORT_BYTES = 5 * 1024 * 1024
+
+
+def _flag(value: Any) -> bool:
+    """Read a checkbox sent through multipart, where everything is a string."""
+    return str(value).strip().lower() in {"1", "true", "yes", "sim", "on"}
+
+
 class AdminProductViewSet(TenantScopedMixin, viewsets.ModelViewSet):
     """Full product management."""
 
@@ -334,6 +394,103 @@ class AdminProductViewSet(TenantScopedMixin, viewsets.ModelViewSet):
     }
     filterset_fields = ["status", "category", "brand", "is_active", "is_featured"]
     search_fields = ["name", "sku"]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    # --- Spreadsheets --------------------------------------------------------
+
+    @extend_schema(
+        parameters=[OpenApiParameter("fmt", str, description="csv or xlsx")],
+        responses={200: OpenApiTypes.BINARY},
+        operation_id="admin_products_export",
+    )
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request: Request) -> HttpResponse:
+        """The catalogue as a file, in the format the shop's software reads."""
+        from .importexport import PRODUCT_COLUMNS, export_products
+
+        return spreadsheets.download(
+            columns=PRODUCT_COLUMNS,
+            rows=export_products(self.tenant),
+            stem="produtos",
+            fmt=request.query_params.get("fmt", spreadsheets.XLSX),
+        )
+
+    @extend_schema(
+        parameters=[OpenApiParameter("fmt", str, description="csv or xlsx")],
+        responses={200: OpenApiTypes.BINARY},
+        operation_id="admin_products_import_template",
+    )
+    @action(detail=False, methods=["get"], url_path="import-template")
+    def import_template(self, request: Request) -> HttpResponse:
+        """An empty sheet with the headings, and one example row.
+
+        A merchant who has never seen this format needs to know what goes in
+        "Unidade" before they fill in four hundred lines, not after.
+        """
+        from .importexport import PRODUCT_COLUMNS
+
+        return spreadsheets.download(
+            columns=PRODUCT_COLUMNS,
+            rows=[{column.key: column.example for column in PRODUCT_COLUMNS}],
+            stem="modelo-produtos",
+            fmt=request.query_params.get("fmt", spreadsheets.XLSX),
+        )
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "format": "binary"},
+                    "dry_run": {"type": "boolean"},
+                    "create_missing": {"type": "boolean"},
+                },
+            }
+        },
+        responses={200: OpenApiTypes.OBJECT},
+        operation_id="admin_products_import",
+    )
+    @action(detail=False, methods=["post"], url_path="import")
+    def import_sheet(self, request: Request) -> Response:
+        """Create or update products from an uploaded spreadsheet.
+
+        Answers 200 whether or not the rows were accepted: a sheet with three
+        bad lines out of four hundred is a *result* the merchant needs to read
+        and act on, not a failed request. `ok` in the body says which it was.
+        """
+        from .importexport import PRODUCT_COLUMNS, import_products
+
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": _("Send a CSV or XLSX file.")})
+
+        if upload.size > MAX_IMPORT_BYTES:
+            raise ValidationError({"file": _("The file is too large (limit 5 MB).")})
+
+        rows = spreadsheets.parse(
+            content=upload.read(), filename=upload.name or "", columns=PRODUCT_COLUMNS
+        )
+        if not rows:
+            raise ValidationError({"file": _("No rows found. Is the first line the headings?")})
+
+        report = import_products(
+            tenant=self.tenant,
+            rows=rows,
+            actor=request.user,
+            dry_run=_flag(request.data.get("dry_run")),
+            create_missing=_flag(request.data.get("create_missing")),
+        )
+
+        if report.ok and not report.dry_run:
+            record_audit(
+                action="catalog.products_imported",
+                tenant=self.tenant,
+                actor=request.user,
+                new_values={"created": report.created, "updated": report.updated},
+                request=request,
+            )
+
+        return Response(report.as_dict())
 
     def get_queryset(self) -> Any:
         queryset = admin_products(self.tenant_id)

@@ -12,6 +12,7 @@ div
     :actions="rowActions"
     :title="t('admin.orders')"
     searchable
+    exportable
     clickable
     @action="onAction"
     @row-click="openOrder"

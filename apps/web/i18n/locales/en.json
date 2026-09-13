@@ -43,7 +43,8 @@
     "skipToContent": "Skip to main content",
     "create": "New",
     "unknown": "Unknown",
-    "delete": "Delete"
+    "delete": "Delete",
+    "done": "Done"
   },
   "states": {
     "emptyTitle": "Nothing here",
@@ -670,6 +671,40 @@
       "inventory": {
         "low_stock": "Low stock alert"
       }
+    },
+    "tabBanners": "Banners",
+    "tabLayout": "Layout",
+    "tabAppearance": "Appearance",
+    "homeSections": "Home page sections",
+    "homeSectionsHint": "Drag to reorder. The order here is the order in the shop.",
+    "sectionTitle": "Heading",
+    "sectionLimit": "Items",
+    "sectionEnabled": "Show section",
+    "sectionDefaultTitle": "Default heading",
+    "sectionHero": "Hero banner",
+    "sectionsAllOff": "No sections are on: the shop will show only the hero.",
+    "layoutSaved": "Layout saved.",
+    "brandingSaved": "Appearance saved.",
+    "palette": "Palette",
+    "paletteHint": "Your brand colours across the shop.",
+    "colorAccent": "Accent",
+    "colorDark": "Primary (dark theme)",
+    "colorPrimaryHint": "Buttons, links and headings.",
+    "colorAccentHint": "Badges, offers and highlights.",
+    "colorDarkHint": "A lighter shade, readable on a dark background.",
+    "identity": "Identity",
+    "tagline": "Tagline",
+    "taglineHint": "One line about your shop.",
+    "about": "About",
+    "links": "Links",
+    "website": "Website",
+    "sampleBadge": "Offer",
+    "section": {
+      "categories": "Categories",
+      "on_sale": "On sale",
+      "featured": "Featured",
+      "best_sellers": "Best sellers",
+      "new_arrivals": "New arrivals"
     }
   },
   "errors": {
@@ -772,7 +807,9 @@
     "refresh": "Refresh",
     "page": "Page {page} of {pages}",
     "nextPage": "Next page",
-    "previousPage": "Previous page"
+    "previousPage": "Previous page",
+    "export": "Export",
+    "exportFailed": "The export failed."
   },
   "form": {
     "unsavedChanges": "You have unsaved changes",
@@ -784,7 +821,8 @@
     "selectFile": "Choose a file",
     "dropFile": "Drag a file here or click to choose",
     "removeFile": "Remove file",
-    "maxFileSize": "Maximum size: {size}"
+    "maxFileSize": "Maximum size: {size}",
+    "pickColour": "Pick a colour"
   },
   "transfer": {
     "available": "Available",
@@ -907,5 +945,62 @@
     "copyResult": "Copy result",
     "copied": "Result copied",
     "cannotDivide": "Cannot divide by zero"
+  },
+  "import": {
+    "action": "Import",
+    "title": "Import products",
+    "templateHint": "Not sure of the format? Download the template and fill it in.",
+    "downloadTemplate": "Download template",
+    "chooseFile": "File",
+    "chooseFileHint": "CSV or Excel (.xlsx), up to 5 MB.",
+    "createMissing": "Create missing categories and brands",
+    "createMissingHint": "Off, rows with unknown names are refused.",
+    "preview": "Check",
+    "apply": "Import",
+    "readyToApply": "Ready",
+    "hasErrors": "Fix these before importing",
+    "willCreate": "{count} to create",
+    "willUpdate": "{count} to update",
+    "rowsRead": "{count} rows read",
+    "line": "Line",
+    "problem": "Problem",
+    "moreErrors": "and {count} more rows with problems.",
+    "nothingApplied": "Nothing was saved: fix the rows above and send it again.",
+    "done": "{created} created, {updated} updated."
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Sales, stock and customers",
+    "sales": "Sales",
+    "inventory": "Stock",
+    "customers": "Customers",
+    "export": "Generate report",
+    "generate": "Generate",
+    "whichReport": "Which report",
+    "formatHint": "PDF to file or print. CSV to open in a spreadsheet.",
+    "preparing": "Preparing the file…",
+    "ready": "Report ready.",
+    "download": "Download",
+    "failed": "The report could not be generated.",
+    "revenueOverTime": "Revenue over the period",
+    "byCategory": "By category",
+    "topProducts": "Best sellers",
+    "units": "Units",
+    "margin": "Estimated margin",
+    "orders": "Orders",
+    "averageTicket": "Average ticket",
+    "discounts": "Discounts",
+    "stockValue": "Stock value",
+    "itemsTracked": "Items tracked",
+    "losses": "Recorded losses",
+    "unitCost": "Unit cost",
+    "value": "Value",
+    "newCustomers": "New customers",
+    "activeCustomers": "Active customers",
+    "repeatCustomers": "Returning customers",
+    "repeatRate": "Return rate",
+    "repeatExplainer": "How to read these",
+    "repeatHint": "Active customers bought during the period. Returning ones had bought before it — that is the measure of who the shop is keeping.",
+    "noneInPeriod": "Nothing recorded in this period."
   }
 }

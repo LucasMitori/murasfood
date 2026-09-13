@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
 
+from apps.common.money import money_display
+
 if TYPE_CHECKING:  # pragma: no cover
     from apps.orders.models import Order
     from apps.tenants.models import Tenant
@@ -160,22 +162,25 @@ def render_order_receipt(order: Order) -> bytes:
         [
             item.product_name,
             f"{item.quantity} {item.unit_code}".strip(),
-            f"{order.currency} {item.unit_price}",
-            f"{order.currency} {item.line_total}",
+            money_display(item.unit_price, order.currency),
+            money_display(item.line_total, order.currency),
         ]
         for item in order.items.all()
     )
     story.append(_table(rows, column_widths=[240, 70, 90, 90]))
     story.append(Spacer(1, 12))
 
-    totals: list[list[Any]] = [["", ""], ["Subtotal", f"{order.currency} {order.subtotal}"]]
+    totals: list[list[Any]] = [
+        ["", ""],
+        ["Subtotal", money_display(order.subtotal, order.currency)],
+    ]
     if order.discount_total > 0:
-        totals.append(["Descontos", f"- {order.currency} {order.discount_total}"])
+        totals.append(["Descontos", f"- {money_display(order.discount_total, order.currency)}"])
     if order.delivery_fee > 0:
-        totals.append(["Entrega", f"{order.currency} {order.delivery_fee}"])
-    totals.append(["Total", f"{order.currency} {order.total}"])
+        totals.append(["Entrega", money_display(order.delivery_fee, order.currency)])
+    totals.append(["Total", money_display(order.total, order.currency)])
     if order.refunded_total > 0:
-        totals.append(["Reembolsado", f"- {order.currency} {order.refunded_total}"])
+        totals.append(["Reembolsado", f"- {money_display(order.refunded_total, order.currency)}"])
 
     story.append(_table(totals[1:], column_widths=[400, 90]))
     story.extend(_footer())

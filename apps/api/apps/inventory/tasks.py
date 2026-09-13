@@ -21,6 +21,29 @@ def release_expired_reservations() -> int:
     return expire_stale_reservations()
 
 
+@shared_task(name="apps.inventory.tasks.notify_low_stock_all_tenants")
+def notify_low_stock_all_tenants() -> int:
+    """Run the low-stock alert for every active shop.
+
+    `notify_low_stock` takes a tenant, which a beat entry cannot supply — which
+    is why the alert had never run for anybody. This is the fan-out that gives
+    it something to be scheduled as.
+
+    Each shop is dispatched as its own task so one tenant's failure does not
+    take the rest of the run down with it.
+    """
+    from apps.tenants.models import Tenant, TenantStatus
+
+    dispatched = 0
+    # The same condition as `Tenant.is_operational`: a suspended shop should not
+    # be sent restocking advice.
+    operational = Tenant.objects.filter(is_active=True, status=TenantStatus.ACTIVE)
+    for tenant_id in operational.values_list("pk", flat=True):
+        notify_low_stock.delay(str(tenant_id))
+        dispatched += 1
+    return dispatched
+
+
 @shared_task(name="apps.inventory.tasks.notify_low_stock")
 def notify_low_stock(tenant_id: str) -> int:
     """Alert staff about items that need restocking."""

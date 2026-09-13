@@ -12,10 +12,18 @@
     v-row
       v-col(cols="12" md="6")
         v-card.mura-card(flat)
-          v-img(
-            :src="activeImage?.url"
+          //- Was `activeImage.url` — the stored master, downloaded in full to
+            //- be shown at about five hundred pixels. It now picks a derivative
+            //- for the size it actually renders at, and AVIF where the browser
+            //- takes it.
+          mura-image(
+            :asset="activeImage"
             :alt="activeImage?.alt_text || product.name"
+            variant="large"
+            sizes="(max-width: 960px) 100vw, 520px"
             :aspect-ratio="1"
+            :rounded="false"
+            eager
             cover
           )
         .d-flex.ga-2.mt-3.overflow-x-auto(v-if="product.images.length > 1")

@@ -155,6 +155,19 @@ services:
       - "3000:3000"
     depends_on:
       - api
+    # The dev server answers on 3000 long before it can serve a usable page:
+    # Vuetify's per-component stylesheets are compiled from SASS on demand and
+    # took ~20s more to appear. Without this, `docker compose up` reported the
+    # container ready immediately and whoever opened the browser first paid that
+    # cost as 404s, an unstyled page, and navigation that only a hard reload
+    # fixed. The probe requests the page and everything it references, so the
+    # warm-up happens here rather than in someone's browser.
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/healthcheck.mjs"]
+      interval: 15s
+      timeout: 30s
+      retries: 10
+      start_period: 90s
 
 volumes:
   postgres_data:

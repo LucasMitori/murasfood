@@ -119,6 +119,40 @@ def money_str(value: object) -> str:
     return f"{quantize_money(value or 0)}"
 
 
+CURRENCY_SYMBOLS = {"BRL": "R$", "USD": "$", "EUR": "€"}
+
+
+def money_display(value: object, currency: str = "BRL") -> str:
+    """Render an amount the way a customer expects to read it.
+
+    Deliberately separate from `money_str`, which is the wire format the API
+    sends and has to stay machine-parseable. This one is for prose — order
+    emails, receipts — where "BRL 24.90" is not what a Brazilian shopper reads
+    on a till receipt.
+
+    The order confirmation email said exactly that, while the merchant's
+    preview of the same template showed "R$ 128,40". Nobody compared them,
+    because until recently the email had no caller and was never sent.
+
+    An unknown currency falls back to its ISO code, which is wrong-looking but
+    unambiguous — better than dropping the unit from an amount of money.
+    """
+    amount = quantize_money(value or 0)
+    code = (currency or "BRL").upper()
+    symbol = CURRENCY_SYMBOLS.get(code, code)
+
+    whole, _, cents = f"{abs(amount):.2f}".partition(".")
+    sign = "-" if amount < 0 else ""
+
+    if code == "BRL":
+        # 1.234,56 — the separators are the other way round here, so this
+        # cannot be left to the default formatting.
+        grouped = f"{int(whole):,}".replace(",", ".")
+        return f"{sign}{symbol} {grouped},{cents}"
+
+    return f"{sign}{symbol} {int(whole):,}.{cents}"
+
+
 def clamp_non_negative(value: object) -> Decimal:
     """Return ``value`` or zero, never a negative amount."""
     amount = to_decimal(value)

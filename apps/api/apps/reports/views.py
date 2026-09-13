@@ -147,5 +147,6 @@ class ReportExportView(TenantScopedMixin, APIView):
             report_type=data["report_type"],
             period=period,
             requested_by=request.user,
+            output_format=data.get("output_format", "PDF"),
         )
         return Response(ReportJobSerializer(job).data, status=status.HTTP_202_ACCEPTED)

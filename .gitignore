@@ -54,3 +54,7 @@ Thumbs.db
 celerybeat-schedule
 celerybeat-schedule.*
 celerybeat.pid
+
+# Scratch file written by `make openapi-check`; removed when the check ends,
+# but left behind if it is interrupted.
+.openapi.check.yaml

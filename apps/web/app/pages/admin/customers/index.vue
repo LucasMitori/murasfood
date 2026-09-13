@@ -11,6 +11,7 @@ div
     :columns="columns"
     :title="t('admin.customers')"
     searchable
+    exportable
   )
     template(#item.full_name="{ item }")
       .d-flex.align-center.ga-3.py-1

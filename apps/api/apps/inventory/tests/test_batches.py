@@ -21,7 +21,9 @@ from apps.inventory.models import StockBatch
 pytestmark = pytest.mark.django_db
 
 
-def make_batch(product: Any, *, days: int, quantity: str = "10", cost: str | None = "2.00") -> StockBatch:
+def make_batch(
+    product: Any, *, days: int, quantity: str = "10", cost: str | None = "2.00"
+) -> StockBatch:
     """A batch expiring `days` from today; negative means it already has."""
     today = timezone.localdate()
     return StockBatch.objects.create(
@@ -108,9 +110,7 @@ class TestOrdering:
 
 
 class TestApi:
-    def test_expiry_report_separates_gone_from_going(
-        self, admin_client: Any, product: Any
-    ) -> None:
+    def test_expiry_report_separates_gone_from_going(self, admin_client: Any, product: Any) -> None:
         make_batch(product, days=-1, quantity="2", cost="5.00")
         make_batch(product, days=3, quantity="4", cost="5.00")
 
@@ -167,9 +167,7 @@ class TestStockHealth:
 
         assert body["out"] + body["low"] + body["healthy"] + body["untracked"] == total
 
-    def test_out_of_stock_is_not_also_counted_as_low(
-        self, admin_client: Any, product: Any
-    ) -> None:
+    def test_out_of_stock_is_not_also_counted_as_low(self, admin_client: Any, product: Any) -> None:
         """Running down and already gone are different jobs, and different bands."""
         from apps.inventory.models import InventoryItem
 

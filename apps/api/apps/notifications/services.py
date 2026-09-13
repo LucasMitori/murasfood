@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING, Any
 from django.conf import settings
 from django.db import IntegrityError, transaction
 
+from apps.common.money import money_display
+
 from .models import EmailLog, EmailStatus, EmailTemplate, Notification, NotificationStatus
 from .templates_seed import DEFAULT_TEMPLATES, ORDER_STATUS_TEMPLATES
 
@@ -246,7 +248,7 @@ def notify_order_status(order: Order, *, previous_status: str = "") -> EmailLog 
             )
             or "cliente",
             "order_number": order.number,
-            "order_total": f"{order.currency} {order.total}",
+            "order_total": money_display(order.total, order.currency),
             "order_url": f"{settings.PUBLIC_APP_URL}/account/orders/{order.number}",
             "reason": order.cancellation_reason,
         },
@@ -304,7 +306,7 @@ def notify_staff_new_order(order: Order) -> EmailLog | None:
         context={
             "first_name": order.tenant.trade_name,
             "order_number": order.number,
-            "order_total": f"{order.currency} {order.total}",
+            "order_total": money_display(order.total, order.currency),
             "order_url": f"{settings.PUBLIC_APP_URL}/admin/orders/{order.pk}",
         },
         related_type="order",

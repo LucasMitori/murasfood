@@ -253,6 +253,7 @@ def create_order_from_cart(
             "total": str(order.total),
         },
     )
+    _notify_order_placed(order)
     return order
 
 
@@ -434,6 +435,30 @@ def _notify_status_change(order: Order, *, previous: str) -> None:
 
     try:
         notify_order_status(order, previous_status=previous)
+    except Exception:
+        logger.exception("order_notification_failed", extra={"event": "orders.notification_failed"})
+
+
+def _notify_order_placed(order: Order) -> None:
+    """Confirm a new order to the customer, and announce it to the merchant.
+
+    Placing an order used to notify nobody. ``notify_order_status`` fires on a
+    *transition*, and an order is born in ``PENDING_PAYMENT`` rather than moving
+    into it, so the ``order.created`` template that status maps to had no
+    caller. ``notify_staff_new_order`` had no caller at all — dead code behind
+    ``notify_on_new_order``, a merchant setting that defaults to on, so a shop
+    could switch new-order alerts on and still never hear about a single one.
+
+    Both queue inside the caller's transaction and only dispatch once it
+    commits, so an order that rolls back emails no one. Failures are logged and
+    swallowed: a checkout that has already taken the money must not fail
+    because the mail server did.
+    """
+    from apps.notifications.services import notify_order_status, notify_staff_new_order
+
+    try:
+        notify_order_status(order, previous_status=OrderStatus.DRAFT)
+        notify_staff_new_order(order)
     except Exception:
         logger.exception("order_notification_failed", extra={"event": "orders.notification_failed"})
 

@@ -8,16 +8,37 @@
 /** Format an ISO timestamp as a short local date. */
 export function formatDate(value: string | null | undefined, locale = 'pt-BR'): string {
   if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
+  const date = parseDate(value)
+  if (!date) return '—'
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short' }).format(date)
+}
+
+/**
+ * Parse a value that may be a date *or* a timestamp.
+ *
+ * `new Date('2026-08-10')` is parsed as UTC midnight, which in Brazil is nine
+ * in the evening on the 9th — so every date-only field rendered a day early.
+ * A ledger entry from the 10th read as the 9th, and a batch expiring today
+ * looked like it expired yesterday.
+ *
+ * A date-only string carries no timezone and is not meant to be shifted by one,
+ * so it is built from its parts in local time. Anything with a time in it is a
+ * real instant and is left to the normal parser.
+ */
+function parseDate(value: string): Date | null {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  const date = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(value)
+
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 /** Format an ISO timestamp as a local date and time. */
 export function formatDateTime(value: string | null | undefined, locale = 'pt-BR'): string {
   if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
+  const date = parseDate(value)
+  if (!date) return '—'
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(date)
 }
 
@@ -67,14 +88,31 @@ export function initials(name: string): string {
  * Returns an empty string when no variants exist yet — image processing runs
  * asynchronously, so a freshly uploaded photo briefly has only its original.
  */
-export function buildSrcSet(variants: Record<string, string> | undefined): string {
+export const DERIVATIVE_WIDTHS: Record<string, number> = {
+  thumbnail: 160,
+  small: 320,
+  medium: 640,
+  large: 1280,
+}
+
+/**
+ * Build a `srcset` from an asset's derivatives.
+ *
+ * `prefix` selects a format. The API stores AVIF under `avif_medium` and the
+ * like, beside the plain WebP names, so that anything reading `variants` the
+ * old way keeps working and simply ignores the extra entries.
+ */
+export function buildSrcSet(
+  variants: Record<string, string> | undefined,
+  prefix = '',
+): string {
   if (!variants) return ''
 
-  const widths: Record<string, number> = { thumbnail: 160, small: 320, medium: 640, large: 1280 }
   return Object.entries(variants)
-    .filter(([name]) => name in widths)
-    .sort((a, b) => widths[a[0]]! - widths[b[0]]!)
-    .map(([name, url]) => `${url} ${widths[name]}w`)
+    .map(([name, url]) => ({ name, url, base: prefix ? name.replace(prefix, '') : name }))
+    .filter(entry => entry.name.startsWith(prefix) && entry.base in DERIVATIVE_WIDTHS)
+    .sort((a, b) => DERIVATIVE_WIDTHS[a.base]! - DERIVATIVE_WIDTHS[b.base]!)
+    .map(entry => `${entry.url} ${DERIVATIVE_WIDTHS[entry.base]}w`)
     .join(', ')
 }
 
@@ -121,4 +159,26 @@ export function orderStatusIcon(status: string): string {
     PARTIALLY_REFUNDED: 'mdi-cash-minus',
   }
   return map[status] ?? 'mdi-information-outline'
+}
+
+/**
+ * Hand a downloaded file to the browser.
+ *
+ * The bytes arrive through the API client rather than as a plain link, because
+ * an export needs the access token and an `<a href>` cannot carry one. That
+ * leaves the file in memory, so it has to be offered as an object URL — and
+ * revoked afterwards, or every export a merchant runs in a session stays held
+ * until they reload the page.
+ */
+export function saveFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = filename
+  document.body.append(link)
+  link.click()
+  link.remove()
+
+  URL.revokeObjectURL(url)
 }

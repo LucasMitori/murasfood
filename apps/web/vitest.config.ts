@@ -24,6 +24,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
+    // The shop's timezone, not the machine's. Date handling that is only ever
+    // exercised in UTC hides exactly the bug this project had: a date-only
+    // value parsed as UTC midnight renders a day early everywhere west of it,
+    // which is all of Brazil.
+    env: { TZ: 'America/Sao_Paulo' },
     include: ['tests/**/*.{test,spec}.ts'],
     setupFiles: ['./tests/setup.ts'],
     coverage: {

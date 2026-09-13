@@ -51,6 +51,10 @@ class ReportRequestSerializer(serializers.Serializer):
     period = serializers.CharField(required=False, default="last_30")
     start = serializers.DateField(required=False)
     end = serializers.DateField(required=False)
+    # Without this the choice could not be made at all: the job model has had
+    # the field from the start, but nothing let a client set it, so every
+    # report was a PDF whatever the merchant picked.
+    output_format = serializers.ChoiceField(choices=["PDF", "CSV"], required=False, default="PDF")
 
 
 class DashboardSerializer(serializers.Serializer):

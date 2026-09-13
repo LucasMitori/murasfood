@@ -1,6 +1,9 @@
 <template lang="pug">
 .mura-container.mura-section
-  h1.text-h5.mb-4 {{ t('order.myOrders') }}
+  //- The same header every other account page uses, so the way back to
+    //- /account is where the reader already expects to find it. This was a bare
+    //- h1, which left this the only page in the section with no way back.
+  mura-page-header(:title="t('order.myOrders')" back-to="/account")
 
   v-progress-linear(v-if="pending" indeterminate color="primary")
 

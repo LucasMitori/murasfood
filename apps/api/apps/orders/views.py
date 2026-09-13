@@ -7,7 +7,8 @@ from typing import Any
 from django.conf import settings
 from django.utils.translation import gettext as _
 from django_filters import rest_framework as filters
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status as http_status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -17,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import Address
+from apps.common import spreadsheets
 from apps.common.exceptions import NotFoundError
 from apps.common.idempotency import extract_key, run_idempotent
 from apps.common.permissions import HasTenantPermission
@@ -125,6 +127,9 @@ class OrderViewSet(TenantScopedMixin, viewsets.ReadOnlyModelViewSet):
     lookup_value_regex = "[^/]+"
 
     def get_queryset(self) -> Any:
+        if getattr(self, "swagger_fake_view", False):
+            return Order.objects.none()
+
         return orders_for_customer(tenant_id=self.tenant_id, customer=self.request.user)
 
     def get_serializer_class(self) -> Any:
@@ -198,7 +203,25 @@ class AdminOrderViewSet(TenantScopedMixin, viewsets.ReadOnlyModelViewSet):
         "default": ["orders.view"],
     }
     filterset_class = OrderAdminFilter
+    search_fields = ["number", "customer_name", "customer_email"]
     ordering_fields = ["created_at", "total", "status"]
+
+    @extend_schema(
+        parameters=[OpenApiParameter("fmt", str, description="csv or xlsx")],
+        responses={200: OpenApiTypes.BINARY},
+        operation_id="admin_orders_export",
+    )
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request: Request) -> Any:
+        """A month of orders, for whoever does the shop's books."""
+        from apps.common.exports import ORDER_COLUMNS, order_rows
+
+        return spreadsheets.download(
+            columns=ORDER_COLUMNS,
+            rows=order_rows(self.filter_queryset(self.get_queryset())),
+            stem="pedidos",
+            fmt=request.query_params.get("fmt", spreadsheets.XLSX),
+        )
 
     def get_queryset(self) -> Any:
         queryset = (

@@ -5,14 +5,17 @@
 # On Windows use Git Bash / WSL, or run the underlying commands directly.
 # =============================================================================
 
-COMPOSE ?= docker compose
+# Git Bash on Windows rewrites a container path like /app/x.yaml into
+# C:/Program Files/Git/app/x.yaml before Docker ever sees it, which silently
+# broke `make openapi`. Setting this off is harmless on Linux and macOS.
+COMPOSE ?= MSYS_NO_PATHCONV=1 docker compose
 API     ?= $(COMPOSE) exec -T api
 WEB     ?= $(COMPOSE) exec -T web
 
 .DEFAULT_GOAL := help
 .PHONY: help up down restart build logs ps shell dbshell migrate makemigrations \
         seed superuser test test-api test-web lint lint-api lint-web format \
-        typecheck openapi clean backup restore
+        typecheck openapi openapi-check clean backup restore
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -57,8 +60,18 @@ superuser: ## Create a platform administrator
 	$(COMPOSE) exec api python manage.py createsuperuser
 
 openapi: ## Write the OpenAPI schema to docs/api/openapi.yaml
-	$(API) python manage.py spectacular --file /app/openapi.yaml
+	$(API) python manage.py spectacular --fail-on-warn --file /app/openapi.yaml
 	$(COMPOSE) cp api:/app/openapi.yaml docs/api/openapi.yaml
+
+openapi-check: ## Fail if the committed schema no longer matches the code
+	@# Being able to regenerate the schema is not the same as it being current.
+	@# The committed copy sat a month behind the code, missing whole endpoints,
+	@# while every test passed - because nothing ever compared the two.
+	@$(API) python manage.py spectacular --fail-on-warn --file /app/openapi.check.yaml
+	@$(COMPOSE) cp api:/app/openapi.check.yaml .openapi.check.yaml
+	@diff -q docs/api/openapi.yaml .openapi.check.yaml > /dev/null || { rm -f .openapi.check.yaml; echo "docs/api/openapi.yaml is out of date - run: make openapi"; exit 1; }
+	@rm -f .openapi.check.yaml
+	@echo "OpenAPI schema is current."
 
 # --- Quality gates -----------------------------------------------------------
 test: test-api test-web ## Run every test suite

@@ -6,7 +6,8 @@ import contextlib
 from typing import Any
 
 from django.utils.translation import gettext as _
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -18,6 +19,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.audit.services import record_audit
+from apps.common import spreadsheets
 from apps.common.exceptions import DomainError, NotFoundError
 from apps.common.permissions import HasTenantPermission
 from apps.common.serializers import MessageResponseSerializer
@@ -336,6 +338,14 @@ class AddressViewSet(TenantScopedMixin, viewsets.ModelViewSet):
     queryset = Address.objects.all()
 
     def get_queryset(self) -> Any:
+        # Same guard as the other user-scoped viewsets: the schema generator
+        # builds the view without a request, and filtering on an AnonymousUser
+        # raises. It emitted no warning here only because `queryset` is declared,
+        # so the model could still be derived — but the POST operation appeared
+        # or vanished from run to run, which made the generated schema unstable.
+        if getattr(self, "swagger_fake_view", False):
+            return Address.objects.none()
+
         return super().get_queryset().filter(customer=self.request.user)
 
     def perform_create(self, serializer: Any) -> None:
@@ -364,24 +374,32 @@ class CustomerAdminViewSet(TenantScopedMixin, viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["created_at", "email"]
     ordering = ["-created_at"]
 
+    @extend_schema(
+        parameters=[OpenApiParameter("fmt", str, description="csv or xlsx")],
+        responses={200: OpenApiTypes.BINARY},
+        operation_id="admin_customers_export",
+    )
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request: Request) -> Any:
+        """The customer list, filtered the same way the screen is."""
+        from apps.common.exports import CUSTOMER_COLUMNS, customer_rows
+
+        return spreadsheets.download(
+            columns=CUSTOMER_COLUMNS,
+            rows=customer_rows(self.filter_queryset(self.get_queryset())),
+            stem="clientes",
+            fmt=request.query_params.get("fmt", spreadsheets.XLSX),
+        )
+
     def get_queryset(self) -> Any:
         from .constants import UserType
 
-        queryset = User.objects.filter(
-            tenant_id=self.tenant_id, user_type=UserType.CUSTOMER
-        ).order_by("-created_at")
-
-        search = self.request.query_params.get("search")
-        if search:
-            from django.db.models import Q
-
-            queryset = queryset.filter(
-                Q(email__icontains=search)
-                | Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(phone__icontains=search)
-            )
-        return queryset
+        # Search is handled by `search_fields` above, now that SearchFilter is
+        # actually installed. This used to filter by hand because it wasn't —
+        # customers was the one admin table whose search box worked.
+        return User.objects.filter(tenant_id=self.tenant_id, user_type=UserType.CUSTOMER).order_by(
+            "-created_at"
+        )
 
     @extend_schema(responses={200: dict}, operation_id="admin_customer_stats")
     @action(detail=True, methods=["get"])
@@ -403,6 +421,7 @@ class StaffUserViewSet(TenantScopedMixin, viewsets.ModelViewSet):
         "retrieve": ["users.view"],
         "default": ["users.manage"],
     }
+    search_fields = ["email", "first_name", "last_name"]
 
     def get_queryset(self) -> Any:
         from .constants import UserType

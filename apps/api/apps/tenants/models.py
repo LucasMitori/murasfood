@@ -218,6 +218,29 @@ def default_floating_tools() -> dict:
     }
 
 
+#: The rails the home page can show, in the order a new shop gets them. The
+#: hero is not here: it is the banners, and a shop that has none already falls
+#: back to its own name rather than to an empty band.
+HOME_SECTION_KEYS = ("categories", "on_sale", "featured", "best_sellers", "new_arrivals")
+
+#: A rail showing more than this is no longer a rail; it is the catalogue.
+HOME_SECTION_MAX_LIMIT = 24
+
+
+def default_home_layout() -> list[dict]:
+    """Every rail on, in the order the page has always rendered them.
+
+    A callable for the same reason as `default_floating_tools`: a mutable
+    default on a model field is shared between every row that uses it.
+
+    The shape carries a `title` that is empty by default — an empty title means
+    "use the translated one", so a shop that never touches this screen still
+    gets copy in the visitor's own language rather than a snapshot of
+    Portuguese frozen at signup.
+    """
+    return [{"key": key, "enabled": True, "title": "", "limit": 12} for key in HOME_SECTION_KEYS]
+
+
 class TenantSettings(BaseModel):
     """Operational configuration a merchant can change without a deploy."""
 
@@ -227,6 +250,9 @@ class TenantSettings(BaseModel):
 
     # --- Orders --------------------------------------------------------------
     order_number_prefix = models.CharField(_("order number prefix"), max_length=8, default="MF")
+
+    #: Which rails the home page shows, in which order, under what heading.
+    home_layout = models.JSONField(_("home layout"), default=default_home_layout, blank=True)
     allow_orders_when_closed = models.BooleanField(
         _("accept orders while closed"),
         default=True,

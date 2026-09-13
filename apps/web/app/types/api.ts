@@ -102,6 +102,7 @@ export interface Tenant {
     privacy_policy_url?: string
     terms_url?: string
     floating_tools?: FloatingToolsConfig
+    home_layout?: HomeSection[]
     /** Whether an SMTP password is stored. The secret itself is never sent. */
     smtp_password_set?: boolean
   }
@@ -250,8 +251,26 @@ export interface Banner {
   overlay_opacity: number
 }
 
+/** One configurable band of the home page. */
+export interface HomeSection {
+  key: HomeSectionKey
+  enabled: boolean
+  /** Empty means "use the translated heading", so copy stays multilingual. */
+  title: string
+  limit: number
+}
+
+export type HomeSectionKey =
+  | 'categories'
+  | 'on_sale'
+  | 'featured'
+  | 'best_sellers'
+  | 'new_arrivals'
+
 export interface StorefrontHome {
   banners: Banner[]
+  /** The merchant's chosen order; the page renders it rather than a fixed list. */
+  layout: HomeSection[]
   categories: Category[]
   featured: Product[]
   on_sale: Product[]

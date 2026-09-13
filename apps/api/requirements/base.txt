@@ -22,4 +22,7 @@ boto3>=1.35
 
 # Documents and payments
 reportlab>=4.2
+# Spreadsheets: shops arrive with their catalogue in Excel, and leave with
+# their reports in it. Pure Python, no system libraries to install.
+openpyxl>=3.1
 qrcode>=7.4

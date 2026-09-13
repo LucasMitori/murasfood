@@ -12,6 +12,7 @@ div
     :actions="rowActions"
     :title="t('admin.inventory')"
     searchable
+    exportable
     @action="onAction"
   )
     template(#filters)

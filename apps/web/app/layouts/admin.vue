@@ -256,6 +256,7 @@ const entries = [
   { to: '/admin/inventory/expiry', icon: 'mdi-calendar-clock', labelKey: 'admin.expiry', permission: 'perm.admin.inventory' },
   { to: '/admin/customers', icon: 'mdi-account-group-outline', labelKey: 'admin.customers', permission: 'perm.admin.customers' },
   { to: '/admin/finance', icon: 'mdi-finance', labelKey: 'admin.finance', permission: 'perm.admin.finance' },
+  { to: '/admin/reports', icon: 'mdi-chart-box-outline', labelKey: 'reports.title', permission: 'perm.admin.reports' },
   { to: '/admin/users', icon: 'mdi-shield-account-outline', labelKey: 'admin.users', permission: 'perm.admin.users' },
   { to: '/admin/storefront', icon: 'mdi-home-edit-outline', labelKey: 'admin.homeConfig', permission: 'perm.admin.settings' },
   { to: '/admin/tools', icon: 'mdi-gesture-tap-button', labelKey: 'admin.floatingTools', permission: 'perm.admin.settings' },
