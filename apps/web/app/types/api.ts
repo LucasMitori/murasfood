@@ -103,6 +103,7 @@ export interface Tenant {
     terms_url?: string
     floating_tools?: FloatingToolsConfig
     home_layout?: HomeSection[]
+    hero?: HeroSettings
     /** Whether an SMTP password is stored. The secret itself is never sent. */
     smtp_password_set?: boolean
   }
@@ -251,13 +252,32 @@ export interface Banner {
   overlay_opacity: number
 }
 
-/** One configurable band of the home page. */
+/**
+ * One configurable band of the home page.
+ *
+ * Two kinds share this shape. A **rail** is one of the fixed product bands and
+ * uses `limit`. A **parallax band** is the merchant's own content — its key is
+ * prefixed `parallax:` — and uses the image and copy fields. They share one
+ * ordered list because the order *is* the page.
+ */
 export interface HomeSection {
-  key: HomeSectionKey
+  key: HomeSectionKey | string
   enabled: boolean
-  /** Empty means "use the translated heading", so copy stays multilingual. */
+  /** On a rail, empty means "use the translated heading". */
   title: string
-  limit: number
+  limit?: number
+
+  // --- parallax bands only ---
+  eyebrow?: string
+  subtitle?: string
+  cta_label?: string
+  cta_url?: string
+  image_id?: string | null
+  /** Resolved by the API so the storefront needs no extra round trip. */
+  image?: MediaAsset | null
+  height?: 70 | 100
+  overlay?: number
+  align?: 'start' | 'center' | 'end'
 }
 
 export type HomeSectionKey =
@@ -267,10 +287,18 @@ export type HomeSectionKey =
   | 'best_sellers'
   | 'new_arrivals'
 
+/** How the banner carousel behaves. Not a band: it is always first. */
+export interface HeroSettings {
+  parallax: boolean
+  full_height: boolean
+  overlay: number
+}
+
 export interface StorefrontHome {
   banners: Banner[]
   /** The merchant's chosen order; the page renders it rather than a fixed list. */
   layout: HomeSection[]
+  hero: HeroSettings
   categories: Category[]
   featured: Product[]
   on_sale: Product[]

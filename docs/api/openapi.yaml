@@ -12916,6 +12916,7 @@ components:
         floating_tools:
           description: Which shortcuts the floating button offers, and in what order.
         home_layout: {}
+        hero: {}
         smtp_host:
           type: string
           maxLength: 255
@@ -15632,6 +15633,7 @@ components:
         floating_tools:
           description: Which shortcuts the floating button offers, and in what order.
         home_layout: {}
+        hero: {}
         smtp_host:
           type: string
           maxLength: 255
@@ -15730,6 +15732,7 @@ components:
         floating_tools:
           description: Which shortcuts the floating button offers, and in what order.
         home_layout: {}
+        hero: {}
         smtp_host:
           type: string
           maxLength: 255

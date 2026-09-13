@@ -168,3 +168,144 @@ class TestTheDashboardCanReadItBack:
         stored = {s["key"]: s for s in settings["home_layout"]}
         assert stored["featured"]["enabled"] is False
         assert stored["featured"]["title"] == "Nossa seleção"
+
+
+def band(key: str = "parallax:a", **overrides: Any) -> dict[str, Any]:
+    """One merchant-authored parallax band."""
+    return {
+        "key": key,
+        "enabled": True,
+        "title": "Feira fresca",
+        "subtitle": "Todo dia, do produtor para a sua mesa",
+        "cta_label": "Ver ofertas",
+        "cta_url": "/products",
+        "image_id": None,
+        "height": 70,
+        "overlay": 45,
+        "align": "center",
+        **overrides,
+    }
+
+
+class TestParallaxBands:
+    """Bands share the rails' list, because the order is the page.
+
+    Two lists interleaved by a position field would be the same information
+    stated in a way that can disagree with itself.
+    """
+
+    ENDPOINT = "/api/v1/tenants/admin/settings/"
+
+    def test_a_band_can_be_placed_between_rails(self, admin_client_api: Any) -> None:
+        sections = layout()
+        sections.insert(1, band())
+
+        response = admin_client_api.patch(self.ENDPOINT, {"home_layout": sections}, format="json")
+
+        assert response.status_code == 200, response.json()
+        keys = [s["key"] for s in response.json()["home_layout"]]
+        assert keys[1] == "parallax:a"
+        assert len(keys) == len(HOME_SECTION_KEYS) + 1
+
+    def test_a_shop_may_have_no_bands_at_all(self, admin_client_api: Any) -> None:
+        """The switch is the feature: a short page must stay possible."""
+        response = admin_client_api.patch(self.ENDPOINT, {"home_layout": layout()}, format="json")
+
+        assert response.status_code == 200
+        assert not any(s["key"].startswith("parallax:") for s in response.json()["home_layout"])
+
+    def test_the_rails_are_still_all_required(self, admin_client_api: Any) -> None:
+        """Adding bands must not weaken the rule that protects the rails."""
+        broken = [s for s in layout() if s["key"] != "featured"] + [band()]
+
+        response = admin_client_api.patch(self.ENDPOINT, {"home_layout": broken}, format="json")
+
+        assert response.status_code == 400
+
+    def test_too_many_bands_are_refused(self, admin_client_api: Any) -> None:
+        """A page is a shop, not a brochure."""
+        sections = [*layout(), *(band(f"parallax:{i}") for i in range(8))]
+
+        response = admin_client_api.patch(self.ENDPOINT, {"home_layout": sections}, format="json")
+
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize("height", [0, 50, 120, "tall"])
+    def test_an_unsupported_height_is_refused(self, admin_client_api: Any, height: Any) -> None:
+        sections = [*layout(), band(height=height)]
+
+        response = admin_client_api.patch(self.ENDPOINT, {"home_layout": sections}, format="json")
+
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize(
+        "url", ["javascript:alert(1)", "data:text/html,<script>", "vbscript:x"]
+    )
+    def test_a_scripted_link_is_refused(self, admin_client_api: Any, url: str) -> None:
+        """The merchant writes this, and their own customers click it. A stored
+        `javascript:` URL is XSS against the people they are selling to."""
+        sections = [*layout(), band(cta_url=url)]
+
+        response = admin_client_api.patch(self.ENDPOINT, {"home_layout": sections}, format="json")
+
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize("url", ["/products", "https://exemplo.com.br", ""])
+    def test_ordinary_links_are_accepted(self, admin_client_api: Any, url: str) -> None:
+        sections = [*layout(), band(cta_url=url)]
+
+        response = admin_client_api.patch(self.ENDPOINT, {"home_layout": sections}, format="json")
+
+        assert response.status_code == 200, response.json()
+
+    def test_a_disabled_band_survives_the_round_trip(self, admin_client_api: Any) -> None:
+        """Switched off is not deleted: the merchant gets their copy back when
+        they switch it on again."""
+        sections = [*layout(), band(enabled=False, title="Guardado")]
+
+        response = admin_client_api.patch(self.ENDPOINT, {"home_layout": sections}, format="json")
+
+        stored = next(s for s in response.json()["home_layout"] if s["key"] == "parallax:a")
+        assert stored["enabled"] is False
+        assert stored["title"] == "Guardado"
+
+
+class TestHero:
+    ENDPOINT = "/api/v1/tenants/admin/settings/"
+
+    def test_parallax_is_off_by_default(self, tenant: Any) -> None:
+        """Turning it on for everyone would change every existing storefront on
+        the day this deploys."""
+        settings = TenantSettings.objects.get(tenant=tenant)
+
+        assert settings.hero["parallax"] is False
+
+    def test_it_can_be_switched_on(self, admin_client_api: Any) -> None:
+        response = admin_client_api.patch(
+            self.ENDPOINT,
+            {"hero": {"parallax": True, "full_height": True, "overlay": 60}},
+            format="json",
+        )
+
+        assert response.status_code == 200
+        assert response.json()["hero"] == {
+            "parallax": True,
+            "full_height": True,
+            "overlay": 60,
+        }
+
+    def test_an_impossible_overlay_is_refused(self, admin_client_api: Any) -> None:
+        response = admin_client_api.patch(self.ENDPOINT, {"hero": {"overlay": 200}}, format="json")
+
+        assert response.status_code == 400
+
+    def test_the_storefront_can_read_it(self, api_client: Any, admin_client_api: Any) -> None:
+        """The public serializer keeps its own allow-list — this has been
+        forgotten twice before, with floating_tools and home_layout."""
+        admin_client_api.patch(
+            self.ENDPOINT, {"hero": {"parallax": True, "full_height": True}}, format="json"
+        )
+
+        settings = api_client.get("/api/v1/tenants/current/").json()["settings"]
+
+        assert settings["hero"]["parallax"] is True

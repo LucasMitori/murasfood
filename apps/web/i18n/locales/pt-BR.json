@@ -44,7 +44,8 @@
     "create": "Novo",
     "unknown": "Desconhecido",
     "delete": "Excluir",
-    "done": "Pronto"
+    "done": "Pronto",
+    "apply": "Aplicar"
   },
   "states": {
     "emptyTitle": "Nada por aqui",
@@ -705,7 +706,30 @@
       "featured": "Destaques",
       "best_sellers": "Mais vendidos",
       "new_arrivals": "Novidades"
-    }
+    },
+    "addBand": "Nova faixa",
+    "editBand": "Editar faixa",
+    "bandUntitled": "Faixa sem título",
+    "bandNoSubtitle": "Sem texto",
+    "bandEyebrow": "Chapéu",
+    "bandEyebrowHint": "Linha curta acima do título.",
+    "bandTitle": "Título",
+    "bandSubtitle": "Texto",
+    "bandCtaLabel": "Texto do botão",
+    "bandCtaUrl": "Link do botão",
+    "bandCtaUrlHint": "Um caminho como /products ou um endereço completo.",
+    "bandImage": "Imagem de fundo",
+    "bandAlign": "Alinhamento",
+    "bandOverlay": "Escurecer imagem",
+    "alignCenter": "Centro",
+    "alignStart": "Esquerda",
+    "alignEnd": "Direita",
+    "heroSettings": "Banner principal",
+    "heroSettingsHint": "O topo da página inicial.",
+    "heroParallax": "Efeito parallax",
+    "heroParallaxHint": "A imagem e o texto se movem em ritmos diferentes ao rolar.",
+    "heroFullHeight": "Altura total da tela",
+    "heroFullHeightHint": "Desligado, o catálogo aparece sem precisar rolar."
   },
   "errors": {
     "generic": "Não foi possível concluir a operação.",

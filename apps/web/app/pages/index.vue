@@ -5,7 +5,12 @@ div
   mura-error-state(v-else-if="error" :on-retry="() => refresh()")
 
   template(v-else-if="home")
-    mura-hero(v-if="home.banners.length" :banners="home.banners")
+    mura-hero(
+      v-if="home.banners.length"
+      :banners="home.banners"
+      :parallax="home.hero?.parallax"
+      :full-height="home.hero?.full_height"
+    )
 
     //- Fallback when the merchant has configured no banners yet. Better than a
     //- blank first screen, and it says what to do about it.
@@ -19,9 +24,17 @@ div
       //- list in this file. The order, the headings and which bands appear at
       //- all are theirs; before this the only thing they could change about
       //- their own front page was which pictures went in the hero.
-    template(v-for="section in sections" :key="section.key")
+    template(v-for="(section, index) in sections" :key="section.key")
+      //- The merchant's own band. Full-bleed on purpose: it is the break
+        //- between chapters, and a container would make it look like content.
+      mura-parallax-band(
+        v-if="isBand(section.key)"
+        :section="section"
+        :eager="index === 0"
+      )
+
       section.mura-container.mura-section(
-        v-if="section.key === 'categories' && home.categories.length"
+        v-else-if="section.key === 'categories' && home.categories.length"
         aria-labelledby="home-categories"
       )
         .mura-section__title
@@ -48,7 +61,7 @@ div
             span.mura-category__name {{ category.name }}
 
       mura-product-rail(
-        v-else-if="section.key !== 'categories' && railOf(section.key).length"
+        v-else-if="!isBand(section.key) && section.key !== 'categories' && railOf(section.key).length"
         :title="section.title || t(RAIL_COPY[section.key].title)"
         :subtitle="t(RAIL_COPY[section.key].subtitle)"
         :products="railOf(section.key)"
@@ -85,7 +98,7 @@ const tenant = useTenantStore()
  * link stay ours, because those describe what the rail *is* rather than what
  * this shop calls it.
  */
-const RAIL_COPY: Record<Exclude<HomeSectionKey, 'categories'>, { title: string, subtitle: string, to: string }> = {
+const RAIL_COPY: Record<string, { title: string, subtitle: string, to: string }> = {
   on_sale: { title: 'catalog.onSale', subtitle: 'home.onSaleHint', to: '/products?on_sale=true' },
   featured: { title: 'catalog.featured', subtitle: 'home.featuredHint', to: '/products' },
   best_sellers: { title: 'catalog.bestSellers', subtitle: 'home.bestSellersHint', to: '/products?sort=best_sellers' },
@@ -100,14 +113,21 @@ const { data: home, pending, error, refresh } = await useAsyncData<StorefrontHom
 /** Only the bands that are switched on, in the merchant's order. */
 const sections = computed(() => (home.value?.layout ?? []).filter(section => section.enabled))
 
+/** A band is the merchant's own content; everything else is a product rail. */
+function isBand(key: string): boolean {
+  return key.startsWith('parallax:')
+}
+
 /** The first band that is a product rail, for placing the trust strip. */
 const firstRailKey = computed(
-  () => sections.value.find(section => section.key !== 'categories')?.key,
+  () => sections.value.find(
+    section => section.key !== 'categories' && !isBand(section.key),
+  )?.key,
 )
 
-function railOf(key: HomeSectionKey): Product[] {
-  if (!home.value || key === 'categories') return []
-  return home.value[key] ?? []
+function railOf(key: string): Product[] {
+  if (!home.value || key === 'categories' || isBand(key)) return []
+  return home.value[key as HomeSectionKey] ?? []
 }
 
 useSeoMeta({

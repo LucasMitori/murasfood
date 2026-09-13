@@ -215,7 +215,8 @@ class StorefrontHomeView(TenantScopedMixin, APIView):
 
         payload: dict[str, Any] = {
             "banners": BannerPublicSerializer(banners, many=True).data,
-            "layout": layout,
+            "layout": self._with_images(layout),
+            "hero": getattr(getattr(self.tenant, "settings", None), "hero", None) or {},
             "categories": [],
             "featured": [],
             "on_sale": [],
@@ -236,6 +237,37 @@ class StorefrontHomeView(TenantScopedMixin, APIView):
                 payload[key] = cards(sources[key](self.tenant_id, limit=section["limit"]))
 
         return Response(payload)
+
+    def _with_images(self, layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Replace each parallax band's `image_id` with the asset itself.
+
+        The layout stores an id because that is what the merchant picked; the
+        storefront needs URLs and derivatives. Resolved here in one query rather
+        than by the client fetching each asset, which would be a round trip per
+        band on the page a visitor sees first.
+        """
+        from apps.media.models import MediaAsset
+        from apps.media.serializers import MediaAssetSerializer
+
+        ids = [
+            section["image_id"]
+            for section in layout
+            if section.get("image_id") and str(section.get("key", "")).startswith("parallax:")
+        ]
+        if not ids:
+            return layout
+
+        assets = {
+            str(asset.pk): MediaAssetSerializer(asset).data
+            for asset in MediaAsset.objects.filter(pk__in=ids, tenant_id=self.tenant_id)
+        }
+
+        return [
+            {**section, "image": assets.get(str(section.get("image_id")))}
+            if str(section.get("key", "")).startswith("parallax:")
+            else section
+            for section in layout
+        ]
 
     def _layout(self) -> list[dict[str, Any]]:
         """The tenant's layout, falling back to the shipped default.

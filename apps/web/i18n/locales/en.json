@@ -44,7 +44,8 @@
     "create": "New",
     "unknown": "Unknown",
     "delete": "Delete",
-    "done": "Done"
+    "done": "Done",
+    "apply": "Apply"
   },
   "states": {
     "emptyTitle": "Nothing here",
@@ -705,7 +706,30 @@
       "featured": "Featured",
       "best_sellers": "Best sellers",
       "new_arrivals": "New arrivals"
-    }
+    },
+    "addBand": "New band",
+    "editBand": "Edit band",
+    "bandUntitled": "Untitled band",
+    "bandNoSubtitle": "No text",
+    "bandEyebrow": "Eyebrow",
+    "bandEyebrowHint": "A short line above the heading.",
+    "bandTitle": "Heading",
+    "bandSubtitle": "Text",
+    "bandCtaLabel": "Button label",
+    "bandCtaUrl": "Button link",
+    "bandCtaUrlHint": "A path like /products, or a full address.",
+    "bandImage": "Background image",
+    "bandAlign": "Alignment",
+    "bandOverlay": "Darken image",
+    "alignCenter": "Centre",
+    "alignStart": "Left",
+    "alignEnd": "Right",
+    "heroSettings": "Hero banner",
+    "heroSettingsHint": "The top of the home page.",
+    "heroParallax": "Parallax effect",
+    "heroParallaxHint": "Image and text move at different rates as the page scrolls.",
+    "heroFullHeight": "Full screen height",
+    "heroFullHeightHint": "Off, the catalogue is visible without scrolling."
   },
   "errors": {
     "generic": "We could not complete that operation.",

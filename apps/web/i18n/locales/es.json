@@ -44,7 +44,8 @@
     "create": "Nuevo",
     "unknown": "Desconocido",
     "delete": "Eliminar",
-    "done": "Listo"
+    "done": "Listo",
+    "apply": "Aplicar"
   },
   "states": {
     "emptyTitle": "Nada por aquí",
@@ -705,7 +706,30 @@
       "featured": "Destacados",
       "best_sellers": "Más vendidos",
       "new_arrivals": "Novedades"
-    }
+    },
+    "addBand": "Nueva franja",
+    "editBand": "Editar franja",
+    "bandUntitled": "Franja sin título",
+    "bandNoSubtitle": "Sin texto",
+    "bandEyebrow": "Antetítulo",
+    "bandEyebrowHint": "Una línea corta sobre el título.",
+    "bandTitle": "Título",
+    "bandSubtitle": "Texto",
+    "bandCtaLabel": "Texto del botón",
+    "bandCtaUrl": "Enlace del botón",
+    "bandCtaUrlHint": "Una ruta como /products o una dirección completa.",
+    "bandImage": "Imagen de fondo",
+    "bandAlign": "Alineación",
+    "bandOverlay": "Oscurecer imagen",
+    "alignCenter": "Centro",
+    "alignStart": "Izquierda",
+    "alignEnd": "Derecha",
+    "heroSettings": "Banner principal",
+    "heroSettingsHint": "La parte superior de la página de inicio.",
+    "heroParallax": "Efecto parallax",
+    "heroParallaxHint": "La imagen y el texto se mueven a ritmos distintos al desplazarse.",
+    "heroFullHeight": "Altura completa de pantalla",
+    "heroFullHeightHint": "Desactivado, el catálogo se ve sin desplazarse."
   },
   "errors": {
     "generic": "No pudimos completar la operación.",

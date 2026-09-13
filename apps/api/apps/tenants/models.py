@@ -226,6 +226,25 @@ HOME_SECTION_KEYS = ("categories", "on_sale", "featured", "best_sellers", "new_a
 #: A rail showing more than this is no longer a rail; it is the catalogue.
 HOME_SECTION_MAX_LIMIT = 24
 
+#: Parallax bands are identified by this prefix plus a stable suffix the client
+#: generates. They live in the same ordered list as the rails rather than in a
+#: second one, because the order *is* the page — two lists interleaved by a
+#: position field would be the same information, harder to read and easier to
+#: get wrong.
+PARALLAX_PREFIX = "parallax:"
+
+#: Full-height for the opening band, a shorter one for the breaks between
+#: content. Anything else reads as an accident rather than a choice.
+PARALLAX_HEIGHTS = (70, 100)
+
+#: Enough for a shop with something to say, few enough that the page stays a
+#: shop rather than a brochure.
+PARALLAX_MAX_BANDS = 6
+
+
+def is_parallax(key: str) -> bool:
+    return str(key).startswith(PARALLAX_PREFIX)
+
 
 def default_home_layout() -> list[dict]:
     """Every rail on, in the order the page has always rendered them.
@@ -241,6 +260,16 @@ def default_home_layout() -> list[dict]:
     return [{"key": key, "enabled": True, "title": "", "limit": 12} for key in HOME_SECTION_KEYS]
 
 
+def default_hero() -> dict:
+    """How the banner carousel at the top of the page behaves.
+
+    Parallax is off by default. It is a deliberate choice a shop makes about its
+    own front page, and turning it on for everyone would change every existing
+    storefront on deploy.
+    """
+    return {"parallax": False, "full_height": False, "overlay": 45}
+
+
 class TenantSettings(BaseModel):
     """Operational configuration a merchant can change without a deploy."""
 
@@ -251,8 +280,12 @@ class TenantSettings(BaseModel):
     # --- Orders --------------------------------------------------------------
     order_number_prefix = models.CharField(_("order number prefix"), max_length=8, default="MF")
 
-    #: Which rails the home page shows, in which order, under what heading.
+    #: Which rails and parallax bands the home page shows, in which order.
     home_layout = models.JSONField(_("home layout"), default=default_home_layout, blank=True)
+
+    #: The banner carousel's own behaviour, which is not a band in the list
+    #: above: it is always first, and a shop with no banners still gets it.
+    hero = models.JSONField(_("hero"), default=default_hero, blank=True)
     allow_orders_when_closed = models.BooleanField(
         _("accept orders while closed"),
         default=True,

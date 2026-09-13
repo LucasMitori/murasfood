@@ -117,8 +117,37 @@ div
 
   //- --- Layout ------------------------------------------------------------
   v-row(v-else-if="tab === 'layout'")
+    v-col(cols="12")
+      //- The hero is not one of the bands below: it is always first, and a shop
+        //- with no banners still gets it. So its switches live above them.
+      mura-card(:title="t('admin.heroSettings')" :subtitle="t('admin.heroSettingsHint')" icon="mdi-image-area")
+        .d-flex.flex-wrap.align-center.ga-6
+          v-switch(
+            v-model="heroDraft.parallax"
+            :label="t('admin.heroParallax')"
+            :messages="t('admin.heroParallaxHint')"
+            color="primary"
+            density="compact"
+          )
+          v-switch(
+            v-model="heroDraft.full_height"
+            :label="t('admin.heroFullHeight')"
+            :messages="t('admin.heroFullHeightHint')"
+            color="primary"
+            density="compact"
+          )
+
     v-col(cols="12" lg="7")
       mura-card(:title="t('admin.homeSections')" :subtitle="t('admin.homeSectionsHint')" icon="mdi-view-dashboard-outline" :padded="false")
+        template(#actions)
+          v-btn(
+            color="primary"
+            variant="text"
+            size="small"
+            prepend-icon="mdi-plus"
+            :disabled="bandCount >= 6"
+            @click="addBand"
+          ) {{ t('admin.addBand') }}
         //- Drag to reorder, because the order *is* the page. A list of
           //- checkboxes could say which bands appear but not in what sequence,
           //- and sequence is most of what a front page is.
@@ -134,12 +163,31 @@ div
 
               .flex-grow-1.min-width-0
                 .d-flex.align-center.ga-2
-                  v-icon(:icon="SECTION_ICONS[element.key]" size="16" color="primary")
-                  span.text-body-2.font-weight-medium {{ t(`admin.section.${element.key}`) }}
+                  v-icon(
+                    :icon="isBand(element.key) ? 'mdi-image-text' : SECTION_ICONS[element.key]"
+                    size="16"
+                    :color="isBand(element.key) ? 'secondary' : 'primary'"
+                  )
+                  span.text-body-2.font-weight-medium
+                    | {{ isBand(element.key) ? (element.title || t('admin.bandUntitled')) : t(`admin.section.${element.key}`) }}
+                  v-chip(v-if="isBand(element.key)" size="x-small" variant="tonal") {{ element.height }}vh
                 p.text-caption.text-medium-emphasis.mb-0.text-truncate
-                  | {{ element.title || t('admin.sectionDefaultTitle') }}
+                  | {{ isBand(element.key) ? (element.subtitle || t('admin.bandNoSubtitle')) : (element.title || t('admin.sectionDefaultTitle')) }}
+
+              //- A band is edited in a dialog rather than inline: it carries an
+                //- image, two lines of copy and a link, and squeezing that into
+                //- a table row would make both kinds of entry worse.
+              v-btn(
+                v-if="isBand(element.key)"
+                variant="tonal"
+                size="small"
+                rounded="lg"
+                prepend-icon="mdi-pencil-outline"
+                @click="editBand(element)"
+              ) {{ t('common.edit') }}
 
               v-text-field.mura-sections__title(
+                v-if="!isBand(element.key)"
                 :model-value="element.title"
                 :label="t('admin.sectionTitle')"
                 :placeholder="t('admin.sectionDefaultTitle')"
@@ -151,6 +199,7 @@ div
               )
 
               v-text-field.mura-sections__limit(
+                v-if="!isBand(element.key)"
                 :model-value="element.limit"
                 :label="t('admin.sectionLimit')"
                 type="number"
@@ -161,6 +210,16 @@ div
                 hide-details
                 :disabled="element.key === 'categories'"
                 @update:model-value="value => element.limit = clampLimit(value)"
+              )
+
+              v-btn(
+                v-if="isBand(element.key)"
+                icon="mdi-delete-outline"
+                variant="text"
+                size="small"
+                color="error"
+                :aria-label="t('common.remove')"
+                @click="removeBand(element.key)"
               )
 
               v-switch(
@@ -226,6 +285,100 @@ div
           span.mura-brandbar__pill(:style="{ background: brandingValues.accent_color }") {{ t('admin.sampleBadge') }}
 
         p.text-body-2.text-medium-emphasis.mt-3.mb-0(v-if="brandingValues.tagline") {{ brandingValues.tagline }}
+
+  //- Editing one band. The image and the words are the whole feature, so they
+    //- get room rather than a row in a table.
+  mura-dialog(
+    v-model="bandOpen"
+    :title="t('admin.editBand')"
+    :max-width="820"
+    scrollable
+  )
+    template(v-if="bandDraft")
+      v-row
+        v-col(cols="12" md="7")
+          v-text-field.mb-3(
+            v-model="bandDraft.eyebrow"
+            :label="t('admin.bandEyebrow')"
+            :hint="t('admin.bandEyebrowHint')"
+            persistent-hint
+            variant="outlined"
+            density="comfortable"
+            maxlength="40"
+          )
+          v-text-field.mb-3(
+            v-model="bandDraft.title"
+            :label="t('admin.bandTitle')"
+            variant="outlined"
+            density="comfortable"
+            maxlength="120"
+          )
+          v-textarea.mb-3(
+            v-model="bandDraft.subtitle"
+            :label="t('admin.bandSubtitle')"
+            variant="outlined"
+            density="comfortable"
+            rows="2"
+            maxlength="240"
+          )
+          v-row(dense)
+            v-col(cols="12" sm="6")
+              v-text-field(
+                v-model="bandDraft.cta_label"
+                :label="t('admin.bandCtaLabel')"
+                variant="outlined"
+                density="comfortable"
+                maxlength="40"
+              )
+            v-col(cols="12" sm="6")
+              v-text-field(
+                v-model="bandDraft.cta_url"
+                :label="t('admin.bandCtaUrl')"
+                :hint="t('admin.bandCtaUrlHint')"
+                persistent-hint
+                variant="outlined"
+                density="comfortable"
+                placeholder="/products"
+              )
+
+        v-col(cols="12" md="5")
+          mura-image-upload.mb-3(
+            v-model="bandDraft.image_id"
+            :label="t('admin.bandImage')"
+            folder="banners"
+          )
+
+          v-btn-toggle.mb-3(v-model="bandDraft.height" mandatory divided variant="outlined" density="comfortable")
+            v-btn(:value="70") 70vh
+            v-btn(:value="100") 100vh
+
+          v-select.mb-3(
+            v-model="bandDraft.align"
+            :items="alignOptions"
+            :label="t('admin.bandAlign')"
+            item-title="label"
+            item-value="value"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+          )
+
+          //- White type over an arbitrary photograph is a coin toss, so the
+            //- shop decides how much the image is darkened.
+          v-slider(
+            v-model="bandDraft.overlay"
+            :label="t('admin.bandOverlay')"
+            :min="0"
+            :max="90"
+            :step="5"
+            thumb-label
+            color="primary"
+          )
+
+    template(#actions)
+      v-btn(variant="text" @click="bandOpen = false") {{ t('common.cancel') }}
+      v-spacer
+      v-btn(color="primary" variant="flat" rounded="lg" @click="applyBand") {{ t('common.apply') }}
 
   mura-dialog(v-model="dialogOpen" :title="editing ? t('admin.editBanner') : t('admin.newBanner')" :max-width="880" scrollable)
     mura-form-builder(
@@ -363,8 +516,15 @@ const savedLayout = computed<HomeSection[]>(
 // as the operator experimented, which reads as the change having been published.
 const layoutDraft = ref<HomeSection[]>(structuredClone(toRaw(savedLayout.value)))
 
+const savedHero = computed(
+  () => tenant.tenant?.settings?.hero ?? { parallax: false, full_height: true, overlay: 45 },
+)
+
+const heroDraft = ref(structuredClone(toRaw(savedHero.value)))
+
 const layoutDirty = computed(
-  () => JSON.stringify(layoutDraft.value) !== JSON.stringify(savedLayout.value),
+  () => JSON.stringify(layoutDraft.value) !== JSON.stringify(savedLayout.value)
+    || JSON.stringify(heroDraft.value) !== JSON.stringify(savedHero.value),
 )
 
 const enabledSections = computed(() => layoutDraft.value.filter(section => section.enabled))
@@ -378,12 +538,81 @@ function clampLimit(value: unknown): number {
 
 function resetLayout(): void {
   layoutDraft.value = structuredClone(toRaw(savedLayout.value))
+  heroDraft.value = structuredClone(toRaw(savedHero.value))
+}
+
+// --- Parallax bands ----------------------------------------------------------
+
+const bandOpen = ref(false)
+const bandDraft = ref<HomeSection | null>(null)
+
+function isBand(key: string): boolean {
+  return key.startsWith('parallax:')
+}
+
+const bandCount = computed(() => layoutDraft.value.filter(section => isBand(section.key)).length)
+
+const alignOptions = computed(() => [
+  { value: 'center', label: t('admin.alignCenter') },
+  { value: 'start', label: t('admin.alignStart') },
+  { value: 'end', label: t('admin.alignEnd') },
+])
+
+/**
+ * A new band lands at the end, switched off.
+ *
+ * Off, because it has no image and no words yet — appearing on the storefront
+ * the moment it is created would put an empty black stripe on the shop's front
+ * page between the click and the first save.
+ */
+function addBand(): void {
+  const key = `parallax:${Date.now().toString(36)}`
+
+  layoutDraft.value.push({
+    key,
+    enabled: false,
+    eyebrow: '',
+    title: '',
+    subtitle: '',
+    cta_label: '',
+    cta_url: '',
+    image_id: null,
+    height: 70,
+    overlay: 45,
+    align: 'center',
+  })
+
+  editBand(layoutDraft.value[layoutDraft.value.length - 1]!)
+}
+
+function editBand(section: HomeSection): void {
+  // A copy, so cancelling leaves the row as it was.
+  bandDraft.value = structuredClone(toRaw(section))
+  bandOpen.value = true
+}
+
+function applyBand(): void {
+  const draft = bandDraft.value
+  if (!draft) return
+
+  const index = layoutDraft.value.findIndex(section => section.key === draft.key)
+  if (index !== -1) layoutDraft.value[index] = draft
+
+  bandOpen.value = false
+  bandDraft.value = null
+}
+
+function removeBand(key: string): void {
+  layoutDraft.value = layoutDraft.value.filter(section => section.key !== key)
 }
 
 async function saveLayout(): Promise<void> {
   savingLayout.value = true
   try {
-    await useNuxtApp().$api.patch('/tenants/admin/settings/', { home_layout: layoutDraft.value })
+    await useNuxtApp().$api.patch('/tenants/admin/settings/', {
+      home_layout: layoutDraft.value,
+      hero: heroDraft.value,
+    })
     // Forced: the store returns its cached tenant otherwise, and the draft
     // would then be reset from stale state — the save succeeding while the
     // screen silently reverts.

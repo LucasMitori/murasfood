@@ -1,5 +1,8 @@
 <template lang="pug">
-section.mura-hero(:aria-label="t('home.heroLabel')")
+section.mura-hero(
+  :class="{ 'mura-hero--band': !fullHeight }"
+  :aria-label="t('home.heroLabel')"
+)
   v-carousel.mura-hero__carousel(
     v-model="active"
     :show-arrows="banners.length > 1 ? 'hover' : false"
@@ -31,7 +34,10 @@ section.mura-hero(:aria-label="t('home.heroLabel')")
 
         .mura-hero__scrim(:style="scrimStyle(banner)")
 
-        .mura-hero__content(:class="`mura-hero__content--${alignOf(banner)}`")
+        .mura-hero__content(
+          :class="`mura-hero__content--${alignOf(banner)}`"
+          :style="textStyle"
+        )
           .mura-hero__inner(:class="{ 'mura-hero__inner--in': index === active }")
             p.mura-hero__eyebrow(v-if="banner.subtitle") {{ banner.subtitle }}
             h1.mura-hero__title {{ banner.title }}
@@ -79,7 +85,17 @@ const props = withDefaults(defineProps<{
   banners: Banner[]
   /** Advance automatically. Off for a single slide — nothing to advance to. */
   autoplay?: boolean
-}>(), { autoplay: true })
+  /**
+   * Move the image and the words as the page scrolls.
+   *
+   * Off by default: turning it on for every existing storefront on the day this
+   * deploys is not a decision this component gets to make. `prefers-reduced-motion`
+   * still wins over it.
+   */
+  parallax?: boolean
+  /** Fill the viewport. Otherwise the hero is a band, not a screen. */
+  fullHeight?: boolean
+}>(), { autoplay: true, parallax: false, fullHeight: true })
 
 const { t } = useI18n()
 
@@ -97,8 +113,21 @@ const showScrollHint = computed(() => !scrolled.value)
  * Zero when the visitor asked for reduced motion: parallax is the textbook
  * trigger for vestibular discomfort, and the hero reads fine without it.
  */
+/** Nothing moves unless the merchant asked for it and the reader allows it. */
+const moves = computed(() => props.parallax && !reducedMotion.value)
+
 const mediaStyle = computed(() => ({
-  transform: reducedMotion.value ? 'none' : `translate3d(0, ${offset.value * 0.4}px, 0)`,
+  transform: moves.value ? `translate3d(0, ${offset.value * 0.4}px, 0)` : 'none',
+}))
+
+/**
+ * The words drift at a fraction of the image's rate.
+ *
+ * Same rate would read as the whole slide sliding — a bug. The difference
+ * between the two speeds is the entire effect.
+ */
+const textStyle = computed(() => ({
+  transform: moves.value ? `translate3d(0, ${offset.value * 0.14}px, 0)` : 'none',
 }))
 
 function scrimStyle(banner: Banner): Record<string, string> {
@@ -181,6 +210,12 @@ onBeforeUnmount(() => {
   background: rgb(var(--v-theme-secondary));
 }
 
+/* A shop that wants the catalogue visible without scrolling. */
+.mura-hero--band {
+  height: 62svh;
+  min-height: 24rem;
+}
+
 .mura-hero__carousel {
   height: 100%;
 }
@@ -206,6 +241,7 @@ onBeforeUnmount(() => {
 }
 
 .mura-hero__content {
+  will-change: transform;
   position: relative;
   display: flex;
   align-items: center;
