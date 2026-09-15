@@ -570,3 +570,174 @@ flowchart LR
 Identical for `DEFAULT_TEMPLATES` → `sync_email_templates`. The failure mode is
 the worst kind: it works on a fresh database and on every test run, and is dead
 in the one place that matters.
+
+
+---
+
+## 16. Parallax — why the strip was blank, and why it cannot be again
+
+The bug was not a missing pixel count. It was two numbers that had to agree and
+never did: travel was a fraction of the **scroll distance**, overscan a fraction
+of the **element height**.
+
+```mermaid
+flowchart TD
+    subgraph BEFORE["before — two unrelated constants"]
+        S1["scroll distance<br/>viewport + height ≈ 1462px"] --> T1["travel = 0.4 × distance/2<br/><b>≈ 303px</b>"]
+        H1["element height<br/>602px"] --> O1["overscan = 12%<br/><b>≈ 72px</b>"]
+        T1 --> X["303 &gt; 72<br/><b>231px of empty band</b>"]
+        O1 --> X
+    end
+
+    subgraph AFTER["after — one number, derived"]
+        M["measure the slack<br/>(mediaHeight − height) / 2"] --> P["progress ∈ −1..1<br/>clamped"]
+        P --> T2["shift = progress × slack<br/><b>|shift| ≤ slack, always</b>"]
+        M --> T2
+        T2 --> OK["edge meets edge<br/>at the extremes"]
+    end
+
+    style X fill:#f0d8d8
+    style OK fill:#d8e8d8
+```
+
+Raising the overscan would have papered over it at one viewport and failed at
+the next — one side of the mismatch scales with the window and the other does
+not. Deriving travel from the measured slack makes the failure *impossible*
+rather than unlikely, and leaves the overscan as the only knob: raising it now
+strengthens the effect and can never expose an edge.
+
+Shared by the hero and the bands as `parallaxShift()`, and tested across 5
+viewports × 6 heights × 5 overscans × every position. One test encodes the old
+formula and asserts it breaches, so the guard cannot quietly stop guarding.
+
+---
+
+## 17. FAQs — draft, published, and what a visitor sees
+
+```mermaid
+flowchart LR
+    W["merchant writes"] --> D[("FaqEntry<br/>status = DRAFT")]
+    D -->|"POST …/publish/"| P[("status = PUBLISHED<br/>published_at stamped")]
+    P -->|"POST …/unpublish/"| D
+
+    D -.->|"never"| V["GET /tenants/faq/"]
+    P --> V
+
+    V --> Q{"any published<br/>entries at all?"}
+    Q -- yes --> OWN["the shop's own answers"]
+    Q -- no --> SHIP["the shipped copy<br/><i>(so a new shop's help page<br/>is never blank on day one)</i>"]
+
+    style D fill:#f0e6d8
+    style P fill:#d8e8d8
+    style SHIP fill:#e8e8f0
+```
+
+Three decisions worth keeping:
+
+- **Two states, not a visibility flag.** The useful thing is writing an answer
+  over several sittings without it being live in between. An `is_active`
+  boolean gives you that too, but names it so badly that people use it as
+  "temporarily hidden" and lose track of which is which.
+- **Unpublishing keeps the copy.** It is hiding, not deleting.
+- **Merchant copy replaces the shipped copy wholesale.** Interleaving would put
+  their delivery window beside ours on the same page, with no way to remove the
+  one they disagree with.
+
+---
+
+## 18. Where a product's photos and stock rules live
+
+Both are edited on the product form and neither is stored on `Product`.
+
+```mermaid
+flowchart TD
+    F["product dialog"] --> G["gallery: ordered list<br/>of {id, caption}"]
+    F --> S["thresholds:<br/>low · minimum · track"]
+
+    G --> SER["ProductAdminSerializer"]
+    S --> SER
+
+    SER --> CHK{"every asset<br/>owned by this tenant?"}
+    CHK -- no --> ERR["<b>400</b> — refuse.<br/>Filtering silently turned one bad id<br/>into &quot;all my photos vanished&quot;"]
+    CHK -- yes --> ROWS[("ProductImage rows rebuilt<br/>position = index<br/>is_primary = index 0")]
+
+    SER --> INV[("InventoryItem<br/>reorder_threshold · minimum_stock · track_stock")]
+    INV --> CACHE["product.inventory = item<br/><i>or the response echoes pre-save values</i>"]
+
+    INV --> FLAG["is_low_stock"]
+    FLAG --> SCREENS["Estoque · Saúde do estoque"]
+
+    style ERR fill:#f0d8d8
+    style CACHE fill:#f0e6d8
+    style SCREENS fill:#d8e8d8
+```
+
+**Why the rows are rebuilt rather than diffed.** Position and primacy are
+properties of the *list*, not of any one row — dragging the third photo to the
+front changes two rows, and reconciling that is more code than writing four rows
+again.
+
+**Why thresholds do not go through `adjust_stock`.** They are a rule *about* the
+stock, not a change *to* it. Routing them through the ledger would write a
+movement row saying nothing moved.
+
+**Why `product.inventory = item` is not incidental.** `get_or_create_item`
+returns a different Python object from the one the product's relation cache
+holds, so without it the API answered `5.000` while the database held `12.000`.
+
+---
+
+## 19. Counting a category's products
+
+```mermaid
+flowchart LR
+    C["category row"] --> OWN["own_products<br/>Count(products, active)"]
+    C --> KIDS["child_products<br/>Count(children__products, active)"]
+    OWN --> SUM["product_count = own + children"]
+    KIDS --> SUM
+
+    SUM --> UI["&quot;10 produtos&quot;"]
+    FILT["ProductFilter.filter_category<br/><i>includes descendants</i>"] -.->|"must agree"| SUM
+
+    style SUM fill:#d8e8d8
+```
+
+The count includes descendants because **tapping the category in the shop shows
+them**. A root reading "0 produtos" while a tap on it lists forty is a number
+that teaches people to distrust the screen.
+
+It read 0 for everything before this: the serializer declared `product_count`
+with a default of `0` and the admin queryset never annotated it. Verified by
+reconciliation — all 8 roots now sum to exactly the 51 products that exist.
+
+---
+
+## 20. The admin chrome, as it now stands
+
+```mermaid
+flowchart TD
+    subgraph BAR["v-app-bar"]
+        R1["row 1 · 64px — identity, store, language, theme, account"]
+        SEAM["border-top on the extension<br/><i>a v-divider here rendered at width: 0</i>"]
+        R2["row 2 · 52px — search ⌘K · quick create · alerts · storefront · fullscreen"]
+    end
+
+    RAIL["rail · 72px<br/>grid-template-columns: 24px 0 0<br/>--v-list-prepend-gap: 0"]
+
+    MAIN["v-main → page content"]
+    FOOT["footer, in the flow<br/>store · environment · live status · links"]
+
+    BAR --> MAIN
+    RAIL --> MAIN
+    MAIN --> FOOT
+
+    PULSE[("useAdminPulse")] --> R2
+    PULSE --> FOOT
+
+    style SEAM fill:#f0e6d8
+    style PULSE fill:#e8e8f0
+```
+
+The footer reads the same `useAdminPulse` the header badge does, so the two
+cannot disagree about whether anything needs attention — and it sits in the
+content flow rather than pinned, so it never covers a table's last row.

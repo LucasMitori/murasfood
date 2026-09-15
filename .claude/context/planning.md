@@ -3,7 +3,7 @@
 > Where the code lives, which phase we are in, what is likely to bite.
 > Update when the shape of the project changes, not on every commit.
 
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-15
 
 ---
 
@@ -24,6 +24,7 @@ murasfood/
 │   │       ├── cart/               carts, shopping lists
 │   │       ├── catalog/            products, categories, brands, units
 │   │       │   ├── filters.py      availability, min_discount, price, category
+│   │       │   ├── serializers.py  + gallery (order + captions), stock thresholds
 │   │       │   └── importexport.py spreadsheet round trip
 │   │       ├── common/             shared services + cross-cutting tests
 │   │       │   ├── diagnostics.py  ← system health probes (admin-only)
@@ -46,10 +47,12 @@ murasfood/
 │   │       ├── promotions/         coupons, discounts
 │   │       ├── reports/            dashboard, sales/stock/customer reports
 │   │       └── tenants/            tenant, branding, settings, hours
+│   │           └── models.py       + FaqCategory / FaqEntry (draft · published)
 │   └── web/                        Nuxt 4
 │       ├── app/
 │       │   ├── components/
-│       │   │   ├── catalog/        product card, hero, parallax band, restock alert
+│       │   │   ├── catalog/        product card, hero, parallax band, restock alert,
+│       │   │   │                   product gallery (drag order + captions)
 │       │   │   ├── dashboard/      stat card, chart card
 │       │   │   ├── finance/        ← statement, budget, forecast, pricing panels
 │       │   │   ├── navigation/     header, footer
@@ -58,8 +61,10 @@ murasfood/
 │       │   │                       useAdminPulse (header badge)
 │       │   ├── layouts/            default, admin
 │       │   ├── pages/              file-based routes
+│       │   │   └── admin/            + categories/ · faq/ · diagnostics/
 │       │   ├── stores/             Pinia
-│       │   └── utils/              api-client, format, theme, validation
+│       │   └── utils/              api-client, format (incl. parallaxShift), theme,
+│       │                           validation
 │       ├── i18n/locales/           pt-BR · en · es  (parity is enforced)
 │       ├── scripts/healthcheck.mjs warms the dev server, once per process
 │       └── tests/                  vitest — contracts, i18n, routes, stores
@@ -83,6 +88,9 @@ murasfood/
 | Add an email template | `DEFAULT_TEMPLATES` → **`python manage.py sync_email_templates`** |
 | Expose a tenant setting to the storefront | **both** `TenantSettingsSerializer.Meta.fields` **and** `TenantPublicSerializer.get_settings()` |
 | Add a finance figure | `analysis.py` (never `services.py` — that writes) |
+| Add a parallax layer | give it overscan in CSS and travel via `parallaxShift()` — never a second magic number |
+| Add a figure to a screen | follow it back to the query and forward to the decision it changes (P4) |
+| Add an image to a table cell | wrap it in a fixed box; `MuraImage` alone does not guarantee a column edge |
 | Change the API surface | code → `make openapi` → commit `docs/api/openapi.yaml` |
 | Add a translated string | all three locales, or `locale-parity.test.ts` fails |
 
@@ -103,6 +111,10 @@ Breaking one of these is a bug regardless of what the tests say.
 9. **The public product payload carries no quantity** — `in_stock`, `low_stock`, `waiting`; never a number of units.
 10. **Diagnostics reports facts, never values** — a probe may say a key is set; it may never say what it is, not even masked.
 11. **An estimate is labelled as one** — the forecast carries its basis and confidence; the price simulation carries its elasticity. A number a merchant will act on must say what kind of number it is.
+12. **A write that cannot do what was asked must refuse** — never filter the unrecognised part and succeed. Twice this phase that would have deleted a merchant's photos silently.
+13. **A write's response reports what was stored** — not what the instance was holding. Django's relation cache will happily echo pre-save values.
+14. **Parallax travel is a share of measured overscan** — never a share of scroll distance. Two constants that must agree and have no stated relationship break on a different screen.
+15. **A figure on screen is driven by something** — a query behind it and a decision in front of it, or it is decoration that looks like data (P4).
 
 ---
 
@@ -116,9 +128,13 @@ Breaking one of these is a bug regardless of what the tests say.
 | 3 — Merchant tooling | ✅ done (import/export, reports, configurable home, pickers) |
 | 4 — Performance & media | ✅ done (image pipeline, dev-server fix, healthcheck) |
 | 5 — Storefront experience | ◑ partial — parallax home ✅, `/products` filters ✅, categories ✅; **animations and sale treatment still open** |
-| **6 — Dashboard, money and scale** | **✅ done** — chrome fixes, finance analysis, diagnostics, images at 10k |
-| 7 — Security hardening | queued — `maruth.security` skill written; first full run still pending |
-| 8 — Production readiness | not started — real payment provider, backups, monitoring, load test |
+| 6 — Dashboard, money and scale | ✅ done — chrome, finance analysis, diagnostics, images at 10k |
+| **7 — Merchant authoring and chrome** | **✅ done** — FAQs, categories, product gallery, stock rules, parallax, table alignment |
+| 8 — Security hardening | queued — `maruth.security` skill written; **first full run still pending** |
+| 9 — Production readiness | not started — real payment provider, backups, monitoring, load test |
+
+> Security and production were 7 and 8; they moved down one when phase 7 was
+> inserted. Neither had started, so nothing refers to the old numbers.
 
 ---
 
@@ -135,6 +151,9 @@ Breaking one of these is a bug regardless of what the tests say.
 | **Two serializers for one model** | `TenantPublicSerializer.get_settings()` has its own allow-list; forgotten three times now | Test asserts the public tenant carries each field |
 | **Worker/web do not reload** | Fixes look like they failed | Restart before concluding anything. This bit again this phase |
 | **Vuetify's internals are load-bearing** | The rail fix depends on `--v-list-prepend-gap` and an explicit `grid-template-columns` | A Vuetify upgrade should re-measure the rail; the numbers are in `actual_step.md` |
+| **A component prop can do nothing and look fine** | `v-divider absolute` rendered at `width: 0` for a whole release (M13) | Measure what a layout change was supposed to produce, not whether the page still looks alright |
+| **Silent filtering on a write** | Two near-misses this phase, both would have destroyed merchant data | Refuse and say why; test the refusal leaves the old state intact |
+| **Adding a home rail needs a data migration** | Existing tenants keep a stored layout; the serializer requires every known key | `0009_backfill_back_soon_section` is the worked example |
 
 ### Accepted
 
@@ -146,6 +165,8 @@ Breaking one of these is a bug regardless of what the tests say.
 | Originals are destroyed on upload | Deliberate — 90% of storage was never read. Switchable via `MEDIA_IMAGE_MAX_DIMENSION=0` |
 | Price elasticity is an assumption | It cannot be derived from this data. It is the merchant's input and is echoed back with every result |
 | The ~130 ms pre-mount gap on table pages | A dev-server artifact; unmeasured against a production build |
+| Scripted scrolling is blocked here | The parallax bound is proven by construction and by test rather than by watching it scroll |
+| The FAQ falls back to shipped copy | A shop that writes nothing gets the platform's answers; merchant copy replaces them wholesale rather than merging, so the page never contradicts itself |
 
 ---
 
@@ -164,4 +185,7 @@ docker compose restart worker   # after ANY task change
 docker compose exec api python manage.py sync_roles             # every deploy
 docker compose exec api python manage.py sync_email_templates   # every deploy
 docker compose exec api python manage.py reprocess_images
+
+# Admin screens are driven through a dev-only account. Delete before deploying.
+#   qa.claude@murasfood.local  (ADMINISTRATOR, demo tenant)
 ```

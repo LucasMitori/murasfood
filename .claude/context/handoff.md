@@ -133,8 +133,22 @@ nothing here.
 | Cold start to healthy | never signalled | 34 s |
 | Beat schedule entries | 4 | 11 |
 | Finance ledger rows | 0 | populated |
-| API tests | 368 | 429 |
-| Web tests | 231 | 242 |
+| **Phase 6 — scale and money** | | |
+| Derivative caching | no `Cache-Control` at all | `max-age=31536000, immutable` |
+| Same photo uploaded twice | 2 rows, 2 uploads, 16 encodes | 1 row, reused |
+| Image placeholder in the card JSON | none | ~120 B blurred data URI |
+| Image work vs order emails | one queue | `celery` + `media` |
+| Rail icon vs drawer centre | 8.0 px off | 0.5 px off |
+| **Phase 7 — authoring and chrome** | | |
+| Header seam | `width: 0`, divided nothing | 1153 px, on the row boundary |
+| Email action row | 81 px, buttons stacked | 44 px, side by side |
+| Product thumbnails | 0 px tall, 117-146 px wide | 40x40, every one |
+| Product name left edge | 471 / 458 / 459 / 455 / 442 | 365, every row |
+| Parallax travel vs slack | 303 px in 72 px | 108.4 px in 108.4 px |
+| Category product counts | 0 for every category | 51 of 51 reconciled |
+| API tests | 368 | 551 |
+| Web tests | 231 | 250 |
+| Locale keys (x3 locales) | ~900 | 1111 |
 
 ---
 
@@ -160,41 +174,89 @@ Plus two later asks in the same pass:
   read by nothing), a separate `media` queue, and a blurred LQIP placeholder.
 - **Finance depth.** The whole of `analysis.py` above.
 
-### What is NOT finished
+### What phase 6 left open
 
-1. **The table flash is only partly fixed.** The skeleton is verified; the
-   ~130 ms before it — route changed, component chunk still loading — is a
-   dev-server artifact and has **not** been measured against a production build.
-2. Animations — gentle, modern, professional *(carried from phase 5)*
-3. Sale/discount card and dedicated product page treatment *(carried)*
-4. `hide_out_of_stock` has no switch in `/admin/storefront` yet
-5. `/admin/customers` CRUD — needs backend work (currently `ReadOnlyModelViewSet`)
-6. `deactivate_price` — unreachable; left deliberately, decision pending
-7. The `maruth.security` skill has still never been run as a full audit
-8. PR not yet opened — `gh` missing; branch is pushed and the body is written
-
-### Two things that must run on every deploy
-
-```bash
-python manage.py sync_roles            # new permission codes reach existing tenants
-python manage.py sync_email_templates  # new templates reach existing tenants
-```
-
-Both exist because a feature was found completely dead without them. A code
-added to `PERMISSION_CATALOGUE` or `DEFAULT_TEMPLATES` reaches tenants created
-*after* the deploy and nobody else — it works on a fresh database and on every
-test run, and is dead in the one place that matters.
-
-### A dev account was created
-
-`qa.claude@murasfood.local` (ADMINISTRATOR, `demo` tenant) exists in the dev
-database so admin screens could actually be driven — "no merchant browser
-session" had blocked visual verification for several phases. **Delete it before
-any deployment.**
+1. The table flash is only partly fixed — the ~130 ms before the skeleton is a
+   dev-server artifact, unmeasured against a production build
+2. `hide_out_of_stock` still has no switch in `/admin/storefront`
+3. `/admin/customers` CRUD — needs backend work (`ReadOnlyModelViewSet` today)
+4. `deactivate_price` — unreachable; left deliberately, decision pending
 
 ---
 
-## 7. Working agreement
+## 7. Phase 7 — merchant authoring and chrome
+
+Six items reported after phase 6 shipped, plus four chrome fixes before them.
+Measured evidence for each is in `actual_step.md`; the wrong turns are in
+`historic.md` (M13–M15, H10–H11, P4).
+
+| Asked for | Built |
+|---|---|
+| The header divider is in the wrong place | It was doing nothing at all — `width: 0`, `position: static`, 25px down the wrong row. Replaced with a `border-top` on the extension, which spans the bar by construction |
+| Where did the footer go? | Back, and saying something the page does not: store, environment, a live status dot reading the same count as the header badge, and links. In the content flow rather than pinned |
+| Email actions stacked vertically | A table cell is `display: table-cell`, so two 40px buttons in a 72px column wrapped. Flex row, 120px column: 81px rows → 44px |
+| Diagnostics is not clear or modern | Rebuilt around the question: a verdict band, *problems first and alone*, per-dependency icons, translated meta keys, and latency as a **log-scale** bar — 0.3 ms and 2.1 s are both readable on one axis |
+| Blank space in the parallax | Travel was a share of *scroll distance*; overscan a share of *element height*. 303px of travel in 72px of slack. Now derived from measured slack, so `\|shift\| <= slack` holds by construction |
+| FAQs are hard-coded | `FaqCategory` + `FaqEntry` with real draft/published states, drag-to-reorder, and a public page that falls back to the shipped copy so a new shop is never blank |
+| No categories screen | Four tabs — categories (a tree), brands, tags, and the chart of accounts read-only. Product counts were reading 0 for everything; they now include descendants and reconcile to 51 of 51 |
+| Product names not aligned | A units bug, not a layout one: `width="40"` is a *string* and `unit()` only appended `px` to numbers. Thumbs were 0px tall and 117–146px wide. Now 40×40, names at one x, rows 49px |
+| Nowhere to set low stock per product | `low_stock_threshold`, `minimum_stock`, `track_stock` on the product form — with a test asserting the threshold changes what `is_low_stock` reports |
+| Images should be a gallery | Order and captions, first image primary implicitly. An unknown id is **refused**, not filtered — the first version would have deleted a merchant's photos silently |
+
+### Two bugs I shipped and caught by driving it
+
+Both were write paths that lost data quietly, and both passed my own review:
+
+- the gallery **filtered** unknown asset ids and rebuilt from what was left, so
+  one bad id emptied a product's photos with a 200 and no message;
+- the stock threshold response echoed **pre-save** values, because
+  `get_or_create_item` returns a different object from the one the product's
+  relation cache holds — the API said 5.000 while the database said 12.000.
+
+Recorded as M15. The rule that came out of it is invariant 12 and 13: a write
+that cannot do what was asked must refuse, and a write that succeeded must
+report what it stored.
+
+### What is NOT finished
+
+1. **Nobody has watched the parallax scroll.** Scripted scrolling is blocked in
+   this environment, so the bound is proven by construction and by test. The
+   geometry is right; the *feel* is unverified.
+2. Drag-to-reorder in the gallery and the FAQ list — endpoints tested, the drag
+   itself not performed
+3. The table flash's ~130 ms pre-mount gap *(carried from phase 6)*
+4. Animations — gentle, modern, professional *(carried from phase 5)*
+5. Sale/discount card and dedicated product page treatment *(carried)*
+6. `hide_out_of_stock` has no switch in `/admin/storefront` *(carried)*
+7. `/admin/customers` CRUD *(carried)*
+8. `deactivate_price` — unreachable, left deliberately *(carried)*
+9. The `maruth.security` skill has still never been run as a full audit
+10. PR not yet opened — `gh` missing; branch is pushed and the body is written
+
+### Three things that must run on every deploy
+
+```bash
+python manage.py migrate                # includes the back_soon layout backfill
+python manage.py sync_roles             # new permission codes reach existing tenants
+python manage.py sync_email_templates   # new templates reach existing tenants
+```
+
+The last two exist because a feature was found completely dead without them: a
+code added to `PERMISSION_CATALOGUE` or `DEFAULT_TEMPLATES` reaches tenants
+created *after* the deploy and nobody else. It works on a fresh database and on
+every test run, and is dead in the one place that matters.
+
+### A dev account exists
+
+`qa.claude@murasfood.local` (ADMINISTRATOR, `demo` tenant) is in the dev
+database so admin screens can actually be driven — "no merchant browser session"
+had blocked visual verification for several phases, and every admin measurement
+since runs through it. **Delete it before any deployment.**
+
+---
+
+## 8. Working agreement
+
 
 Four files in `.claude/context/` divide the state deliberately:
 
@@ -204,6 +266,7 @@ Four files in `.claude/context/` divide the state deliberately:
 | `flow.md` | diagrams — how the system works now and next |
 | `actual_step.md` | **one** phase: what is confirmed, with measured evidence |
 | `historic.md` | hypotheses that died, method errors — **never deleted** |
+| `handoff.md` | this file — the compact history, for picking the project back up |
 
 Read `actual_step.md` first. Write to `historic.md` whenever something turns out
 to be wrong — that file is the reason the same mistake is not made twice.

@@ -205,6 +205,88 @@ page that cannot tell you which setting is misconfigured.
 
 ---
 
+### M13 - Calling a change done without measuring the thing it was supposed to produce
+
+The seam between the two header rows was `v-divider(absolute)` inside the
+toolbar extension. It was written, it looked plausible, and the commit message
+said the two rows now read as two bands.
+
+It had never rendered:
+
+```
+seam: { top: 89.5, width: 0 }   position: static
+```
+
+A zero-width stub sitting 25px *down* the tools row, dividing nothing. `absolute`
+is not a `VDivider` prop that does what the name suggests in that context, and
+the element was a flex child of a row it was never meant to participate in.
+
+**What made it invisible.** A 1px line against a 1px border is not something the
+eye flags as missing, and the screenshot I took after the change was at 0.3
+scale. The user saw it immediately on a real screen.
+
+**The lesson, which is the same one as M1 and M9 in a new costume.** Every other
+claim in that commit carried a number. This one carried a description. When a
+change's whole purpose is to put a specific thing at a specific place, the
+check is `getBoundingClientRect()`, not a glance — and the cost of asking is
+about fifteen seconds.
+
+The fix was also the simpler thing I should have reached for first: a
+`border-top` on the extension is the row's own edge, so it spans the bar by
+construction and cannot be knocked out of place by the layout inside it.
+
+---
+
+### M14 - Removing the duplicate instead of the duplication
+
+The admin footer showed a breadcrumb trail. `MuraPageHeader` already renders
+that trail at the top of every page. The diagnosis was right: the bar was 40px
+of every viewport spent saying something twice.
+
+The remedy was wrong. I deleted the footer.
+
+A dashboard still needs somewhere to say which shop and which environment you
+are operating on - an operator with staging and production open in two tabs has
+no other way to tell them apart, and that confusion is how test data ends up in
+a real catalogue. Removing the whole element to remove the repetition threw that
+away, and the user noticed within a day: *"in admin space there is no footer ????
+where the footer go ?"*
+
+**The lesson.** When something is redundant, the redundancy is the defect - not
+the container. The question to ask is "what should be here instead", and only
+"should anything be here at all" once that has no answer. The footer came back
+carrying the store, the environment, a live status dot and links; it is in the
+content flow rather than pinned, which also answers the *original* complaint
+that it felt "static and weird".
+
+---
+
+### M15 - Two designs that lost a merchant's data quietly, both mine
+
+Within the same phase, twice:
+
+**The gallery filtered instead of refusing.** `_sync_gallery` dropped any asset
+id it did not recognise and rebuilt the rows from what was left. One bad id -
+a stale client, a copy-paste, another shop's asset - and a product's photos were
+gone, with a 200 and no message.
+
+**The threshold echoed a stale value.** `get_or_create_item` returns a different
+Python object from the one `product.inventory` already holds, so the response
+serialised the *pre-save* values: the API said 5.000 while the database said
+12.000. A merchant sets a threshold, sees the old number come back, and sets it
+again.
+
+Both were found by driving the real endpoint and reading the response, not by
+reading the code - and both had passed review in my own head as obviously fine.
+
+**The lesson.** "Ignore what you cannot handle" is a reasonable default for a
+*read* and a data-loss bug for a *write*. A write that cannot do what was asked
+must say so; a write that succeeded must report what it stored, not what it was
+holding. Both now have a test that asserts the failure mode directly - the
+gallery survives a refused id, and the PATCH echoes the value that was saved.
+
+---
+
 ## Part II — Hypotheses that died
 
 *Technical theories investigated and disproved. Each one is a road not to walk again.*
@@ -333,6 +415,76 @@ measured against a production build, and that is the open question here.
 
 ---
 
+### H10 - "The products table is ragged because some products have no image"
+
+The reported symptom was product names starting at different horizontal
+positions, and the guess - the user's, and mine on reading it - was that rows
+without a photo laid out differently from rows with one, or that photos of
+different aspect ratios pushed the text around by different amounts.
+
+Measuring five rows killed it:
+
+```
+thumb 146x0  name at 471
+thumb 133x0  name at 458
+thumb 134x0  name at 459
+thumb 130x0  name at 455
+thumb 117x0  name at 442
+```
+
+Every row *had* an image. Every thumbnail was **zero pixels tall**. And no two
+were the same width.
+
+**The actual cause.** `MuraImage` was given `width="40" height="40"` in a Pug
+template, which passes *strings*. Its `unit()` helper appended `px` only to
+numbers, so `width: 40` and `height: 40` were invalid CSS, silently dropped by
+the browser - leaving the frame at its base `width: 100%` with no height at all.
+The widths that came out were whatever the flex row happened to allocate after
+the name beside it.
+
+So it was a units bug wearing a layout bug's clothes, and no amount of adjusting
+flex properties would have fixed it.
+
+**What the measurement was worth.** Two numbers - `0` height and five different
+widths - pointed straight at "these dimensions are not being applied" rather
+than "these dimensions are being applied badly". The hypothesis about missing
+images would have led to a wrapper that papered over it while every other caller
+of `MuraImage` passing a string kept the same silent bug.
+
+---
+
+### H11 - "The parallax needs more overscan"
+
+The blank strip above and below the parallax bands looked like a case of the
+image not being tall enough, and the obvious fix was to raise the 12% overhang
+until it stopped happening.
+
+It would not have stopped happening. The two numbers involved were never in a
+relationship at all:
+
+* travel was `scrollOffset x 0.4` - a fraction of the **scroll distance**;
+* overscan was 12% - a fraction of the **element height**.
+
+A band is on screen across roughly `viewport + height` of scrolling, so at
+860/602 the image travelled `0.4 x (860 + 602) / 2 = 303px` inside 72px of
+slack. Raising the overscan to cover that would need ~50% on a 602px band at
+that viewport - and a different number at every other viewport, since one side
+of the mismatch scales with the window and the other does not.
+
+**The real fix was to make them one number.** Travel is now a share of the
+*measured* slack, so `|shift| <= slack` holds by construction: the image's edge
+can at most exactly meet the band's, at any viewport, any band height, any
+overscan. The overscan became the only knob, and raising it now strengthens the
+effect rather than papering over a leak.
+
+**Why this is worth recording.** "Increase the constant until the symptom stops"
+would have worked on the developer's monitor and failed on a phone. Two magic
+numbers that must agree and have no stated relationship are a bug waiting for a
+different screen size - and the fix is usually to derive one from the other, not
+to tune both.
+
+---
+
 ### M8 — Concluding the app does not scroll the window, from a scroll that was blocked
 
 **What happened.** The band parallax did not move. `window.scrollY` read 0 after
@@ -430,6 +582,9 @@ features that had **never once run**:
 | `inventory.restocked` template | added to `DEFAULT_TEMPLATES`; templates are seeded per tenant *at creation*, so it existed for nobody |
 | `useAdminPulse` | called `/inventory/health/`; every inventory route is under `admin/` (M11) |
 | `table-columns.test.ts` | could not be *collected* in the container - `docs/` was not mounted - so the one guard on column drift had silently stopped running |
+| `product_count` on `/admin/categories/` | serializer declared it, queryset never annotated it - every category read 0 |
+| the header seam | rendered at `width: 0` and divided nothing (M13) |
+| `MuraImage` width/height as strings | invalid CSS, silently dropped - thumbnails 0px tall (H10) |
 
 Two of these are a distinct sub-species worth naming: **seed-time
 initialisation**. `sync_permissions` and `seed_default_templates` run when a
@@ -483,6 +638,31 @@ then shows the default, because it reads the tenant through the *public*
 serializer.
 
 There is now a test for it.
+
+---
+
+---
+
+### P4 - A number on screen must be driven by something
+
+Three times now a figure has been displayed that nothing computed:
+
+| Figure | What it actually showed |
+|---|---|
+| `product_count` on the categories screen | always 0 - the admin queryset never annotated it, and the serializer declared a default of `0` |
+| `low_stock` on the stock screens | one shared tenant-wide threshold, so it was either noisy or silent for every product |
+| the stock badge in the header | nothing - the endpoint 404'd (M11) |
+
+Each rendered plausibly. A zero is a number; a quiet badge looks like good news.
+
+**The rule adopted.** When adding a figure to a screen, follow it back to the
+query that produces it and forward to the decision it should change. If either
+end is missing, the figure is decoration - and decoration that looks like data
+is worse than a blank space, because someone will act on it.
+
+`low_stock` now has a test asserting that changing the threshold changes what
+`is_low_stock` reports at the same quantity. That is the shape of guard this
+pattern needs: not "the field saves" but "the field does something".
 
 ---
 
