@@ -763,7 +763,9 @@
     "hideOutOfStockHint": "Apagado, el producto sigue visible con el botón “avísame”. Encendido, desaparece — y dejas de saber qué buscaba la gente.",
     "restockDemand": "Buscados y sin stock",
     "restockDemandHint": "Quién pidió que le avisen. Es demanda que no se convirtió en pedido.",
-    "waitingCount": "{count} persona esperando | {count} personas esperando"
+    "waitingCount": "{count} persona esperando | {count} personas esperando",
+    "footerTagline": "Panel de administración",
+    "footerLinks": "Enlaces del pie"
   },
   "errors": {
     "generic": "No pudimos completar la operación.",
@@ -1134,6 +1136,31 @@
     "environment": "Entorno",
     "ordersToday": "Pedidos hoy",
     "outOfStock": "Sin stock",
-    "restricted": "Página restringida a administradores."
+    "restricted": "Página restringida a administradores.",
+    "summary": "{passing} de {total} comprobaciones correctas",
+    "needsAttention": "Necesita atención",
+    "allChecks": "Todas las comprobaciones",
+    "meta": {
+      "vendor": "Base de datos",
+      "pending_migrations": "Migraciones pendientes",
+      "workers": "Workers",
+      "pending_tasks": "Tareas en cola",
+      "backend": "Backend",
+      "bucket": "Bucket",
+      "sent_24h": "Enviados (24 h)",
+      "failed_24h": "Fallaron (24 h)",
+      "queued": "En cola",
+      "overdue_reservations": "Reservas vencidas",
+      "jobs": "Tareas periódicas",
+      "debug": "DEBUG",
+      "secret_key_set": "SECRET_KEY definida",
+      "allowed_hosts": "Hosts permitidos",
+      "warnings": "Avisos",
+      "environment": "Entorno",
+      "python": "Python",
+      "django": "Django",
+      "time_zone": "Zona horaria",
+      "server_time": "Hora del servidor"
+    }
   }
 }

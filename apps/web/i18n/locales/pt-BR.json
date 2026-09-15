@@ -763,7 +763,9 @@
     "hideOutOfStockHint": "Desligado, o produto continua visível com o botão “avise-me”. Ligado, some da vitrine — e você deixa de saber o que as pessoas procuraram.",
     "restockDemand": "Procurados e em falta",
     "restockDemandHint": "Quem pediu para ser avisado. É a demanda que não virou pedido.",
-    "waitingCount": "{count} pessoa aguardando | {count} pessoas aguardando"
+    "waitingCount": "{count} pessoa aguardando | {count} pessoas aguardando",
+    "footerTagline": "Painel de administração",
+    "footerLinks": "Links do rodapé"
   },
   "errors": {
     "generic": "Não foi possível concluir a operação.",
@@ -1134,6 +1136,31 @@
     "environment": "Ambiente",
     "ordersToday": "Pedidos hoje",
     "outOfStock": "Sem estoque",
-    "restricted": "Página restrita a administradores."
+    "restricted": "Página restrita a administradores.",
+    "summary": "{passing} de {total} verificações passaram",
+    "needsAttention": "Precisa de atenção",
+    "allChecks": "Todas as verificações",
+    "meta": {
+      "vendor": "Banco",
+      "pending_migrations": "Migrações pendentes",
+      "workers": "Workers",
+      "pending_tasks": "Tarefas na fila",
+      "backend": "Backend",
+      "bucket": "Bucket",
+      "sent_24h": "Enviados (24 h)",
+      "failed_24h": "Falharam (24 h)",
+      "queued": "Na fila",
+      "overdue_reservations": "Reservas vencidas",
+      "jobs": "Tarefas periódicas",
+      "debug": "DEBUG",
+      "secret_key_set": "SECRET_KEY definida",
+      "allowed_hosts": "Hosts permitidos",
+      "warnings": "Avisos",
+      "environment": "Ambiente",
+      "python": "Python",
+      "django": "Django",
+      "time_zone": "Fuso horário",
+      "server_time": "Hora do servidor"
+    }
   }
 }

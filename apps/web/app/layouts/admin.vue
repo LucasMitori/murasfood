@@ -166,8 +166,6 @@ div
       //- screen. Compact, because a toolbar that takes 56px of every page is
       //- paying rent it does not earn.
     template(#extension)
-      v-divider.mura-admin-bar__seam(absolute)
-
       .mura-admin-tools
         .mura-admin-search
           v-text-field(
@@ -299,6 +297,17 @@ div
   v-main
     #main-content.mura-container.py-6(tabindex="-1")
       slot
+
+    //- In the flow at the end of the content, not pinned to the viewport.
+      //-
+      //- The previous one was `v-footer app`, which fixed 40px of every screen
+      //- to a breadcrumb trail `MuraPageHeader` already renders at the top. It
+      //- was removed for being a duplicate, which was the right diagnosis and
+      //- the wrong fix: a dashboard still needs somewhere to say which shop and
+      //- which environment you are operating on. So it is back, saying
+      //- something the page above it does not, and it scrolls away like any
+      //- other content instead of covering it.
+    mura-admin-footer
 
   mura-floating-tools
 </template>
@@ -749,13 +758,17 @@ async function signOut(): Promise<void> {
 /*
  * The seam between the two rows.
  *
- * Without it the tools row reads as part of the header block above it and the
- * whole thing looks 116px tall; with it there are two bands, which is what they
- * are — identity and title above, tools for the page below.
+ * A border on the extension itself rather than a `v-divider` inside it. The
+ * divider was a flex child of a row it was not meant to participate in: it
+ * computed to `width: 0` and sat as a 1px stub partway down the tools row,
+ * dividing nothing. A border cannot fail that way — it is the extension's own
+ * top edge, so it spans the bar by construction.
+ *
+ * Without it the two rows read as one 117px block; with it they read as what
+ * they are — identity and title above, tools for the page below.
  */
-.mura-admin-bar__seam {
-  top: 0;
-  opacity: 0.6;
+.mura-admin-bar :deep(.v-toolbar__extension) {
+  border-top: 1px solid rgba(var(--v-border-color), 0.55);
 }
 
 .mura-admin-tools {

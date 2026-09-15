@@ -763,7 +763,9 @@
     "hideOutOfStockHint": "Off, the product stays visible with a “tell me when it’s back” button. On, it disappears — and you stop learning what people came for.",
     "restockDemand": "Wanted and unavailable",
     "restockDemandHint": "Who asked to be told. This is demand that never became an order.",
-    "waitingCount": "{count} person waiting | {count} people waiting"
+    "waitingCount": "{count} person waiting | {count} people waiting",
+    "footerTagline": "Administration dashboard",
+    "footerLinks": "Footer links"
   },
   "errors": {
     "generic": "We could not complete that operation.",
@@ -1134,6 +1136,31 @@
     "environment": "Environment",
     "ordersToday": "Orders today",
     "outOfStock": "Out of stock",
-    "restricted": "This page is restricted to administrators."
+    "restricted": "This page is restricted to administrators.",
+    "summary": "{passing} of {total} checks passed",
+    "needsAttention": "Needs attention",
+    "allChecks": "All checks",
+    "meta": {
+      "vendor": "Database",
+      "pending_migrations": "Pending migrations",
+      "workers": "Workers",
+      "pending_tasks": "Tasks queued",
+      "backend": "Backend",
+      "bucket": "Bucket",
+      "sent_24h": "Delivered (24 h)",
+      "failed_24h": "Failed (24 h)",
+      "queued": "Queued",
+      "overdue_reservations": "Overdue reservations",
+      "jobs": "Periodic jobs",
+      "debug": "DEBUG",
+      "secret_key_set": "SECRET_KEY set",
+      "allowed_hosts": "Allowed hosts",
+      "warnings": "Warnings",
+      "environment": "Environment",
+      "python": "Python",
+      "django": "Django",
+      "time_zone": "Time zone",
+      "server_time": "Server time"
+    }
   }
 }

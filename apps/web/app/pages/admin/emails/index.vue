@@ -31,21 +31,33 @@ div
           template(#item.updated_at="{ item }")
             span.text-caption.text-medium-emphasis {{ formatDateTime(item.updated_at, locale) }}
 
+          //- A flex row, not two loose buttons.
+            //-
+            //- A table cell is `display: table-cell`, so two 40px inline-flex
+            //- buttons in a 72px column simply wrapped and stacked one above the
+            //- other. The column also has to be wide enough to hold them —
+            //- widening it alone would not have helped, because nothing was
+            //- keeping them on one line.
           template(#item.actions="{ item }")
-            v-btn(
-              icon="mdi-eye-outline"
-              variant="text"
-              size="small"
-              :aria-label="t('admin.preview')"
-              @click.stop="open(item, 'preview')"
-            )
-            v-btn(
-              icon="mdi-pencil-outline"
-              variant="text"
-              size="small"
-              :aria-label="t('common.edit')"
-              @click.stop="open(item, 'content')"
-            )
+            .d-flex.justify-end.ga-1.flex-nowrap
+              v-btn(
+                icon="mdi-eye-outline"
+                variant="text"
+                size="small"
+                density="comfortable"
+                :aria-label="t('admin.preview')"
+                :title="t('admin.preview')"
+                @click.stop="open(item, 'preview')"
+              )
+              v-btn(
+                icon="mdi-pencil-outline"
+                variant="text"
+                size="small"
+                density="comfortable"
+                :aria-label="t('common.edit')"
+                :title="t('common.edit')"
+                @click.stop="open(item, 'content')"
+              )
 
     v-col(cols="12" lg="4")
       mura-card(:title="t('admin.smtp')" icon="mdi-server-network")
@@ -296,7 +308,7 @@ const headers = computed(() => [
   { title: t('common.language'), key: 'locale', width: 90 },
   { title: t('admin.status'), key: 'is_active', width: 110 },
   { title: t('admin.updatedAt'), key: 'updated_at', width: 170 },
-  { title: t('table.actions'), key: 'actions', sortable: false, align: 'end' as const, width: 110 },
+  { title: t('table.actions'), key: 'actions', sortable: false, align: 'end' as const, width: 120, nowrap: true },
 ])
 
 /**
