@@ -30,7 +30,14 @@ from apps.audit.services import record_audit
 from apps.common.exceptions import ConflictError, InsufficientStockError
 from apps.common.money import quantize_quantity
 
-from .models import InventoryItem, MovementType, ReservationStatus, StockMovement, StockReservation
+from .models import (
+    InventoryItem,
+    MovementType,
+    ReservationStatus,
+    RestockAlert,
+    StockMovement,
+    StockReservation,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from apps.accounts.models import User
@@ -116,6 +123,10 @@ def adjust_stock(
         item = get_or_create_item(product)
         item = InventoryItem.objects.select_for_update().get(pk=item.pk)
 
+    # Captured before the write, because "came back into stock" is a *transition*
+    # and the only place both sides of it exist is here.
+    was_available = item.available_quantity > 0
+
     new_quantity = item.quantity + delta
     permitted = allow_negative if allow_negative is not None else _allows_backorder(item.tenant)
     if new_quantity < 0 and not permitted:
@@ -129,6 +140,9 @@ def adjust_stock(
 
     item.quantity = new_quantity
     item.save(update_fields=["quantity", "updated_at"])
+
+    if not was_available and item.available_quantity > 0:
+        _announce_restock(product)
 
     _write_movement(
         item=item,
@@ -392,3 +406,111 @@ def low_stock_items(tenant_id: Any, *, limit: int = 50) -> list[InventoryItem]:
         .select_related("product")
         .order_by("quantity")[:limit]
     )
+
+
+# =============================================================================
+# Restock alerts
+# =============================================================================
+def _announce_restock(product: Product) -> None:
+    """Queue the "it's back" emails, once the stock write has committed.
+
+    Hooked into ``adjust_stock`` rather than into each caller because that is
+    the single choke point every stock change passes through — a purchase
+    received, a stock count, a cancelled order putting units back. A hook per
+    caller would be a hook someone forgets.
+
+    Deliberately *not* hooked into reservation release. Availability rises there
+    too, but only because a checkout was abandoned; emailing forty people that a
+    product is back because one cart timed out — when the next visitor takes the
+    unit thirty seconds later — teaches them the alert means nothing.
+    """
+    if not RestockAlert.objects.filter(product=product, notified_at__isnull=True).exists():
+        return
+
+    from .tasks import notify_restocked
+
+    transaction.on_commit(lambda: notify_restocked.delay(str(product.pk)))
+
+
+def subscribe_to_restock(
+    *,
+    product: Product,
+    customer: User | None = None,
+    email: str = "",
+    locale: str = "",
+) -> RestockAlert | None:
+    """Register interest in a product coming back.
+
+    Returns ``None`` when there is nobody to notify. Re-subscribing after an
+    earlier notification clears the stamp rather than creating a second row, so
+    a shopper who asks twice is emailed once per restock, not twice.
+    """
+    address = (email or "").strip().lower()
+    if customer is None and not address:
+        return None
+
+    lookup: dict[str, Any] = {"tenant": product.tenant, "product": product}
+    if customer is not None:
+        lookup["customer"] = customer
+    else:
+        lookup["customer"] = None
+        lookup["email"] = address
+
+    alert, created = RestockAlert.objects.get_or_create(
+        **lookup,
+        defaults={"email": address, "locale": locale or ""},
+    )
+
+    if not created:
+        alert.notified_at = None
+        alert.locale = locale or alert.locale
+        if address and not alert.customer_id:
+            alert.email = address
+        alert.save(update_fields=["notified_at", "locale", "email", "updated_at"])
+
+    return alert
+
+
+def unsubscribe_from_restock(
+    *, product: Product, customer: User | None = None, email: str = ""
+) -> int:
+    """Withdraw interest. Returns how many rows went."""
+    queryset = RestockAlert.objects.filter(tenant=product.tenant, product=product)
+    if customer is not None:
+        queryset = queryset.filter(customer=customer)
+    else:
+        address = (email or "").strip().lower()
+        if not address:
+            return 0
+        queryset = queryset.filter(customer__isnull=True, email=address)
+
+    deleted, _detail = queryset.delete()
+    return deleted
+
+
+def restock_demand(tenant_id: Any, *, limit: int = 50) -> list[dict[str, Any]]:
+    """Which unavailable products people are actually waiting for.
+
+    The merchandising value of the whole feature: a ranked list of what to buy
+    next, built from demand that never became an order and therefore appears in
+    no sales report.
+    """
+    from django.db.models import Count, Max
+
+    rows = (
+        RestockAlert.objects.filter(tenant_id=tenant_id, notified_at__isnull=True)
+        .values("product_id", "product__name", "product__sku", "product__slug")
+        .annotate(waiting=Count("id"), since=Max("created_at"))
+        .order_by("-waiting", "product__name")[:limit]
+    )
+    return [
+        {
+            "product_id": str(row["product_id"]),
+            "name": row["product__name"],
+            "sku": row["product__sku"],
+            "slug": row["product__slug"],
+            "waiting": row["waiting"],
+            "latest_request": row["since"].isoformat() if row["since"] else None,
+        }
+        for row in rows
+    ]

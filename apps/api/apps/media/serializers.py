@@ -28,6 +28,7 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             "status",
             "url",
             "variants",
+            "placeholder",
             "alt_text",
             "width",
             "height",

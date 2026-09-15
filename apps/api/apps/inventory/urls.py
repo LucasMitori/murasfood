@@ -5,6 +5,7 @@ from .views import (
     ExpiryReportView,
     InventoryItemViewSet,
     LowStockView,
+    RestockDemandView,
     StockAdjustView,
     StockBatchViewSet,
     StockCountView,
@@ -27,5 +28,6 @@ urlpatterns = [
     path("inventory/low-stock/", LowStockView.as_view(), name="low-stock"),
     path("inventory/expiry/", ExpiryReportView.as_view(), name="expiry-report"),
     path("inventory/health/", StockHealthView.as_view(), name="stock-health"),
+    path("inventory/restock-demand/", RestockDemandView.as_view(), name="restock-demand"),
     path("", include(router.urls)),
 ]

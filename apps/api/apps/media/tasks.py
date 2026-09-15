@@ -92,6 +92,7 @@ def generate_image_derivatives(self, asset_id: str) -> dict[str, str]:
 
         master = _shrink_master(asset, original, storage)
 
+        asset.placeholder = _placeholder(original)
         asset.derivatives = derivatives
         asset.width = master[0]
         asset.height = master[1]
@@ -99,6 +100,7 @@ def generate_image_derivatives(self, asset_id: str) -> dict[str, str]:
         asset.save(
             update_fields=[
                 "derivatives",
+                "placeholder",
                 "width",
                 "height",
                 "size_bytes",
@@ -217,3 +219,46 @@ def cleanup_orphaned_assets(older_than_hours: int = 24) -> int:
 
     logger.info("orphaned_assets_removed", extra={"event": "media.cleanup", "count": removed})
     return removed
+
+
+def _placeholder(original: Any) -> str:
+    """A handful of pixels, base64'd, to show while the real photo arrives.
+
+    The frame already reserves its space from the aspect ratio, so this is not
+    about layout shift — it is about what fills that space in the meantime. A
+    flat grey rectangle with an icon in it looks like a picture that failed; a
+    blurred wash of the right colours looks like a picture that is arriving, and
+    on a grid of forty products that is the difference between "slow" and
+    "loading".
+
+    Returned as a data URI so it travels inside the JSON the card already
+    fetches. A separate file would be a request per product, which would cost
+    more than it saves.
+
+    Never raises: a shop losing its blur placeholders is a cosmetic
+    disappointment, and failing the whole derivative job over one would cost it
+    every variant.
+    """
+    import base64
+
+    from PIL import Image
+
+    width = settings.MEDIA_IMAGE_PLACEHOLDER_WIDTH
+    if not width or width < 4:
+        return ""
+
+    try:
+        ratio = width / original.width
+        size = (width, max(1, round(original.height * ratio)))
+        tiny = original.convert("RGB").resize(size, Image.BILINEAR)
+
+        buffer = BytesIO()
+        # Quality is deliberately low: it is going to be blurred and stretched
+        # over the whole frame, so detail is wasted bytes in the HTML.
+        tiny.save(buffer, format="WEBP", quality=40, method=0)
+        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    except Exception:
+        logger.warning("placeholder_failed", extra={"event": "media.placeholder_failed"})
+        return ""
+
+    return f"data:image/webp;base64,{encoded}"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.db.models import F
 from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.types import OpenApiTypes
@@ -15,6 +16,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.audit.services import record_audit
@@ -35,6 +37,7 @@ from .selectors import (
     favorite_product_ids,
     featured_products,
     new_arrivals,
+    out_of_stock_products,
     product_by_barcode,
     related_products,
     storefront_products,
@@ -65,6 +68,18 @@ from .services import (
 )
 
 
+class RestockAlertThrottle(ScopedRateThrottle):
+    """Rate limit for the back-in-stock signup.
+
+    A class rather than `throttle_scope="restock_alert"` on the `@action`:
+    DRF passes unknown action kwargs to `as_view()` as `initkwargs`, and a
+    viewset rejects any that is not already an attribute — so the scope form
+    raises `TypeError` at URL-loading time and takes the whole API down with it.
+    """
+
+    scope = "restock_alert"
+
+
 class FavoriteContextMixin:
     """Adds the current customer's favourite ids to the serializer context.
 
@@ -92,7 +107,30 @@ class ProductViewSet(FavoriteContextMixin, TenantScopedMixin, viewsets.ReadOnlyM
     lookup_value_regex = "[^/]+"
 
     def get_queryset(self) -> Any:
-        return storefront_products(self.tenant_id)
+        queryset = storefront_products(self.tenant_id)
+
+        # A shop may choose to keep empty shelves off the shop floor. Applied
+        # here rather than in `storefront_products` so `retrieve` still resolves
+        # a hidden product: a customer following an old link or an email deserves
+        # the page (with its "tell me when it is back" button) rather than a 404.
+        if getattr(self, "swagger_fake_view", False):
+            return queryset
+
+        if self.action == "list" and self._hides_out_of_stock():
+            queryset = queryset.exclude(
+                inventory__track_stock=True,
+                inventory__quantity__lte=F("inventory__reserved_quantity"),
+            )
+        return queryset
+
+    def _hides_out_of_stock(self) -> bool:
+        # The schema generator instantiates this view with no request, so
+        # `self.tenant` does not exist. Introspection is not a storefront visit;
+        # the answer it needs is simply "do not filter".
+        if getattr(self, "swagger_fake_view", False):
+            return False
+        settings_row = getattr(getattr(self, "tenant", None), "settings", None)
+        return bool(settings_row and settings_row.hide_out_of_stock)
 
     def get_serializer_class(self) -> Any:
         return ProductDetailSerializer if self.action == "retrieve" else ProductListSerializer
@@ -138,6 +176,67 @@ class ProductViewSet(FavoriteContextMixin, TenantScopedMixin, viewsets.ReadOnlyM
         product = self.get_object()
         products = related_products(product)
         return Response(self.get_serializer(products, many=True).data)
+
+    @extend_schema(
+        methods=["POST"],
+        request=None,
+        responses={201: dict},
+        operation_id="catalog_restock_alert_subscribe",
+        description="Ask to be notified when this product is back in stock.",
+    )
+    @extend_schema(
+        methods=["DELETE"],
+        request=None,
+        responses={200: dict},
+        operation_id="catalog_restock_alert_unsubscribe",
+        description="Withdraw a back-in-stock request.",
+    )
+    @action(
+        detail=True,
+        methods=["post", "delete"],
+        url_path="restock-alert",
+        permission_classes=[AllowAny],
+        throttle_classes=[RestockAlertThrottle],
+    )
+    def restock_alert(self, request: Request, slug: str | None = None) -> Response:
+        """Subscribe to, or cancel, a back-in-stock notice.
+
+        Open to visitors on purpose. A shopper who has to create an account
+        before saying "tell me when the rice is back" simply leaves, and the
+        merchant learns nothing about the sale they just lost.
+
+        A signed-in customer's own address is used and any ``email`` in the body
+        is ignored: accepting one would let an authenticated caller register
+        strangers, which is the same abuse the anonymous path is throttled for.
+        """
+        from apps.inventory.serializers import RestockAlertRequestSerializer
+        from apps.inventory.services import subscribe_to_restock, unsubscribe_from_restock
+
+        product = self.get_object()
+        customer = request.user if getattr(request.user, "is_authenticated", False) else None
+
+        payload = RestockAlertRequestSerializer(data=request.data or {})
+        payload.is_valid(raise_exception=True)
+        email = "" if customer is not None else payload.validated_data.get("email", "")
+
+        if request.method == "DELETE":
+            removed = unsubscribe_from_restock(product=product, customer=customer, email=email)
+            return Response({"subscribed": False, "removed": removed})
+
+        if customer is None and not email:
+            raise ValidationError({"email": _("Tell us where to send the notice.")})
+
+        alert = subscribe_to_restock(
+            product=product,
+            customer=customer,
+            email=email,
+            locale=payload.validated_data.get("locale", "")
+            or request.headers.get("Accept-Language", "").split(",")[0],
+        )
+        return Response(
+            {"subscribed": alert is not None, "id": str(alert.pk) if alert else None},
+            status=status.HTTP_201_CREATED if alert else status.HTTP_200_OK,
+        )
 
     @extend_schema(
         parameters=[
@@ -211,6 +310,7 @@ class StorefrontHomeView(TenantScopedMixin, APIView):
             "on_sale": discounted_products,
             "best_sellers": best_sellers,
             "new_arrivals": new_arrivals,
+            "back_soon": out_of_stock_products,
         }
 
         payload: dict[str, Any] = {
@@ -222,6 +322,7 @@ class StorefrontHomeView(TenantScopedMixin, APIView):
             "on_sale": [],
             "best_sellers": [],
             "new_arrivals": [],
+            "back_soon": [],
         }
 
         for section in layout:
@@ -233,10 +334,22 @@ class StorefrontHomeView(TenantScopedMixin, APIView):
                 payload["categories"] = CategorySerializer(
                     category_tree(self.tenant_id), many=True, context=context
                 ).data
+            elif key == "back_soon":
+                # A shop that hides empty shelves in the listing must not put
+                # them on its front page; the two settings would contradict
+                # each other on the same visit.
+                if not self._hides_out_of_stock():
+                    payload[key] = cards(
+                        out_of_stock_products(self.tenant_id, limit=section["limit"])
+                    )
             elif key in sources:
                 payload[key] = cards(sources[key](self.tenant_id, limit=section["limit"]))
 
         return Response(payload)
+
+    def _hides_out_of_stock(self) -> bool:
+        settings_row = getattr(self.tenant, "settings", None)
+        return bool(settings_row and settings_row.hide_out_of_stock)
 
     def _with_images(self, layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Replace each parallax band's `image_id` with the asset itself.

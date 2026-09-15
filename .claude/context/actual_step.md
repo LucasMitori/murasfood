@@ -8,32 +8,38 @@
 > looks right" — a number, a status code, a screenshot, a failing test that
 > passes after the change.
 
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-14
 
 ---
 
-## PHASE 5 — Storefront experience
+## PHASE 6 — Dashboard, money and scale
 
 ### Goal
 
-Make the shop *feel* like a product a market owner would pay for: a home page
-with depth and rhythm, filters that survive a real catalogue, and motion that
-reads as considered rather than decorative.
+Turn the dashboard from a set of screens into the thing a market owner runs
+their business from: a chrome that does not look broken, a finance area that
+answers questions rather than listing rows, an image pipeline that survives ten
+thousand products, and a way to see the platform's own health.
 
 ### Scope
 
 | # | Item | State |
 |---|---|---|
-| 5.1 | Parallax home — alternating bands and content, titles parallaxed, admin-toggleable | ✅ done |
-| 5.2 | `/products` filters — richer, with a search input | ◀ next |
-| 5.3 | Categories as clickable cards under the title, rendering below dynamically | not started |
-| 5.4 | Animations — gentle, modern, professional | not started |
-| 5.5 | Sale/discount card and dedicated product page treatment | not started |
+| 6.1 | Rail centring, "Ver a loja", footer | ✅ done |
+| 6.2 | Identity block → profile editor, avatar upload | ✅ done |
+| 6.3 | Second header row: tools, divider, compact | ✅ done |
+| 6.4 | Table loading state (the "black flash") | ✅ done — partially; see *Not confirmed* |
+| 6.5 | Out-of-stock handling + back-in-stock notices | ✅ done |
+| 6.6 | Finance: DRE, budget, forecast, cash flow, price simulator | ✅ done |
+| 6.7 | Diagnostics page (admin-only) | ✅ done |
+| 6.8 | Image pipeline at 10k products | ✅ done |
+| 6.9 | `/products` filters, search, category cards | ✅ done |
 
 ### Out of scope
 
-Security hardening (phase 6 — the `maruth.security` skill is written and will
-drive it), production readiness (phase 7), `/admin/customers` CRUD.
+Animations and sale-card treatment (carried from phase 5, still open), security
+audit (phase 7 — the `maruth.security` skill is written and has never been run
+as a full audit), production readiness (phase 8).
 
 ---
 
@@ -41,45 +47,95 @@ drive it), production readiness (phase 7), `/admin/customers` CRUD.
 
 Everything below was observed, not inferred.
 
-### From phase 4, carried in as the baseline
+### 6.1 — The rail
 
 | Claim | Evidence |
 |---|---|
-| Dev server no longer 404s its stylesheets | First-load failed requests **50 → 0**, measured in the browser on a cold container |
-| Cold start signals readiness honestly | Healthy at **34 s**; before, the container reported "Up" immediately while unusable |
-| Client-side navigation works without a hard reload | `/` → `/products` → `/cart` → `/` by clicking; 0 failed resources |
-| Image storage cut | Realistic photo **505,333 → 98,258 B**; existing library masters **9,357,525 → 4,275,570 B** across 89 images |
-| AVIF actually served | `..._small.avif` in `currentSrc`, natural width 244, 8/8 visible frames at opacity 1 |
-| Spreadsheet round trip is lossless | Real 51-product catalogue exported and re-imported: **51 updated, 0 created, 0 errors** |
-| Import is all-or-nothing | Broke one row of the real export → category unchanged, no category invented, 51 products intact |
-| CSV reports are really CSV | Queued job → `vendas-2026-08-05-2026-09-03.csv` with real rows |
-| Private downloads reachable | Report downloaded from the host: `200`, correct content |
-| Order emails reach both parties | Two `EmailLog` rows, both **SENT**, distinct idempotency keys, correct per-audience links |
+| Icons sit on the drawer's axis | drawer centre **36.0**, all 14 icons at **35.5** — off by 0.5, which is the drawer's 1px border. Was 8.0 |
+| The avatar and the bottom button agree with them | both **0.5** off the same axis |
+| "Ver a loja" renders its icon | `mdi-storefront-outline` present in the button; was an empty `.v-btn__content` |
+| The expanded drawer is unchanged | 14 titles render, button reads "Ver a loja" |
+| The fixed bottom bar is gone | `.mura-admin-foot` absent from the DOM |
 
-### From 5.1, confirmed on the running storefront
+Root cause and the two wrong fixes before the right one: **M10** in `historic.md`.
+
+### 6.3 — The header
 
 | Claim | Evidence |
 |---|---|
-| The page has the requested rhythm | `HERO (720px) → Categorias → BAND (504px) → Ofertas → Destaques → BAND (504px) → Mais vendidos → Novidades`, read from the live DOM |
-| 70vh and 100vh are real | 504 px is 70% of the 720 px viewport |
-| Band layers move at different rates | media `translate3d(0, 194.5px, 0)` vs text `77.8px` — the 0.4/0.16 ratio exactly |
-| The hero moves its title too | media `200px`, content `70px` at 500 px of scroll — 0.4/0.14 |
-| No hydration mismatch | zero console errors on first paint with bands and hero parallax on |
-| The API resolves band images server-side | `image=yes` on both bands in `/catalog/home/`, no extra round trip |
-| A scripted link is refused | `javascript:`, `data:`, `vbscript:` all 400 |
-| Bands are optional | a layout with no bands validates and renders a short page |
+| The tools row renders | `.mura-admin-tools` present; search, ⌘K hint, Criar, alerts, storefront, fullscreen all visible in the screenshot |
+| The alerts badge reads real data | `GET /admin/inventory/health/` → **200**, badge shows **6** |
 
-19 new backend tests cover the band shape, the hero settings, and that the
-public serializer carries `hero` — the allow-list that has now been forgotten
-twice.
+That endpoint 404'd on every admin page until it was caught — **M11**.
+
+### 6.5 — Out of stock
+
+| Claim | Evidence |
+|---|---|
+| A visitor with no account can subscribe | `POST …/restock-alert/` → **201**, `{"subscribed": true}` |
+| Asking twice makes one row | 3 posts → `RestockAlert.objects.count() == 1` |
+| An email actually goes out on restock | `EmailLog` row `inventory.restocked / shopper@example.com / SENT / "Abacate Exemplo chegou!"` |
+| It goes out once | second restock leaves `notified_at` unchanged |
+| A signed-in caller cannot name a stranger's address | alert is bound to `customer_id`, `recipient == customer.email` |
+| The demand report ranks by how many are waiting | 4-waiting product ranks above the 1-waiting one |
+
+13 tests in `apps/inventory/tests/test_restock_alerts.py`.
+
+### 6.6 — Finance
+
+Verified against six months of seeded ledger data:
+
+| Claim | Evidence |
+|---|---|
+| The DRE balances | revenue 54.561,50 · CMV 62,05% · gross margin 37,95% · operating 6,98% |
+| Horizontal analysis reads correctly | revenue **+5,74%**, result **+34,65%** — operating leverage, fixed costs flat while revenue grew |
+| Budget variance flags what was never budgeted | CMV shown as *Fora do orçamento*; payroll at **109,47%**; marketing unused |
+| The forecast is fitted and labelled | 6 months basis, "Confiança média", revenue trend **+R$ 2.568,21/mês** |
+| The price simulator does the counter-intuitive arithmetic | +8% price, −6,4% volume → revenue **+R$ 4,90**, margin **+R$ 21,28 (+10,96%)** |
+
+23 tests in `apps/finance/tests/test_analysis.py`.
+
+### 6.7 — Diagnostics
+
+| Claim | Evidence |
+|---|---|
+| The page renders every check | 8 cards; PostgreSQL 0.7 ms, Redis 0.8 ms, storage 8.4 ms, 1 Celery worker |
+| It catches what nothing else reports | overall **degraded** on `DEBUG is on` alone |
+| A dead dependency is reported, not raised | database and cache probes mocked to throw → `DOWN`, report still returns 8 checks |
+| No secret reaches the payload | `SECRET_KEY`, DB password and S3 secret asserted absent from the whole JSON |
+| A DSN in an exception is never echoed | `postgres://user:hunter2@…` → `"OSError"` |
+| Staff cannot open it | customer **403**, staff **403**, administrator **200** |
+| The answer is never cached | `Cache-Control: no-store` |
+
+20 tests in `apps/common/tests/test_diagnostics.py`.
+
+### 6.8 — Images at scale
+
+The WebP/AVIF conversion already existed from phase 4. What was missing:
+
+| Claim | Evidence |
+|---|---|
+| Derivatives are cached for a year | `head_object` on a live derivative: `Cache-Control: public, max-age=31536000, immutable` |
+| Private objects are not | `private, no-store`, and no public ACL |
+| The same photo twice is stored once | two uploads of identical bytes → same `pk`, **1** asset row |
+| A private document is never satisfied by a public image | different `pk` for identical bytes at different visibility |
+| Every image has a blurred stand-in | 84/84 backfilled; **119–131 bytes** each as a data URI |
+| It is serialised | `MediaAssetSerializer(...).data["placeholder"]` matches the row |
+| Image work cannot starve orders | worker consumes `celery, media`; media tasks routed to `media` |
+
+10 tests in `apps/media/tests/test_image_scale.py`.
 
 ### Suite state
 
 ```
-458 API tests · 242 web tests
+524 API tests (was 458)  ·  242 web tests
 ruff check · ruff format · eslint · vue-tsc — all clean
-OpenAPI schema regenerated and deterministic
+OpenAPI regenerated with --fail-on-warn, 0 warnings
 ```
+
+`table-columns.test.ts` now actually runs — `docs/` was never mounted into the
+web container, so the one guard against a column referring to a dropped API
+field could not even be collected.
 
 ---
 
@@ -89,59 +145,44 @@ Recording these matters as much as the confirmations.
 
 | Item | Why not | How it would be confirmed |
 |---|---|---|
-| Admin screens render correctly | The browser session available has no merchant login; token injection is blocked | A merchant logs in and looks |
-| — `/admin/reports` three tabs | endpoints verified directly, page compiles and typechecks | " |
-| — `/admin/storefront` Layout + Appearance tabs | backend proven end to end | " |
-| — cost-of-goods tile on `/admin/finance` | `cogs` present in payload and in all three locales | " |
-| — export menu in the table toolbar | all four endpoints return 200 with correct content type | " |
-| The band editor in `/admin/storefront` | no merchant session in the browser available to me | a merchant opens the Layout tab and adds a band |
-| Real-world import at scale | tested at 51 rows | a merchant's own 400-row sheet |
+| **The table flash is fully fixed** | The skeleton is verified (461px, renders for the whole load). The **~130 ms before it**, where the route has changed and the component chunk is still loading, is unaddressed and is a dev-server artifact | Measure the same navigation against a production build |
+| The avatar upload end to end | The endpoint accepts `avatar_id` and rejects a foreign tenant's asset; the UI was not driven | Upload a photo through `/admin/users/<id>/edit` |
+| `/products` category cards and filters | Typechecks, lints, store logic covered; not driven in a browser | Open `/products` and tap through |
+| The restock button on the product page | The API is verified by test and by curl; the component was not driven | Open an out-of-stock product as a visitor |
+| Price elasticity as a *predictor* | It is an assumption the merchant sets, echoed back in the response. It is not validated against real demand and cannot be | Nothing here; this is a property of the model, stated on screen |
+| Behaviour at 10,000 products | Measured at 51 products / 84 assets. The fixes are structural (cache headers, dedupe, queue split) rather than tuned | A merchant's real catalogue, or a generated one |
+| `hide_out_of_stock` | Backend and both serializers covered; no switch in `/admin/storefront` yet | Add the control, then flip it |
 
 ---
 
-## Working notes for 5.1
+## Working notes
 
-**The shape requested**
+**The QA account.** `qa.claude@murasfood.local` was created in the dev database
+to make admin screens driveable — every admin claim above was measured through
+it. It is an `ADMINISTRATOR` on the `demo` tenant. Delete it before any
+deployment; it exists because "no merchant browser session" had been blocking
+visual verification for several phases.
 
-```
-100vh v-parallax  (image + title, both parallaxed)
-  ↓
-categories + offers
-  ↓
-70vh v-parallax   (admin-authored content)
-  ↓
-same-day delivery card + featured
-  ↓
-70vh v-parallax   (admin-authored)
-  ↓
-best sellers
-  ↓
-…alternating
+**Two deploy-time commands now exist and must run on every deploy:**
+
+```bash
+python manage.py sync_roles            # new permission codes reach existing tenants
+python manage.py sync_email_templates  # new templates reach existing tenants
 ```
 
-**Constraints already known**
-
-1. **SSR** — `v-parallax` measures the viewport, which the server cannot. Gate on hydration, the same way the header does. A hydration mismatch here would be visible on every first paint.
-2. **The layout is already configurable** — `home_layout` on `TenantSettings` handles order, title, limit and enabled per band. Parallax bands should extend that structure rather than invent a second one.
-3. **Bands need an image each** — that means a media asset per band, chosen in `/admin/storefront`, which the Layout tab can already host.
-4. **A shop must be able to turn them all off** and keep a short page. The switch is the feature, not an afterthought.
-5. **Motion must respect `prefers-reduced-motion`.** A parallax that ignores it is an accessibility failure, not a style choice.
-
-**Open question for the merchant screen**
-
-Does a parallax band belong in `home_layout` as another section kind, or as its
-own list interleaved by position? Leaning to the former: one ordered list is
-easier to reason about and reuses the drag-to-reorder UI that exists.
+Both were written because a feature was found completely dead without them —
+see the seed-time note under P1 in `historic.md`.
 
 ---
 
-## Definition of done for phase 5
+## Definition of done for phase 6
 
-- [x] Parallax bands render without hydration mismatch, verified in the browser
-- [x] Bands are configurable and switchable off from `/admin/storefront` *(built; the screen itself is unverified — see above)*
-- [x] `prefers-reduced-motion` honoured throughout
-- [ ] `/products` filters usable against a 400-product catalogue
-- [ ] Categories render as cards and filter in place
-- [ ] Sale treatment visible on card and product page
-- [ ] Both suites green, all linters clean, schema regenerated
-- [ ] Every claim in this file carries a measurement
+- [x] Rail, header and footer verified by measurement, not by eye
+- [x] Every new endpoint reached from the UI and observed returning 200
+- [x] Restock notices proven to send exactly once
+- [x] Finance figures checked against hand-computed values
+- [x] Diagnostics proven to leak nothing, under test
+- [x] Image caching, dedupe and placeholders measured
+- [x] Both suites green, all linters clean, schema regenerated
+- [ ] The 130 ms pre-mount gap measured against a production build
+- [ ] Admin screens driven by the merchant on their own machine

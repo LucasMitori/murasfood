@@ -39,6 +39,8 @@ export interface MediaAsset {
   status: 'PENDING' | 'READY' | 'FAILED'
   url: string
   variants: Record<string, string>
+  /** Tiny blurred data URI, shown while the real image decodes. */
+  placeholder?: string
   alt_text: string
   width: number | null
   height: number | null
@@ -140,6 +142,7 @@ export interface User {
   user_type: UserType
   is_verified: boolean
   marketing_opt_in: boolean
+  avatar: MediaAsset | null
   roles: string[]
   permissions: string[]
   created_at: string
@@ -192,6 +195,14 @@ export interface ProductPriceInfo {
 export interface ProductStockInfo {
   in_stock: boolean
   low_stock: boolean
+  /**
+   * How many people asked to be told when this comes back.
+   *
+   * A count of demand, not of stock — published deliberately, because "14
+   * people are waiting for this" is what persuades the fifteenth to leave their
+   * address instead of leaving.
+   */
+  waiting?: number
 }
 
 export interface Product {

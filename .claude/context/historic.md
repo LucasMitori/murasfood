@@ -109,6 +109,102 @@ come from those very links on warm loads. Reverted immediately.
 
 ---
 
+### M10 - Fixing a CSS bug from a plausible cause instead of a measured one
+
+**The symptom.** Collapsed, the admin rail's icons sat left of centre with dead
+space on their right.
+
+**The first explanation, and why it was wrong.** The nav list overflowed a
+720px-tall window, a 15px scrollbar appeared, and the scrollbar's width came out
+of the content box. Icons centred within 56px instead of 72px: exactly 8px off.
+The numbers agreed and the story was complete.
+
+Then the same page was measured at 900px tall, where nothing overflows:
+
+```
+contentScrollbarPx: 0      overflows: false
+drawerCentreX: 36          iconCentreX: 28          offBy: 8
+```
+
+Same 8px, no scrollbar. The theory had matched the arithmetic and still been
+wrong.
+
+**The real cause.** Vuetify sizes a list item's first grid track as
+`icon + --v-list-prepend-gap` - 24px + 16px. That gap separates an icon from a
+title, and in a rail there is no title, so it became 16px of dead space on the
+right of every icon. Half of 16 is the 8.
+
+**And it took three attempts to fix**, each one measured:
+
+| Attempt | Result |
+|---|---|
+| Zero the gap, `justify-content: center` | icons 35.5 OK - but `scrollbar-gutter: stable both-edges` ate 20px of a 72px rail and pushed the bottom button 5px off |
+| Hide the rail's scrollbar instead | button 0.5 OK, icons back to **8 off** - with the gap gone, the title track claimed the 15px it freed |
+| Pin the tracks: `grid-template-columns: 24px 0 0` | icons, avatar and button all **0.5 off** OK |
+
+**The lesson.** Arithmetic that matches is not a diagnosis. The scrollbar theory
+predicted the exact observed offset and was still the wrong mechanism - because
+8 is half of 16 for more than one reason. A cause is confirmed by varying the
+thing it depends on, not by the size of the number it explains. Changing the
+viewport height took thirty seconds and would have saved the first two fixes.
+
+---
+
+### M11 - A silent catch hid a URL that had never once worked
+
+`useAdminPulse` fetches a stock count for the header badge. Its `catch` was
+empty on purpose: a badge that cannot load must not put an error toast on every
+screen in the dashboard.
+
+The path was `/inventory/health/`. Every inventory route in this project is
+mounted under `admin/`. It had been 404ing on every admin page since the moment
+it was written, and the badge simply rendered nothing - which is also what it
+renders when there is nothing to report.
+
+Found only by reading the network log while checking something else.
+
+**The fix is not to remove the catch** - the reasoning for it still holds. It is
+that *silent* and *invisible* are different things:
+
+```ts
+catch (error) {
+  if (import.meta.dev) console.warn('[admin-pulse] stock health unavailable', error)
+}
+```
+
+**The lesson.** Every swallowed error is a place a feature can be completely
+dead and look merely quiet. This is P1 wearing a different coat: the code was
+reachable, the endpoint was not, and nothing in lint, typecheck or the test
+suite compares a string in a composable against the URL conf. When you write a
+catch that does nothing, make it say so where a developer will see it.
+
+---
+
+### M12 - Writing a test that asserted my assumption rather than the contract
+
+Two of the tests written this round failed against correct code:
+
+- **The DRE comparison window.** The test asserted April 1-30 as the comparison
+  for May. The implementation returns March 31 - April 30 - *equal length*,
+  which is what its docstring promises and what stops February reading as a
+  collapse every year. The test had encoded "previous calendar month", which is
+  a different rule I had not thought about carefully.
+- **The diagnostics secret check.** It asserted the string `SECRET_KEY` never
+  appears in the payload. But the warning *"SECRET_KEY is shorter than 50
+  characters"* is exactly what an operator needs to read. Naming a setting is
+  not leaking it.
+
+Both were rewritten to assert the property rather than a literal: same length
+and ending the day before, across three parametrised ranges; and that the key's
+*value* - not its name, and not even its first eight characters - is absent.
+
+**The lesson.** When a new test fails, the code is not automatically wrong. Both
+of these would have been "fixed" into worse behaviour by someone in a hurry: the
+first into a comparison that lies every February, the second into a diagnostics
+page that cannot tell you which setting is misconfigured.
+
+---
+
 ## Part II — Hypotheses that died
 
 *Technical theories investigated and disproved. Each one is a road not to walk again.*
@@ -204,6 +300,39 @@ and it runs in a worker nobody waits on.
 
 ---
 
+### H9 - "The black flash on table pages is the skeleton rendering unstyled"
+
+**The claim.** Navigating to `/admin/customers` showed a dark block where the
+data belongs. Vuetify's `v-skeleton-loader` ships its CSS in its own chunk, so
+the obvious story was that the chunk lands late and the skeleton paints naked.
+
+**What the measurement showed.** A `MutationObserver` on the content region
+(`requestAnimationFrame` is paused while the browser pane is hidden, so rAF
+sampling returned zero frames and was useless here):
+
+```
+t=114  route is /admin/inventory/expiry   no skeleton, no table
+t=245  skeleton appears
+t=274  skeleton gone, rows rendered
+```
+
+The skeleton was only on screen for **29 ms**. The gap that actually reads as a
+fault is the **130 ms before it**, where the route has changed and the table
+component has not mounted at all - its chunk is still loading. The unstyled
+skeleton was a real hazard but a minor part of what the user was seeing.
+
+**What was done anyway.** `MuraTableSkeleton` is plain HTML with scoped CSS in
+one file, so there is no second chunk and no frame where it can render naked;
+the card holds a 420px minimum through the first load so the page cannot jump
+between the three states. Measured after: skeleton present at 461px for the
+whole load, then rows.
+
+**What remains, honestly.** The ~130 ms chunk-load gap is a dev-server artifact -
+in a production build the component is in the route's bundle. It has not been
+measured against a production build, and that is the open question here.
+
+---
+
 ### M8 — Concluding the app does not scroll the window, from a scroll that was blocked
 
 **What happened.** The band parallax did not move. `window.scrollY` read 0 after
@@ -296,6 +425,20 @@ features that had **never once run**:
 | CSV report format | ignored by the renderer, then unsettable by any client |
 | `MuraImage` | built, then not used by the storefront |
 | `perm.admin.reports` | declared, never referenced |
+| `checksum` on `MediaAsset` | computed and indexed since day one, read by nothing |
+| `Cache-Control` on uploads | never set, so every derivative was re-fetched on every visit |
+| `inventory.restocked` template | added to `DEFAULT_TEMPLATES`; templates are seeded per tenant *at creation*, so it existed for nobody |
+| `useAdminPulse` | called `/inventory/health/`; every inventory route is under `admin/` (M11) |
+| `table-columns.test.ts` | could not be *collected* in the container - `docs/` was not mounted - so the one guard on column drift had silently stopped running |
+
+Two of these are a distinct sub-species worth naming: **seed-time
+initialisation**. `sync_permissions` and `seed_default_templates` run when a
+tenant is *created*. Anything added to their source lists afterwards reaches new
+tenants only, and a feature that works on a fresh database and 403s or silently
+does nothing on an existing one is among the most expensive bugs to diagnose.
+Both now have a deploy-time command - `sync_roles`, `sync_email_templates` -
+and both were written because the feature they belonged to was found dead in
+exactly this way.
 
 **Why lint, typecheck and tests all missed them.** None can see a caller that
 does not exist. A function with no callers is valid code. A setting nobody reads

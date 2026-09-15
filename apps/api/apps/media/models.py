@@ -34,6 +34,7 @@ class AssetFolder(models.TextChoices):
     CATEGORY = "categories", _("Category images")
     DOCUMENT = "documents", _("Documents")
     REPORT = "reports", _("Generated reports")
+    AVATAR = "avatars", _("Profile pictures")
 
 
 class DocumentType(models.TextChoices):
@@ -80,6 +81,15 @@ class MediaAsset(TenantOwnedModel):
     )
 
     derivatives = models.JSONField(_("derivatives"), default=dict, blank=True)
+    placeholder = models.TextField(
+        _("placeholder"),
+        blank=True,
+        help_text=_(
+            "A tiny blurred copy as a data URI, shown while the real image "
+            "decodes. Stored on the row rather than as a file so it arrives "
+            "with the JSON and costs no extra request."
+        ),
+    )
     is_public = models.BooleanField(
         _("public"),
         default=True,

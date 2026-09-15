@@ -50,8 +50,27 @@ class TestPublicListing:
     def test_exact_stock_levels_are_not_published(
         self, api_client: APIClient, product: Any
     ) -> None:
+        """The public payload says whether you can buy it, never how many there are.
+
+        `waiting` was added to this set deliberately and is not a widening of
+        what leaks. It counts people who asked to be told when the product
+        returns — a fact about demand, not about the shelf — and it is published
+        on purpose, because "14 people are waiting for this" is what persuades
+        the fifteenth to leave an address instead of leaving.
+
+        The guard that matters is the assertion below: no field here may carry a
+        quantity. A competitor must not be able to read a merchant's stock off a
+        public endpoint, and an accidental `quantity` or `available` added to
+        `_stock_payload` would do exactly that.
+        """
         row = api_client.get("/api/v1/catalog/products/").data["results"][0]
-        assert set(row["stock"]) == {"in_stock", "low_stock"}
+
+        assert set(row["stock"]) == {"in_stock", "low_stock", "waiting"}
+        assert row["stock"]["in_stock"] is True
+        assert row["stock"]["waiting"] == 0
+
+        forbidden = {"quantity", "available", "available_quantity", "reserved", "on_hand"}
+        assert not forbidden & set(row["stock"])
 
     def test_filter_by_category(
         self, api_client: APIClient, tenant: Any, category: Any, unit: Any, product: Any

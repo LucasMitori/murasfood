@@ -74,6 +74,13 @@ PERMISSION_CATALOGUE: dict[str, str] = {
     "media.upload": "Upload images and banners",
     # Audit
     "audit.view": "Read the audit log",
+    # System
+    #
+    # Deliberately a *capability*, not a page code. Page codes are
+    # hierarchical, so anything under `perm.admin` is granted to every
+    # holder of `perm.admin` — which is exactly what must not happen to a
+    # screen that reports queue depth, storage state and configuration.
+    "system.diagnostics": "Read system health and diagnostics",
 }
 
 #: Prefix marking a *page access* permission, as opposed to a capability.
@@ -101,6 +108,7 @@ PAGE_PERMISSIONS: dict[str, str] = {
     "perm.admin.promotions": "Open promotions",
     "perm.admin.settings": "Open store settings",
     "perm.admin.audit": "Open the audit log",
+    "perm.admin.diagnostics": "Open system diagnostics",
     "perm.account": "Open the customer account area",
     "perm.account.profile": "Open the profile page",
     "perm.account.addresses": "Open saved addresses",

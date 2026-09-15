@@ -25,6 +25,7 @@ from apps.common.views import TenantScopedMixin
 from .models import InventoryItem, StockBatch, StockMovement, StockReservation
 from .serializers import (
     InventoryItemSerializer,
+    RestockDemandSerializer,
     StockAdjustmentSerializer,
     StockBatchSerializer,
     StockCountSerializer,
@@ -317,3 +318,30 @@ class StockHealthView(TenantScopedMixin, APIView):
                 "untracked": items.filter(track_stock=False).count(),
             }
         )
+
+
+class RestockDemandView(TenantScopedMixin, APIView):
+    """What shoppers asked to be told about, ranked by how many asked.
+
+    The only view in the system onto demand that produced no order. A product
+    with forty people waiting is a buying decision; the sales report will never
+    show it, because nothing was sold.
+    """
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["inventory.view"]
+
+    @extend_schema(
+        parameters=[OpenApiParameter("limit", int, description="Rows to return, max 200.")],
+        responses=RestockDemandSerializer(many=True),
+        operation_id="inventory_restock_demand",
+    )
+    def get(self, request: Request) -> Response:
+        from .services import restock_demand
+
+        try:
+            limit = min(int(request.query_params.get("limit", 50)), 200)
+        except (TypeError, ValueError):
+            limit = 50
+
+        return Response(restock_demand(self.tenant_id, limit=max(1, limit)))

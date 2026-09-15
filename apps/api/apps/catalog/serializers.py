@@ -187,12 +187,22 @@ class ProductPriceInfoMixin:
 
         A competitor should not be able to read a merchant's inventory off the
         public API, so only a coarse flag and a "low stock" hint are published.
+
+        ``waiting`` is the number of people who asked to be told when this comes
+        back. It is a count of *demand*, not of stock, and it is published on
+        purpose: "14 people are waiting for this" is the social proof that makes
+        a shopper leave their address instead of leaving.
         """
+        waiting = int(getattr(obj, "restock_waiting", 0) or 0)
         item = getattr(obj, "inventory", None)
         if item is None or not item.track_stock:
-            return {"in_stock": True, "low_stock": False}
+            return {"in_stock": True, "low_stock": False, "waiting": waiting}
         available = item.available_quantity
-        return {"in_stock": available > 0, "low_stock": 0 < available <= item.reorder_threshold}
+        return {
+            "in_stock": available > 0,
+            "low_stock": 0 < available <= item.reorder_threshold,
+            "waiting": waiting,
+        }
 
 
 class ProductListSerializer(LocalizedMixin, ProductPriceInfoMixin, serializers.ModelSerializer):

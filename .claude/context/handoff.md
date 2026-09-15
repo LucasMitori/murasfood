@@ -138,15 +138,59 @@ nothing here.
 
 ---
 
-## 6. Open items
+## 6. Phase 6 — dashboard, money and scale
 
-1. `/products` filters — more robust, add search, categories as clickable cards below the title *(next)*
-2. Animations — gentle, modern, professional *(next)*
-3. Sale/discount card and dedicated product page treatment *(next)*
-4. Parallax home page — v-parallax bands alternating with content, admin-toggleable *(requested, in progress)*
-5. `/admin/customers` CRUD — needs backend work first (currently `ReadOnlyModelViewSet`)
+Seven requests, all delivered. Measured evidence for each is in
+`actual_step.md`; the mistakes made getting there are in `historic.md`.
+
+| # | Asked for | Built |
+|---|---|---|
+| 1 | Rail icons off-centre, blank "Ver a loja", odd footer | Icons/avatar/button all within **0.5px** of the drawer axis (was 8px); the button renders its icon; the duplicate bottom bar removed |
+| 2 | Identity block → user editor, richer "Dados" tab | Whole block is a link to `/admin/users/<id>/edit`; `User.avatar` FK, tenant-checked on write, cleared and deleted on anonymisation |
+| 3 | More in the second header row, a divider, compact | 52px row: search + ⌘K, quick-create, live stock badge, storefront, fullscreen, seam divider |
+| 4 | Table shows a black flash before data | `MuraTableSkeleton` — self-contained CSS, no second chunk to wait for. **Partially fixed**, see below |
+| 5 | Hide out-of-stock, or offer "notify me" | Both, merchant's choice. `RestockAlert`, guest-friendly, one email per restock, plus a demand report ranking what to reorder |
+| 6 | Finance as the second beating heart | `analysis.py`: DRE with AV/AH, budget vs actual, linear forecast, cash flow, price-change simulator |
+| 7 | Diagnostics page, admin only | 8 live probes, gated on a *capability* (page codes are hierarchical and would have leaked it to all staff) |
+
+Plus two later asks in the same pass:
+
+- **Images at 10k products.** WebP/AVIF already existed; what was missing was
+  `Cache-Control` (absent entirely), checksum dedupe (computed since day one,
+  read by nothing), a separate `media` queue, and a blurred LQIP placeholder.
+- **Finance depth.** The whole of `analysis.py` above.
+
+### What is NOT finished
+
+1. **The table flash is only partly fixed.** The skeleton is verified; the
+   ~130 ms before it — route changed, component chunk still loading — is a
+   dev-server artifact and has **not** been measured against a production build.
+2. Animations — gentle, modern, professional *(carried from phase 5)*
+3. Sale/discount card and dedicated product page treatment *(carried)*
+4. `hide_out_of_stock` has no switch in `/admin/storefront` yet
+5. `/admin/customers` CRUD — needs backend work (currently `ReadOnlyModelViewSet`)
 6. `deactivate_price` — unreachable; left deliberately, decision pending
-7. PR not yet opened — `gh` missing; branch is pushed and the body is written
+7. The `maruth.security` skill has still never been run as a full audit
+8. PR not yet opened — `gh` missing; branch is pushed and the body is written
+
+### Two things that must run on every deploy
+
+```bash
+python manage.py sync_roles            # new permission codes reach existing tenants
+python manage.py sync_email_templates  # new templates reach existing tenants
+```
+
+Both exist because a feature was found completely dead without them. A code
+added to `PERMISSION_CATALOGUE` or `DEFAULT_TEMPLATES` reaches tenants created
+*after* the deploy and nobody else — it works on a fresh database and on every
+test run, and is dead in the one place that matters.
+
+### A dev account was created
+
+`qa.claude@murasfood.local` (ADMINISTRATOR, `demo` tenant) exists in the dev
+database so admin screens could actually be driven — "no merchant browser
+session" had blocked visual verification for several phases. **Delete it before
+any deployment.**
 
 ---
 

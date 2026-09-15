@@ -25,6 +25,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .exceptions import CrossTenantAccessError, TenantResolutionError
+from .permissions import HasTenantPermission
 
 if TYPE_CHECKING:  # pragma: no cover
     from django.db.models import QuerySet
@@ -137,3 +138,29 @@ class ReadinessView(HealthView):
             {"status": "ok" if healthy else "unavailable", "checks": checks},
             status=status.HTTP_200_OK if healthy else status.HTTP_503_SERVICE_UNAVAILABLE,
         )
+
+
+class SystemDiagnosticsView(TenantScopedMixin, APIView):
+    """Live health of the platform, for an operator rather than a monitor.
+
+    Gated on the `system.diagnostics` *capability*, not on a `perm.admin.*`
+    page code. Page codes are hierarchical — anything under `perm.admin` is
+    granted to every holder of `perm.admin` — so expressing this as a page
+    would hand queue depth, storage state and configuration warnings to every
+    staff member who can open the dashboard. A capability is granted only where
+    it is listed, and it is listed only for administrators.
+
+    Never cached: a stale answer to "is it working right now" is a wrong one.
+    """
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["system.diagnostics"]
+
+    @extend_schema(responses={200: dict}, operation_id="system_diagnostics")
+    def get(self, request: Request) -> Response:
+        from .diagnostics import run_diagnostics
+
+        report = run_diagnostics(tenant_id=self.tenant_id)
+        response = Response(report)
+        response["Cache-Control"] = "no-store"
+        return response

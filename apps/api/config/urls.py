@@ -18,7 +18,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-from apps.common.views import LivenessView, ReadinessView
+from apps.common.views import LivenessView, ReadinessView, SystemDiagnosticsView
 
 api_v1_patterns = [
     path("auth/", include("apps.accounts.urls.auth")),
@@ -41,6 +41,7 @@ api_v1_patterns = [
     path("admin/", include("apps.inventory.urls")),
     path("admin/", include("apps.pricing.urls")),
     path("admin/", include("apps.notifications.urls")),
+    path("admin/system/diagnostics/", SystemDiagnosticsView.as_view(), name="system-diagnostics"),
 ]
 
 urlpatterns = [

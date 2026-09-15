@@ -406,9 +406,19 @@ def anonymize_user(user: User, *, reason: str = "user_request") -> User:
     user.phone = ""
     user.is_active = False
     user.marketing_opt_in = False
+    # A photograph of a face is personal data like any other. Detaching it also
+    # makes the file collectable, so the image itself stops existing once the
+    # orphan sweep runs — which is the point of anonymising rather than hiding.
+    avatar = user.avatar
+    user.avatar = None
     user.anonymized_at = stamp
     user.set_unusable_password()
     user.save()
+
+    if avatar is not None:
+        from apps.media.services import delete_asset
+
+        delete_asset(avatar)
 
     Address.objects.filter(customer=user).delete()
     AuthToken.objects.filter(user=user, used_at__isnull=True).update(used_at=stamp)

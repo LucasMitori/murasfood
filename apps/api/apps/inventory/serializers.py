@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from apps.common.serializers import QuantitySerializerField
 
-from .models import InventoryItem, StockBatch, StockMovement, StockReservation
+from .models import InventoryItem, RestockAlert, StockBatch, StockMovement, StockReservation
 
 
 class InventoryItemSerializer(serializers.ModelSerializer):
@@ -159,3 +159,43 @@ class StockBatchSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class RestockAlertRequestSerializer(serializers.Serializer):
+    """Ask to be told when a product is back.
+
+    ``email`` is optional for a signed-in customer — their account address is
+    authoritative and letting them type a different one would turn the feature
+    into an open relay for sending mail to arbitrary strangers.
+    """
+
+    email = serializers.EmailField(required=False, allow_blank=True)
+    locale = serializers.CharField(max_length=10, required=False, allow_blank=True)
+
+
+class RestockAlertSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    product_slug = serializers.CharField(source="product.slug", read_only=True)
+
+    class Meta:
+        model = RestockAlert
+        fields = [
+            "id",
+            "product",
+            "product_name",
+            "product_slug",
+            "notified_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class RestockDemandSerializer(serializers.Serializer):
+    """One row of the "what should I reorder" report."""
+
+    product_id = serializers.CharField()
+    name = serializers.CharField()
+    sku = serializers.CharField()
+    slug = serializers.CharField()
+    waiting = serializers.IntegerField()
+    latest_request = serializers.DateTimeField(allow_null=True)

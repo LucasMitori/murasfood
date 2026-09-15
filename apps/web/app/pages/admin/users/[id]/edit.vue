@@ -20,6 +20,49 @@ div
     v-window(v-model="tab")
       //- --- Details -------------------------------------------------------
       v-window-item(value="details")
+        //- The photo sits above the form rather than inside it.
+          //-
+          //- An image upload is not a form field in any useful sense: it saves
+          //- the moment a file is chosen, it has no "unsaved" state to guard,
+          //- and putting it in a schema that only submits on a dirty check
+          //- would mean a new photo that is stored server-side while the form
+          //- still says nothing has changed.
+        mura-card.mb-4(
+          :title="t('admin.avatar')"
+          :subtitle="t('admin.avatarHint')"
+          icon="mdi-account-circle-outline"
+        )
+          .d-flex.align-center.flex-wrap.ga-4
+            v-avatar.mura-user-avatar(color="primary" size="88")
+              mura-image(
+                v-if="user.avatar"
+                :asset="user.avatar"
+                :alt="user.full_name || user.email"
+                variant="small"
+                :aspect-ratio="1"
+                :rounded="false"
+                cover
+              )
+              span.text-h5(v-else) {{ initials(user.full_name || user.email) }}
+
+            .flex-grow-1
+              mura-image-upload(
+                :model-value="user.avatar?.id ?? null"
+                folder="avatars"
+                :disabled="savingAvatar"
+                @update:model-value="setAvatar"
+              )
+
+            v-btn(
+              v-if="user.avatar"
+              variant="text"
+              color="error"
+              size="small"
+              prepend-icon="mdi-close"
+              :loading="savingAvatar"
+              @click="setAvatar(null)"
+            ) {{ t('admin.avatarRemove') }}
+
         mura-form-builder(
           ref="formRef"
           v-model:values="formValues"
@@ -113,10 +156,12 @@ div
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FormSchema, FormValues } from '~/types/ui'
+import type { MediaAsset } from '~/types/api'
 import type { TransferItem } from '~/components/shared/MuraTransferList.vue'
 import { useApiError } from '~/composables/useApiError'
 import { useAuthStore } from '~/stores/auth'
 import { useUiStore } from '~/stores/ui'
+import { initials } from '~/utils/format'
 
 definePageMeta({ layout: 'admin', middleware: 'merchant', permission: 'perm.admin.users' })
 
@@ -145,6 +190,7 @@ interface StaffUser {
   phone: string
   user_type: string
   is_active: boolean
+  avatar: MediaAsset | null
   roles: string[]
 }
 
@@ -191,6 +237,39 @@ const { data: userPermissions, refresh: refreshPermissions } = await useAsyncDat
   () => useNuxtApp().$api.get(`/admin/users/${userId.value}/permissions/`),
   { default: () => ({ direct: [], from_roles: [], effective: [] }) },
 )
+
+// --- Avatar ------------------------------------------------------------------
+const savingAvatar = ref(false)
+
+/**
+ * Attach or clear the profile picture.
+ *
+ * Saved on its own the moment a file is chosen. The upload has already stored
+ * the asset by the time this runs — all that is left is to point the user row
+ * at it — so deferring that to a form submit would leave an orphan behind every
+ * time someone picked a photo and navigated away.
+ *
+ * The session is refreshed when someone edits themselves, because their own
+ * face is in the sidebar of the page they are standing on.
+ */
+async function setAvatar(assetId: string | string[] | null): Promise<void> {
+  const id = Array.isArray(assetId) ? (assetId[0] ?? null) : assetId
+
+  savingAvatar.value = true
+  try {
+    await useNuxtApp().$api.patch(`/admin/users/${userId.value}/`, { avatar_id: id })
+    ui.success(t('form.saved'))
+    await refresh()
+
+    if (user.value?.id === auth.user?.id) await auth.fetchProfile()
+  }
+  catch (err) {
+    ui.error(messageFor(err))
+  }
+  finally {
+    savingAvatar.value = false
+  }
+}
 
 // --- Details tab ------------------------------------------------------------
 const savingDetails = ref(false)

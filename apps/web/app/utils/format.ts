@@ -34,6 +34,20 @@ function parseDate(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+/**
+ * Format a date as a short month and year — "ago. 2026".
+ *
+ * Used wherever a series is bucketed by month. Goes through `parseDate` for the
+ * same reason everything else does: the API sends `2026-08-01`, and letting the
+ * platform parser treat that as UTC midnight renders it as July in Brazil.
+ */
+export function formatMonth(value: string | null | undefined, locale = 'pt-BR'): string {
+  if (!value) return '—'
+  const date = parseDate(value)
+  if (!date) return '—'
+  return new Intl.DateTimeFormat(locale, { month: 'short', year: 'numeric' }).format(date)
+}
+
 /** Format an ISO timestamp as a local date and time. */
 export function formatDateTime(value: string | null | undefined, locale = 'pt-BR'): string {
   if (!value) return '—'

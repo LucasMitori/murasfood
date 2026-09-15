@@ -111,7 +111,8 @@ services:
       context: .
       dockerfile: infrastructure/docker/api.Dockerfile
       target: development
-    command: celery -A config worker --loglevel=info
+    # Both queues, or media tasks are routed somewhere nothing consumes.
+    command: celery -A config worker --loglevel=info -Q celery,media
     env_file:
       - .env
     environment:
@@ -159,6 +160,13 @@ services:
     volumes:
       - ./apps/web:/app
       - web_node_modules:/app/node_modules
+      # The table-column contract test compares the dashboard's columns against
+      # the generated OpenAPI schema, which lives outside `apps/web`. Without
+      # this the test cannot even be collected in the container, so the one
+      # guard that catches a column referring to a field the API stopped
+      # returning was silently not running. Read-only: tests read it, and only
+      # `make openapi` writes it.
+      - ./docs:/docs:ro
     ports:
       - "3000:3000"
     depends_on:

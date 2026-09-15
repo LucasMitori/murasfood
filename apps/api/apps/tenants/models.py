@@ -221,7 +221,17 @@ def default_floating_tools() -> dict:
 #: The rails the home page can show, in the order a new shop gets them. The
 #: hero is not here: it is the banners, and a shop that has none already falls
 #: back to its own name rather than to an empty band.
-HOME_SECTION_KEYS = ("categories", "on_sale", "featured", "best_sellers", "new_arrivals")
+HOME_SECTION_KEYS = (
+    "categories",
+    "on_sale",
+    "featured",
+    "best_sellers",
+    "new_arrivals",
+    # What the shop has run out of, ranked by how many people asked to be told
+    # when it returns. A rail a shop can switch off, like the others — some
+    # merchants would rather not advertise their gaps, and that is their call.
+    "back_soon",
+)
 
 #: A rail showing more than this is no longer a rail; it is the catalogue.
 HOME_SECTION_MAX_LIMIT = 24
@@ -315,6 +325,16 @@ class TenantSettings(BaseModel):
         help_text=_("When off, stock can never go negative (invariant #6)."),
     )
     low_stock_threshold = models.PositiveIntegerField(_("low stock threshold"), default=5)
+
+    hide_out_of_stock = models.BooleanField(
+        _("hide products that are out of stock"),
+        default=False,
+        help_text=_(
+            "Off by default. An empty shelf a shopper can ask to be told about "
+            "is a sale delayed; one they never see is a sale lost, and the shop "
+            "learns nothing about the demand it missed."
+        ),
+    )
 
     # --- Notifications -------------------------------------------------------
     notify_on_new_order = models.BooleanField(_("notify staff about new orders"), default=True)

@@ -28,6 +28,10 @@ for candidate in (BASE_DIR / ".env", BASE_DIR.parent.parent / ".env"):
 # --- Core --------------------------------------------------------------------
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-development-key-change-me")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
+
+#: Which deployment this is. Reported by the diagnostics page so an
+#: operator can tell at a glance whether they are looking at staging.
+ENVIRONMENT = env("ENVIRONMENT", default="development")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # auth.W004 warns that USERNAME_FIELD is not globally unique. That is deliberate:
@@ -145,6 +149,24 @@ CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TIMEZONE = env("DJANGO_TIME_ZONE", default="America/Sao_Paulo")
+
+# Image work gets its own queue.
+#
+# Generating derivatives is the only genuinely slow task in the system — decode,
+# four resizes, eight encodes — and it arrives in bursts: a merchant importing a
+# ten-thousand-product catalogue queues tens of thousands of them at once. On a
+# single queue those sit in front of the order confirmation email the customer
+# is waiting for and the payment reconciliation that decides whether an order is
+# paid. Separating them means a long import is slow at being an import rather
+# than slow at being a shop.
+#
+# The worker must be started with `-Q celery,media` or these never run. The
+# compose service and the deployment both do.
+CELERY_TASK_ROUTES = {
+    "apps.media.tasks.*": {"queue": "media"},
+}
+
+CELERY_TASK_QUEUES_HINT = ("celery", "media")
 
 CELERY_BEAT_SCHEDULE = {
     "release-expired-stock-reservations": {
@@ -277,6 +299,11 @@ REST_FRAMEWORK = {
         "email_verification": "10/hour",
         "checkout": "30/hour",
         "search": "120/min",
+        # An anonymous caller can name any address here, and a restock
+        # will later mail it. The message is fixed and only fires on a
+        # real stock event, so this is not an open relay — but without a
+        # limit one script could sign a victim up to a whole catalogue.
+        "restock_alert": "20/hour",
     },
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
@@ -399,6 +426,22 @@ MEDIA_IMAGE_MAX_DIMENSION = env.int("MEDIA_IMAGE_MAX_DIMENSION", default=2048)
 # third off what a shopper on mobile data pays for a page of product photos.
 # Browsers that do not understand it fall back to the WebP source.
 MEDIA_IMAGE_AVIF = env.bool("MEDIA_IMAGE_AVIF", default=True)
+
+# How long a browser or CDN may keep a derivative. One year, because the keys
+# are immutable: they carry the asset UUID and the variant name, and a reprocess
+# writes a new key rather than overwriting an old one. Nothing at this URL will
+# ever be different bytes, so revalidating is pure waste.
+MEDIA_CACHE_MAX_AGE = env.int("MEDIA_CACHE_MAX_AGE", default=31536000)
+
+# A tiny blurred copy, inlined into the HTML as a data URI.
+#
+# It is what the shopper looks at for the few hundred milliseconds before the
+# real photo decodes. A grey rectangle reads as "broken"; a blurred shape of the
+# right colours reads as "loading", and on a catalogue page of forty products
+# that difference is the whole impression of speed. Kept very small on purpose:
+# at this width the encoded string is a few hundred bytes, so forty of them cost
+# less than one thumbnail.
+MEDIA_IMAGE_PLACEHOLDER_WIDTH = env.int("MEDIA_IMAGE_PLACEHOLDER_WIDTH", default=24)
 
 # --- Email -------------------------------------------------------------------
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

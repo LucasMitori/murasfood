@@ -267,6 +267,18 @@ DEFAULT_TEMPLATES: tuple[dict[str, Any], ...] = (
         "text": "O reembolso do pedido {{ order_number }} foi processado.",
     },
     {
+        "key": "inventory.restocked",
+        "subject": "{{ product_name }} chegou!",
+        "variables": ["first_name", "product_name", "product_url"],
+        "html": _wrap(
+            "<p>Olá{% if first_name %}, {{ first_name }}{% endif %}!</p>"
+            "<p><strong>{{ product_name }}</strong> voltou para o estoque.</p>"
+            + button("Ver produto", "{{ app_url }}{{ product_url }}")
+            + note("Você recebeu este aviso porque pediu para ser avisado sobre este produto.")
+        ),
+        "text": ("{{ product_name }} voltou para o estoque.\n\n{{ app_url }}{{ product_url }}"),
+    },
+    {
         "key": "inventory.low_stock",
         "subject": "Alerta de estoque baixo",
         "variables": ["count", "items"],

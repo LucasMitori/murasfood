@@ -143,10 +143,33 @@ class S3CompatibleStorage(StorageBackend):
         )
 
     def save(self, key: str, content: IO[bytes], *, content_type: str, public: bool) -> str:
+        """Store one object, with the caching policy its audience deserves.
+
+        `Cache-Control` was the single largest rendering cost in this pipeline
+        and it was simply absent: every derivative went up with no caching
+        policy at all, so a returning shopper re-fetched every photo on the
+        page. At ten thousand products — four sizes, two formats, several photos
+        each — that is hundreds of thousands of objects being re-requested for
+        no reason.
+
+        `immutable` is honest here rather than optimistic: a key embeds the
+        asset's UUID and the variant name, and reprocessing writes a *new* key
+        and deletes the old one (see `_shrink_master`). A key's bytes therefore
+        never change, which is exactly the condition `immutable` states.
+
+        Private objects get the opposite treatment. They are reached through a
+        short-lived signed URL, and a shared cache holding a copy would outlive
+        the signature that was supposed to bound access to it.
+        """
         content.seek(0)
-        extra = {"ContentType": content_type}
+        extra: dict[str, Any] = {"ContentType": content_type}
+
         if public:
             extra["ACL"] = "public-read"
+            extra["CacheControl"] = f"public, max-age={settings.MEDIA_CACHE_MAX_AGE}, immutable"
+        else:
+            extra["CacheControl"] = "private, no-store"
+
         self._client.upload_fileobj(content, self.bucket, key, ExtraArgs=extra)
         return key
 

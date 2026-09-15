@@ -1,6 +1,6 @@
 <template lang="pug">
 .mura-image(
-  :class="{ 'mura-image--loaded': loaded, 'mura-image--rounded': rounded }"
+  :class="{ 'mura-image--loaded': loaded, 'mura-image--rounded': rounded, 'mura-image--blurred': Boolean(placeholder) }"
   :style="frameStyle"
 )
   //- A real `<picture>`, because AVIF needs a fallback and `v-img` renders a
@@ -25,7 +25,7 @@
   //- Underneath rather than instead: the placeholder is what shows through
     //- while the image decodes, so there is never an empty box and never a
     //- reflow when the picture arrives.
-  .mura-image__state(v-if="!loaded || failed || !asset")
+  .mura-image__state(v-if="failed || (!loaded && !placeholder) || !asset")
     v-icon(
       :icon="failed ? 'mdi-image-broken-variant' : placeholderIcon"
       size="32"
@@ -103,6 +103,15 @@ onMounted(syncLoaded)
 /** The plain `src`, for browsers that ignore `srcset` entirely. */
 const src = computed(() => props.asset?.variants?.[props.variant] ?? props.asset?.url ?? '')
 
+/**
+ * The blurred stand-in, inlined by the API as a data URI.
+ *
+ * Costs no request — it arrives in the same JSON as the rest of the card — and
+ * is around 120 bytes, so a grid of forty products pays about 5 kB for having
+ * something to look at instead of forty grey rectangles.
+ */
+const placeholder = computed(() => props.asset?.placeholder || '')
+
 const webpSrcset = computed(() => buildSrcSet(props.asset?.variants))
 const avifSrcset = computed(() => buildSrcSet(props.asset?.variants, 'avif_'))
 
@@ -122,6 +131,10 @@ const frameStyle = computed(() => ({
   aspectRatio: props.height ? undefined : String(props.aspectRatio),
   height: unit(props.height),
   width: unit(props.width),
+  // A 24px image stretched over the frame is already soft; the blur filter on
+  // the pseudo-element finishes the job. Set as a variable so the CSS owns how
+  // it is drawn and this only supplies the pixels.
+  '--mura-image-placeholder': placeholder.value ? `url("${placeholder.value}")` : undefined,
 }))
 </script>
 
@@ -171,5 +184,45 @@ const frameStyle = computed(() => ({
   display: grid;
   place-items: center;
   pointer-events: none;
+}
+
+/*
+ * The blurred stand-in.
+ *
+ * Drawn on a pseudo-element rather than on the frame itself so the blur cannot
+ * touch the real photo stacked above it — `filter` on a parent applies to every
+ * descendant, which would leave the loaded image permanently soft.
+ *
+ * Scaled up slightly because blurring samples past the edges and would
+ * otherwise leave a pale halo around the frame.
+ */
+.mura-image--blurred::before {
+  position: absolute;
+  z-index: 0;
+  background-image: var(--mura-image-placeholder);
+  background-position: center;
+  background-size: cover;
+  content: "";
+  filter: blur(12px);
+  inset: 0;
+  transform: scale(1.1);
+  transition: opacity 320ms ease;
+}
+
+/* Faded out once the real photo is up, so it is not left underneath a
+   transparent PNG showing through as a smear. */
+.mura-image--blurred.mura-image--loaded::before {
+  opacity: 0;
+}
+
+.mura-image picture {
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mura-image__img,
+  .mura-image--blurred::before {
+    transition: none;
+  }
 }
 </style>

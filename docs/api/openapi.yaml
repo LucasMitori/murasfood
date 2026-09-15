@@ -1226,6 +1226,274 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/admin/finance/budgets/:
+    get:
+      operationId: admin_finance_budgets_list
+      description: Monthly plans. Editable, unlike the ledger they are compared against.
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - in: query
+        name: month
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qual campo usar ao ordenar os resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Um termo de busca.
+        schema:
+          type: string
+      - in: query
+        name: year
+        schema:
+          type: integer
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBudgetList'
+          description: ''
+    post:
+      operationId: admin_finance_budgets_create
+      description: Monthly plans. Editable, unlike the ledger they are compared against.
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+  /api/v1/admin/finance/budgets/{id}/:
+    get:
+      operationId: admin_finance_budgets_retrieve
+      description: Monthly plans. Editable, unlike the ledger they are compared against.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este budget.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+    put:
+      operationId: admin_finance_budgets_update
+      description: Monthly plans. Editable, unlike the ledger they are compared against.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este budget.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+    patch:
+      operationId: admin_finance_budgets_partial_update
+      description: Monthly plans. Editable, unlike the ledger they are compared against.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este budget.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBudgetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBudgetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBudgetRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+    delete:
+      operationId: admin_finance_budgets_destroy
+      description: Monthly plans. Editable, unlike the ledger they are compared against.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este budget.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/admin/finance/budgets/{id}/copy-to-next/:
+    post:
+      operationId: finance_budget_copy
+      description: |-
+        Start next month from this month's plan.
+
+        Most months look like the month before. Retyping twelve categories to
+        change two of them is the reason budgets stop being maintained after
+        March.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este budget.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+  /api/v1/admin/finance/budgets/{id}/variance/:
+    get:
+      operationId: finance_budget_variance
+      description: Planned against actual, for this budget's month.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este budget.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/finance/cash-flow/:
+    get:
+      operationId: finance_cash_flow
+      description: |-
+        Money in and out per month, with a running balance.
+
+        Separate from the statement on purpose: that one answers "did the shop make
+        money", this one answers "did the shop have money", and a business can fail
+        the second while passing the first.
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/admin/finance/categories/:
     get:
       operationId: admin_finance_categories_list
@@ -1448,6 +1716,67 @@ paths:
               schema:
                 $ref: '#/components/schemas/FinancialTransaction'
           description: ''
+  /api/v1/admin/finance/forecast/:
+    get:
+      operationId: finance_forecast
+      description: A straight-line projection of revenue and expenses. Not a promise.
+      parameters:
+      - in: query
+        name: history
+        schema:
+          type: integer
+        description: Months of history to fit. Default 12.
+      - in: query
+        name: months
+        schema:
+          type: integer
+        description: Months ahead, 1-12. Defaults to 3.
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin/finance/price-simulation/:
+    post:
+      operationId: finance_price_simulation
+      description: |-
+        Replay the period's real sales at a different price.
+
+        A POST because it takes a body of assumptions, not because it writes
+        anything — nothing here touches the database beyond reading orders.
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceSimulationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PriceSimulationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PriceSimulationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/admin/finance/profit-and-loss/:
     get:
       operationId: finance_profit_and_loss
@@ -1477,6 +1806,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProfitAndLoss'
+          description: ''
+  /api/v1/admin/finance/statement/:
+    get:
+      operationId: finance_income_statement
+      description: DRE for a period, with vertical and horizontal analysis.
+      parameters:
+      - in: query
+        name: compare
+        schema:
+          type: boolean
+        description: Include the previous period.
+      - in: query
+        name: end
+        schema:
+          type: string
+      - in: query
+        name: period
+        schema:
+          type: string
+        description: today|last_7|last_30|month|custom
+      - in: query
+        name: start
+        schema:
+          type: string
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
           description: ''
   /api/v1/admin/finance/summary/:
     get:
@@ -1985,6 +2350,35 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/InventoryItem'
+          description: ''
+  /api/v1/admin/inventory/restock-demand/:
+    get:
+      operationId: inventory_restock_demand
+      description: |-
+        What shoppers asked to be told about, ranked by how many asked.
+
+        The only view in the system onto demand that produced no order. A product
+        with forty people waiting is a buying decision; the sales report will never
+        show it, because nothing was sold.
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Rows to return, max 200.
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RestockDemand'
           description: ''
   /api/v1/admin/notifications/:
     get:
@@ -3916,6 +4310,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/StockReservation'
           description: ''
+  /api/v1/admin/system/diagnostics/:
+    get:
+      operationId: system_diagnostics
+      description: |-
+        Live health of the platform, for an operator rather than a monitor.
+
+        Gated on the `system.diagnostics` *capability*, not on a `perm.admin.*`
+        page code. Page codes are hierarchical — anything under `perm.admin` is
+        granted to every holder of `perm.admin` — so expressing this as a page
+        would hand queue depth, storage state and configuration warnings to every
+        staff member who can open the dashboard. A capability is granted only where
+        it is listed, and it is listed only for administrators.
+
+        Never cached: a stale answer to "is it working right now" is a wrong one.
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/admin/tags/:
     get:
       operationId: admin_tags_list
@@ -5181,6 +5602,10 @@ paths:
         URLs.
       parameters:
       - in: query
+        name: availability
+        schema:
+          type: string
+      - in: query
         name: brand
         schema:
           type: string
@@ -5205,6 +5630,9 @@ paths:
         name: max_price
         schema:
           type: number
+      - in: query
+        name: min_discount
+        schema: {}
       - in: query
         name: min_price
         schema:
@@ -5346,6 +5774,10 @@ paths:
         URLs.
       parameters:
       - in: query
+        name: availability
+        schema:
+          type: string
+      - in: query
         name: brand
         schema:
           type: string
@@ -5365,6 +5797,9 @@ paths:
         name: max_price
         schema:
           type: number
+      - in: query
+        name: min_discount
+        schema: {}
       - in: query
         name: min_price
         schema:
@@ -5432,6 +5867,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedProductListList'
+          description: ''
+  /api/v1/catalog/products/{slug}/restock-alert/:
+    post:
+      operationId: catalog_restock_alert_subscribe
+      description: Ask to be notified when this product is back in stock.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: catalog_restock_alert_unsubscribe
+      description: Withdraw a back-in-stock request.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
           description: ''
   /api/v1/catalog/search/suggestions/:
     get:
@@ -6179,6 +6663,7 @@ paths:
         schema:
           type: string
           enum:
+          - avatars
           - banners
           - branding
           - categories
@@ -6192,6 +6677,7 @@ paths:
           * `categories` - Category images
           * `documents` - Documents
           * `reports` - Generated reports
+          * `avatars` - Profile pictures
       - in: query
         name: kind
         schema:
@@ -8918,6 +9404,140 @@ components:
           title: Ativo
       required:
       - name
+    Budget:
+      type: object
+      description: |-
+        A month's plan, written and read as one object.
+
+        Lines are nested and replaced wholesale on write. A budget is edited as a
+        sheet — the merchant changes four numbers and saves — so a PATCH per line
+        would mean four requests that can half-succeed, leaving a plan that was
+        never anyone's intention.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          title: Nome
+          maxLength: 120
+        year:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          title: Ano
+        month:
+          type: integer
+          maximum: 12
+          minimum: 1
+          title: Mês
+        note:
+          type: string
+        is_active:
+          type: boolean
+          title: Ativo
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetLine'
+        period:
+          type: object
+          additionalProperties:
+            type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Criado em
+      required:
+      - created_at
+      - id
+      - month
+      - period
+      - year
+    BudgetLine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        category:
+          type: string
+          format: uuid
+        category_name:
+          type: string
+          readOnly: true
+        category_kind:
+          type: string
+          readOnly: true
+        planned_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        note:
+          type: string
+          maxLength: 255
+      required:
+      - category
+      - category_kind
+      - category_name
+      - id
+      - planned_amount
+    BudgetLineRequest:
+      type: object
+      properties:
+        category:
+          type: string
+          format: uuid
+        planned_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        note:
+          type: string
+          maxLength: 255
+      required:
+      - category
+      - planned_amount
+    BudgetRequest:
+      type: object
+      description: |-
+        A month's plan, written and read as one object.
+
+        Lines are nested and replaced wholesale on write. A budget is edited as a
+        sheet — the merchant changes four numbers and saves — so a PATCH per line
+        would mean four requests that can half-succeed, leaving a plan that was
+        never anyone's intention.
+      properties:
+        name:
+          type: string
+          title: Nome
+          maxLength: 120
+        year:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          title: Ano
+        month:
+          type: integer
+          maximum: 12
+          minimum: 1
+          title: Mês
+        note:
+          type: string
+        is_active:
+          type: boolean
+          title: Ativo
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetLineRequest'
+      required:
+      - month
+      - year
     BusinessHours:
       type: object
       properties:
@@ -10356,6 +10976,12 @@ components:
           additionalProperties:
             type: string
           readOnly: true
+        placeholder:
+          type: string
+          readOnly: true
+          description: A tiny blurred copy as a data URI, shown while the real image
+            decodes. Stored on the row rather than as a file so it arrives with the
+            JSON and costs no extra request.
         alt_text:
           type: string
           readOnly: true
@@ -10392,6 +11018,7 @@ components:
       - id
       - kind
       - original_filename
+      - placeholder
       - size_bytes
       - status
       - url
@@ -11369,6 +11996,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Brand'
+    PaginatedBudgetList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Budget'
     PaginatedCouponList:
       type: object
       required:
@@ -12129,6 +12779,39 @@ components:
         is_active:
           type: boolean
           title: Ativo
+    PatchedBudgetRequest:
+      type: object
+      description: |-
+        A month's plan, written and read as one object.
+
+        Lines are nested and replaced wholesale on write. A budget is edited as a
+        sheet — the merchant changes four numbers and saves — so a PATCH per line
+        would mean four requests that can half-succeed, leaving a plan that was
+        never anyone's intention.
+      properties:
+        name:
+          type: string
+          title: Nome
+          maxLength: 120
+        year:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          title: Ano
+        month:
+          type: integer
+          maximum: 12
+          minimum: 1
+          title: Mês
+        note:
+          type: string
+        is_active:
+          type: boolean
+          title: Ativo
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetLineRequest'
     PatchedCategoryRequest:
       type: object
       description: Resolves the request locale once for translated fields.
@@ -12655,6 +13338,11 @@ components:
         is_active:
           type: boolean
           title: Ativo
+        avatar_id:
+          type: string
+          format: uuid
+          writeOnly: true
+          nullable: true
         roles:
           type: array
           items:
@@ -12884,6 +13572,12 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
+        hide_out_of_stock:
+          type: boolean
+          title: Hide products that are out of stock
+          description: Off by default. An empty shelf a shopper can ask to be told
+            about is a sale delayed; one they never see is a sale lost, and the shop
+            learns nothing about the demand it missed.
         notify_on_new_order:
           type: boolean
           title: Notify staff about new orders
@@ -12993,6 +13687,11 @@ components:
         marketing_opt_in:
           type: boolean
           title: Accepts marketing
+        avatar_id:
+          type: string
+          format: uuid
+          writeOnly: true
+          nullable: true
     PaymentAdmin:
       type: object
       description: Merchant view, including provider references and fees.
@@ -13387,6 +14086,27 @@ components:
       - product
       - reason
       - variation
+    PriceSimulationRequest:
+      type: object
+      description: Inputs for the "what if I raised prices" question.
+      properties:
+        change_percentage:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        elasticity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+          description: How much volume moves per 1% of price, as a negative number.
+            Defaults to -0.8 for a mixed grocery basket.
+        category:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - change_percentage
     PriceWriteRequest:
       type: object
       description: Input for the "set the price of this product" operation.
@@ -14636,6 +15356,31 @@ components:
           minLength: 1
       required:
       - email
+    RestockDemand:
+      type: object
+      description: One row of the "what should I reorder" report.
+      properties:
+        product_id:
+          type: string
+        name:
+          type: string
+        sku:
+          type: string
+        slug:
+          type: string
+        waiting:
+          type: integer
+        latest_request:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - latest_request
+      - name
+      - product_id
+      - sku
+      - slug
+      - waiting
     Role:
       type: object
       properties:
@@ -14884,6 +15629,24 @@ components:
           type: boolean
           readOnly: true
           title: Email verified
+        avatar:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            url:
+              type: string
+            variants:
+              type: object
+              additionalProperties:
+                type: string
+            placeholder:
+              type: string
+            alt_text:
+              type: string
+          readOnly: true
         roles:
           type: array
           items:
@@ -14894,6 +15657,7 @@ components:
           readOnly: true
           title: Criado em
       required:
+      - avatar
       - created_at
       - email
       - full_name
@@ -14926,6 +15690,11 @@ components:
         is_active:
           type: boolean
           title: Ativo
+        avatar_id:
+          type: string
+          format: uuid
+          writeOnly: true
+          nullable: true
         roles:
           type: array
           items:
@@ -15601,6 +16370,12 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
+        hide_out_of_stock:
+          type: boolean
+          title: Hide products that are out of stock
+          description: Off by default. An empty shelf a shopper can ask to be told
+            about is a sale delayed; one they never see is a sale lost, and the shop
+            learns nothing about the demand it missed.
         notify_on_new_order:
           type: boolean
           title: Notify staff about new orders
@@ -15700,6 +16475,12 @@ components:
           type: integer
           maximum: 2147483647
           minimum: 0
+        hide_out_of_stock:
+          type: boolean
+          title: Hide products that are out of stock
+          description: Off by default. An empty shelf a shopper can ask to be told
+            about is a sale delayed; one they never see is a sale lost, and the shop
+            learns nothing about the demand it missed.
         notify_on_new_order:
           type: boolean
           title: Notify staff about new orders
@@ -15926,6 +16707,24 @@ components:
         marketing_opt_in:
           type: boolean
           title: Accepts marketing
+        avatar:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            url:
+              type: string
+            variants:
+              type: object
+              additionalProperties:
+                type: string
+            placeholder:
+              type: string
+            alt_text:
+              type: string
+          readOnly: true
         roles:
           type: array
           items:
@@ -15947,6 +16746,7 @@ components:
           readOnly: true
           title: Criado em
       required:
+      - avatar
       - created_at
       - email
       - full_name

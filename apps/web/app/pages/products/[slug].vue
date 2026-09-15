@@ -56,13 +56,14 @@
           variant="tonal"
         ) {{ t('product.weightedNotice') }}
 
-        v-alert.mb-4(
+        //- Out of stock is not the end of the conversation. The alert carries
+          //- the way to be told when it is back, which keeps a shopper who
+          //- would otherwise leave — and tells the shop what it is missing.
+        mura-restock-alert.mb-4(
           v-if="!product.stock.in_stock"
-          type="warning"
-          density="compact"
-          variant="tonal"
-          icon="mdi-package-variant-remove"
-        ) {{ t('product.outOfStock') }}
+          :slug="product.slug"
+          :waiting="product.stock.waiting ?? 0"
+        )
 
         .d-flex.flex-wrap.align-center.ga-3.mb-4
           mura-quantity-input(

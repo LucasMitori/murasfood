@@ -149,3 +149,45 @@ def product_by_slug(tenant_id: Any, slug: str) -> Product | None:
 def product_by_barcode(tenant_id: Any, code: str) -> Product | None:
     """Barcode lookup, for the future in-app scanner (spec §90)."""
     return storefront_products(tenant_id).filter(barcodes__code=code.strip()).first()
+
+
+def out_of_stock_products(tenant_id: Any, *, limit: int = 12) -> list[Product]:
+    """What the shop has run out of, most-wanted first.
+
+    Ordered by how many people asked to be told when it returns, which is the
+    only ranking that reflects what shoppers actually came for. Falling back to
+    recency would put whatever sold out last at the top, which is a fact about
+    the warehouse rather than about demand.
+
+    Returns a list, not a queryset: the ordering is computed from a second table
+    and applying it in SQL would mean an outer join that breaks the prefetches
+    every product card depends on.
+    """
+    from apps.inventory.models import RestockAlert
+
+    products = list(
+        storefront_products(tenant_id).filter(
+            inventory__track_stock=True,
+            inventory__quantity__lte=F("inventory__reserved_quantity"),
+        )[: limit * 3]
+    )
+    if not products:
+        return []
+
+    demand = dict(
+        RestockAlert.objects.filter(
+            tenant_id=tenant_id,
+            notified_at__isnull=True,
+            product_id__in=[product.pk for product in products],
+        )
+        .values_list("product_id")
+        .annotate(waiting=Count("id"))
+    )
+
+    products.sort(key=lambda product: (-demand.get(product.pk, 0), product.name))
+    for product in products:
+        # Read by the serializer so the card can say "12 people waiting", which
+        # is the whole reason this rail is more than a list of disappointments.
+        product.restock_waiting = demand.get(product.pk, 0)  # type: ignore[attr-defined]
+
+    return products[:limit]

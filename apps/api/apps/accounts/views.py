@@ -429,6 +429,8 @@ class StaffUserViewSet(TenantScopedMixin, viewsets.ModelViewSet):
         return (
             User.objects.filter(tenant_id=self.tenant_id)
             .exclude(user_type=UserType.CUSTOMER)
+            # Serialised on every row, so joined rather than fetched per user.
+            .select_related("avatar")
             .prefetch_related("roles")
             .order_by("email")
         )

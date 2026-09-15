@@ -130,6 +130,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             "default_tax_rate",
             "allow_backorder",
             "low_stock_threshold",
+            "hide_out_of_stock",
             "notify_on_new_order",
             "email_sender_name",
             "email_reply_to",
@@ -211,6 +212,11 @@ class TenantPublicSerializer(serializers.ModelSerializer):
             # saved. Not sensitive either way — it describes a public page.
             "home_layout": settings.home_layout,
             "hero": settings.hero,
+            # Third time this allow-list has needed remembering (floating_tools,
+            # then home_layout). The storefront decides whether to offer a
+            # "tell me when it is back" button from this flag, so leaving it out
+            # would store the merchant's choice and never act on it.
+            "hide_out_of_stock": settings.hide_out_of_stock,
         }
 
     def get_delivery(self, obj: Tenant) -> dict[str, Any]:

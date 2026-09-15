@@ -5,6 +5,7 @@ div
   //- starts beside it rather than spanning across the top.
   v-navigation-drawer.mura-admin-nav(
     v-model="drawer"
+    :class="{ 'mura-admin-nav--rail': rail }"
     :permanent="mdAndUp"
     :rail="rail"
     :order="0"
@@ -12,15 +13,34 @@ div
     rail-width="72"
   )
     //- Who is signed in, at the top where an operator looks to confirm which
-    //- account they are acting as before changing anything.
-    .mura-admin-nav__identity
-      v-avatar(color="primary" size="42")
-        span.text-subtitle-2.font-weight-bold {{ initials(auth.displayName) }}
-      //- Hidden rather than unmounted, so collapsing the rail does not reflow
-        //- the whole list on every toggle.
-      .mura-admin-nav__who(v-if="!rail")
-        p.mura-admin-nav__name {{ auth.displayName || t('nav.account') }}
-        p.mura-admin-nav__email {{ auth.user?.email }}
+    //- account they are acting as before changing anything — and a way in to
+    //- change it, because this is where someone looks for their own settings.
+    v-tooltip(:text="t('admin.editProfile')" location="end" :disabled="!rail")
+      template(#activator="{ props: tip }")
+        nuxt-link.mura-admin-nav__identity(
+          v-bind="tip"
+          :to="profileLink"
+          :aria-label="t('admin.editProfile')"
+        )
+          v-avatar.mura-admin-nav__avatar(color="primary" size="42")
+            mura-image(
+              v-if="auth.user?.avatar"
+              :asset="auth.user.avatar"
+              :alt="''"
+              variant="thumbnail"
+              :aspect-ratio="1"
+              :rounded="false"
+              cover
+            )
+            span.text-subtitle-2.font-weight-bold(v-else) {{ initials(auth.displayName) }}
+
+          //- Hidden rather than unmounted, so collapsing the rail does not reflow
+            //- the whole list on every toggle.
+          .mura-admin-nav__who(v-if="!rail")
+            p.mura-admin-nav__name {{ auth.displayName || t('nav.account') }}
+            p.mura-admin-nav__email {{ auth.user?.email }}
+
+          v-icon.mura-admin-nav__edit(v-if="!rail" icon="mdi-pencil-outline" size="16")
 
     v-divider
 
@@ -50,20 +70,36 @@ div
     template(#append)
       v-divider
       .pa-3
-        v-tooltip(:text="t('admin.viewStorefront')" location="end" :disabled="!rail")
+        //- Two renderings rather than one with conditional props.
+          //-
+          //- `VBtn` draws `icon` only when it has no default slot:
+          //- `!slots.default && hasIcon ? <VIcon/> : slots.default()`. Passing
+          //- both — an icon *and* a slot holding an empty string — took the
+          //- slot branch, so the rail showed a 48px round button with nothing
+          //- in it. There is no prop combination that fixes that; the slot has
+          //- to actually be absent.
+        v-tooltip(v-if="rail" :text="t('admin.viewStorefront')" location="end")
           template(#activator="{ props: tip }")
             v-btn(
               v-bind="tip"
               to="/"
-              block
+              icon="mdi-storefront-outline"
               variant="tonal"
               color="primary"
-              :icon="rail ? 'mdi-storefront-outline' : undefined"
-              :prepend-icon="rail ? undefined : 'mdi-storefront-outline'"
+              density="comfortable"
               :aria-label="t('admin.viewStorefront')"
-            ) {{ rail ? '' : t('admin.viewStorefront') }}
+            )
 
-  v-app-bar.mura-admin-bar(flat :height="64" :extension-height="56")
+        v-btn(
+          v-else
+          to="/"
+          block
+          variant="tonal"
+          color="primary"
+          prepend-icon="mdi-storefront-outline"
+        ) {{ t('admin.viewStorefront') }}
+
+  v-app-bar.mura-admin-bar(flat :height="64" :extension-height="52")
     v-app-bar-nav-icon.d-md-none(:aria-label="t('common.menu')" @click="drawer = !drawer")
 
     //- Before the title, because it acts on the column to its left.
@@ -107,37 +143,131 @@ div
     v-menu
       template(#activator="{ props: menuProps }")
         v-btn(v-bind="menuProps" icon variant="text" :aria-label="t('nav.account')")
-          v-avatar(color="primary" size="32")
-            span.text-caption {{ initials(auth.displayName) }}
+          v-avatar.mura-admin-bar__avatar(color="primary" size="32")
+            mura-image(
+              v-if="auth.user?.avatar"
+              :asset="auth.user.avatar"
+              :alt="''"
+              variant="thumbnail"
+              :aspect-ratio="1"
+              :rounded="false"
+              cover
+            )
+            span.text-caption(v-else) {{ initials(auth.displayName) }}
       v-list(density="compact")
+        v-list-item(:to="profileLink" prepend-icon="mdi-account-edit-outline") {{ t('admin.editProfile') }}
         v-list-item(to="/account" prepend-icon="mdi-account-outline") {{ t('nav.account') }}
         v-list-item(to="/" prepend-icon="mdi-storefront-outline") {{ t('admin.viewStorefront') }}
         v-divider
         v-list-item(prepend-icon="mdi-logout" @click="signOut") {{ t('nav.signOut') }}
 
-    //- One field that reaches everything in the dashboard, so a screen is never
-      //- more than a keystroke away regardless of how deep the menu grows.
+    //- A second row: one field that reaches everything in the dashboard, and
+      //- beside it the handful of actions an operator reaches for from any
+      //- screen. Compact, because a toolbar that takes 56px of every page is
+      //- paying rent it does not earn.
     template(#extension)
-      .mura-admin-search
-        v-text-field(
-          id="mura-admin-search"
-          v-model="query"
-          :placeholder="t('admin.searchPlaceholder')"
-          :aria-label="t('common.search')"
-          :aria-expanded="resultsOpen"
-          prepend-inner-icon="mdi-magnify"
-          variant="solo-filled"
-          density="compact"
-          rounded="lg"
-          flat
-          hide-details
-          clearable
-          autocomplete="off"
-          role="combobox"
-          aria-controls="mura-admin-results"
-          @keydown.esc="query = ''"
-          @keydown.enter="openFirst"
-        )
+      v-divider.mura-admin-bar__seam(absolute)
+
+      .mura-admin-tools
+        .mura-admin-search
+          v-text-field(
+            id="mura-admin-search"
+            ref="searchField"
+            v-model="query"
+            :placeholder="t('admin.searchPlaceholder')"
+            :aria-label="t('common.search')"
+            :aria-expanded="resultsOpen"
+            prepend-inner-icon="mdi-magnify"
+            variant="solo-filled"
+            density="compact"
+            rounded="lg"
+            flat
+            hide-details
+            clearable
+            autocomplete="off"
+            role="combobox"
+            aria-controls="mura-admin-results"
+            @keydown.esc="query = ''"
+            @keydown.enter="openFirst"
+          )
+            //- The shortcut is only worth showing where there is a keyboard to
+              //- press it on, and only while the field is idle.
+            template(#append-inner)
+              kbd.mura-admin-kbd.d-none.d-lg-inline-flex(v-if="!query") {{ shortcutHint }}
+
+        v-spacer
+
+        //- Creating things is the most common reason to leave a screen, so the
+          //- routes that create are gathered here instead of being scattered
+          //- one page deep each.
+        v-menu(v-if="quickCreateItems.length" location="bottom end")
+          template(#activator="{ props: menuProps }")
+            v-btn.mura-admin-tools__btn(
+              v-bind="menuProps"
+              :aria-label="t('admin.quickCreate')"
+              prepend-icon="mdi-plus"
+              append-icon="mdi-menu-down"
+              variant="tonal"
+              color="primary"
+              size="small"
+              rounded="lg"
+            )
+              span.d-none.d-sm-inline {{ t('admin.quickCreate') }}
+          v-list(density="compact")
+            v-list-subheader {{ t('admin.quickCreate') }}
+            v-list-item(
+              v-for="item in quickCreateItems"
+              :key="item.to"
+              :to="item.to"
+              :prepend-icon="item.icon"
+            )
+              v-list-item-title {{ t(item.labelKey) }}
+
+        //- What needs attention right now. A number here is the difference
+          //- between noticing a shelf is empty today and noticing on Friday.
+        v-tooltip(v-if="canSeeStock" :text="t('admin.stockHealth')" location="bottom")
+          template(#activator="{ props: tip }")
+            v-btn.mura-admin-tools__btn(
+              v-bind="tip"
+              to="/admin/inventory/alerts"
+              :aria-label="alertLabel"
+              variant="text"
+              size="small"
+              density="comfortable"
+              icon
+            )
+              v-badge(
+                :model-value="pulse.alertCount.value > 0"
+                :content="pulse.alertBadge.value"
+                color="warning"
+                offset-x="-2"
+                offset-y="-2"
+              )
+                v-icon(icon="mdi-alert-decagram-outline")
+
+        v-tooltip(:text="t('admin.viewStorefront')" location="bottom")
+          template(#activator="{ props: tip }")
+            v-btn.mura-admin-tools__btn.d-none.d-sm-inline-flex(
+              v-bind="tip"
+              to="/"
+              icon="mdi-storefront-outline"
+              :aria-label="t('admin.viewStorefront')"
+              variant="text"
+              size="small"
+              density="comfortable"
+            )
+
+        v-tooltip(:text="fullscreen ? t('admin.exitFullscreen') : t('admin.fullscreen')" location="bottom")
+          template(#activator="{ props: tip }")
+            v-btn.mura-admin-tools__btn.d-none.d-md-inline-flex(
+              v-bind="tip"
+              :icon="fullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
+              :aria-label="fullscreen ? t('admin.exitFullscreen') : t('admin.fullscreen')"
+              variant="text"
+              size="small"
+              density="comfortable"
+              @click="toggleFullscreen"
+            )
 
   //- A sibling of the app bar rather than a child: an app bar clips its own
     //- overflow, so a panel hanging below it would be cut off at the bar's edge.
@@ -170,27 +300,6 @@ div
     #main-content.mura-container.py-6(tabindex="-1")
       slot
 
-  //- Where am I, and how do I get back?
-  //-
-  //- Derived from the route rather than declared per page, so a new screen gets
-  //- its trail without remembering to add one, and a page that moves cannot
-  //- leave a stale path behind.
-  //-
-  //- A sibling of `v-main`, not a child of it: Vuetify's layout system only
-  //- reserves space for `app` components it owns directly, and nesting this one
-  //- inside the main region took the whole dashboard down.
-  v-footer.mura-admin-foot(app)
-    .mura-container.d-flex.align-center.flex-wrap.ga-1
-      v-icon.mr-1(icon="mdi-map-marker-path" size="16" color="primary")
-      template(v-for="(crumb, index) in trail" :key="crumb.to")
-        v-icon(v-if="index > 0" icon="mdi-chevron-right" size="14" class="text-medium-emphasis")
-        nuxt-link.mura-admin-foot__crumb(v-if="index < trail.length - 1" :to="crumb.to") {{ crumb.label }}
-        span.mura-admin-foot__crumb.mura-admin-foot__crumb--current(v-else) {{ crumb.label }}
-
-      v-spacer
-
-      span.text-caption.text-medium-emphasis.d-none.d-sm-inline {{ tenant.storeName }}
-
   mura-floating-tools
 </template>
 
@@ -201,14 +310,20 @@ div
  * Navigation entries are filtered by permission code, so a staff member never
  * sees a link to a page the API would refuse. The API re-checks regardless —
  * this only avoids offering a dead end.
+ *
+ * There is no app footer. The breadcrumb trail that used to live in one is
+ * rendered by `MuraPageHeader` at the top of every screen, so the bar was
+ * showing the same path twice while pinning 40px of every viewport to a
+ * duplicate.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useAuthStore } from '~/stores/auth'
 import { useTenantStore } from '~/stores/tenant'
 import { useUiStore } from '~/stores/ui'
 import { usePermission } from '~/composables/usePermission'
+import { useAdminPulse } from '~/composables/useAdminPulse'
 import { initials } from '~/utils/format'
 import { StorageKeys, readStorage, writeStorage } from '~/utils/storage'
 
@@ -220,6 +335,11 @@ const router = useRouter()
 const { mdAndUp } = useDisplay()
 
 const drawer = ref(true)
+
+/** Their own record in the staff editor, which is where a profile is edited. */
+const profileLink = computed(() =>
+  auth.user?.id ? `/admin/users/${auth.user.id}/edit` : '/account',
+)
 
 /**
  * Collapsed navigation, remembered between visits.
@@ -261,13 +381,95 @@ const entries = [
   { to: '/admin/storefront', icon: 'mdi-home-edit-outline', labelKey: 'admin.homeConfig', permission: 'perm.admin.settings' },
   { to: '/admin/tools', icon: 'mdi-gesture-tap-button', labelKey: 'admin.floatingTools', permission: 'perm.admin.settings' },
   { to: '/admin/emails', icon: 'mdi-email-multiple-outline', labelKey: 'admin.emails', permission: 'perm.admin.settings' },
+  { to: '/admin/diagnostics', icon: 'mdi-heart-pulse', labelKey: 'admin.diagnostics', permission: 'perm.admin.diagnostics' },
 ]
 
 const { can } = usePermission()
 const visibleEntries = computed(() => entries.filter(entry => can(entry.permission)))
 
+const canSeeStock = computed(() => can('perm.admin.inventory'))
+
+/** Live counts for the badge, shared by every admin screen. */
+const pulse = useAdminPulse()
+
+const alertLabel = computed(() =>
+  pulse.alertCount.value > 0
+    ? t('admin.stockAlertsCount', { count: pulse.alertCount.value })
+    : t('admin.stockHealth'),
+)
+
+// --- Quick create ------------------------------------------------------------
+const quickCreateSources = [
+  { to: '/admin/products?new=1', icon: 'mdi-package-variant-closed-plus', labelKey: 'admin.newProduct', permission: 'perm.admin.products' },
+  { to: '/admin/users/new', icon: 'mdi-account-plus-outline', labelKey: 'admin.newUser', permission: 'perm.admin.users' },
+  { to: '/admin/inventory/expiry', icon: 'mdi-calendar-plus', labelKey: 'admin.batchNew', permission: 'perm.admin.inventory' },
+  { to: '/admin/finance?tab=entries&new=expense', icon: 'mdi-cash-minus', labelKey: 'finance.addExpense', permission: 'perm.admin.finance' },
+  { to: '/admin/reports', icon: 'mdi-file-chart-outline', labelKey: 'reports.newReport', permission: 'perm.admin.reports' },
+]
+
+const quickCreateItems = computed(() =>
+  quickCreateSources.filter(item => can(item.permission)),
+)
+
+// --- Fullscreen --------------------------------------------------------------
+const fullscreen = ref(false)
+
+async function toggleFullscreen(): Promise<void> {
+  // Wrapped because a browser may refuse the request (an iframe without the
+  // permission, a user gesture that did not count) and an unhandled rejection
+  // here would surface as a page error over a cosmetic feature.
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen()
+    else await document.documentElement.requestFullscreen()
+  }
+  catch {
+    /* ignore — the button simply does nothing */
+  }
+}
+
+function syncFullscreen(): void {
+  fullscreen.value = Boolean(document.fullscreenElement)
+}
+
 // --- Search ------------------------------------------------------------------
 const query = ref('')
+const searchField = ref<{ focus: () => void } | null>(null)
+
+/** Mac reads ⌘K; everything else reads Ctrl K. */
+const shortcutHint = ref('Ctrl K')
+
+/**
+ * Focus the search from anywhere, the way every dashboard of this shape does.
+ *
+ * Ignored while the caret is already in a field, so the shortcut cannot steal a
+ * keystroke from someone typing a product name.
+ */
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'k' || !(event.metaKey || event.ctrlKey)) return
+
+  const active = document.activeElement as HTMLElement | null
+  const tag = active?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable) {
+    if (active?.id !== 'mura-admin-search') return
+  }
+
+  event.preventDefault()
+  searchField.value?.focus()
+}
+
+onMounted(() => {
+  shortcutHint.value = /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent)
+    ? '⌘ K'
+    : 'Ctrl K'
+  window.addEventListener('keydown', onKeydown)
+  document.addEventListener('fullscreenchange', syncFullscreen)
+  syncFullscreen()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('fullscreenchange', syncFullscreen)
+})
 
 /**
  * Everything reachable in the dashboard, flattened.
@@ -290,6 +492,10 @@ const searchable = computed(() => {
     { to: '/admin/inventory/expiry', icon: 'mdi-calendar-clock', labelKey: 'admin.batchNew', parent: 'admin.expiry', permission: 'perm.admin.inventory' },
     { to: '/admin/inventory/alerts', icon: 'mdi-package-variant-remove', labelKey: 'admin.outOfStock', parent: 'admin.stockHealth', permission: 'perm.admin.inventory' },
     { to: '/admin/storefront', icon: 'mdi-image-edit-outline', labelKey: 'admin.homeConfig', parent: 'admin.settings', permission: 'perm.admin.settings' },
+    { to: '/admin/finance', icon: 'mdi-scale-balance', labelKey: 'finance.tabStatement', parent: 'admin.finance', permission: 'perm.admin.finance' },
+    { to: '/admin/finance', icon: 'mdi-wallet-outline', labelKey: 'finance.tabBudget', parent: 'admin.finance', permission: 'perm.admin.finance' },
+    { to: '/admin/finance', icon: 'mdi-chart-timeline-variant', labelKey: 'finance.tabForecast', parent: 'admin.finance', permission: 'perm.admin.finance' },
+    { to: '/admin/finance', icon: 'mdi-tag-arrow-up-outline', labelKey: 'finance.tabPricing', parent: 'admin.finance', permission: 'perm.admin.finance' },
   ]
     .filter(action => can(action.permission))
     .map(action => ({
@@ -341,50 +547,6 @@ async function openFirst(): Promise<void> {
   await router.push(first.to)
 }
 
-
-const route = useRoute()
-
-/**
- * The path back out of wherever we are.
- *
- * Built from the URL and matched against the navigation entries, so a page
- * inherits its trail from where it sits rather than declaring one. A segment
- * with no matching entry (an id, say) falls back to a readable form of itself.
- */
-const trail = computed(() => {
-  const segments = route.path.split('/').filter(Boolean)
-  const crumbs: { to: string, label: string }[] = []
-  let path = ''
-
-  for (const segment of segments) {
-    path += `/${segment}`
-    const entry = entries.find(candidate => candidate.to === path)
-
-    if (entry) {
-      crumbs.push({ to: path, label: t(entry.labelKey) })
-      continue
-    }
-
-    // An id or an unlisted leaf. A raw uuid tells the reader nothing, so it is
-    // shown as the action it represents where we know one, and otherwise as
-    // the segment with its separators softened.
-    // Kept in step with the route segments themselves; these were still the
-    // Portuguese ones after the rename, so the trail read "… › edit".
-    const known: Record<string, string> = {
-      new: t('common.create'),
-      edit: t('common.edit'),
-      alerts: t('admin.stockHealth'),
-      expiry: t('admin.expiry'),
-    }
-    const label = known[segment]
-      ?? (segment.length > 20 ? t('admin.details') : segment.replace(/[-_]/g, ' '))
-
-    crumbs.push({ to: path, label })
-  }
-
-  return crumbs
-})
-
 async function signOut(): Promise<void> {
   await auth.logout()
   await router.push('/')
@@ -404,6 +566,144 @@ async function signOut(): Promise<void> {
   align-items: center;
   gap: 0.75rem;
   padding: 0 1rem;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 140ms ease;
+}
+
+.mura-admin-nav__identity:hover {
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.mura-admin-nav__identity:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
+.mura-admin-nav__avatar :deep(.mura-image) {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.mura-admin-bar__avatar :deep(.mura-image) {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+/* Only announced on hover, because the whole block is the control. */
+.mura-admin-nav__edit {
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.mura-admin-nav__identity:hover .mura-admin-nav__edit,
+.mura-admin-nav__identity:focus-visible .mura-admin-nav__edit {
+  opacity: 0.7;
+}
+
+/*
+ * Centring the rail.
+ *
+ * A list item is a grid whose first track is `icon + --v-list-prepend-gap` —
+ * 24px + 16px. That gap exists to separate the icon from a title, and in the
+ * rail there is no title: it became 16px of dead space on the right of every
+ * icon, pushing each one 8px left of the drawer's centre line. Measured before
+ * the fix: drawer centre 36px, icon centre 28px.
+ *
+ * Zeroing the gap leaves a 24px track, and centring the grid puts it on the
+ * drawer's axis regardless of how wide the rail is set.
+ */
+.mura-admin-nav--rail :deep(.v-list-item) {
+  --v-list-prepend-gap: 0px;
+
+  /*
+   * The three tracks, stated rather than inferred.
+   *
+   * Vuetify sizes the middle one `auto`, and an `auto` track in a grid with a
+   * definite width absorbs the leftover space — so even with the label set to
+   * `display: none` the track stayed 15px wide, the tracks exactly filled the
+   * box, and `justify-content: center` had no free space to work with. Pinning
+   * the two empty tracks to zero is what actually leaves something to centre.
+   */
+  grid-template-columns: 24px 0 0;
+  justify-content: center;
+}
+
+.mura-admin-nav--rail :deep(.v-list-item__prepend),
+.mura-admin-nav--rail :deep(.v-list-item__append) {
+  margin: 0;
+}
+
+/*
+ * The title track has to go, not just shrink.
+ *
+ * Vuetify's own rail rule only sets `min-width: 0` on the content, which lets
+ * it stay content-sized whenever there is room. With the prepend gap zeroed
+ * there suddenly was room: the label claimed the leftover 15px, the grid filled
+ * its container exactly, and `justify-content: center` had no free space left
+ * to centre anything with — so the icons went straight back to 8px off.
+ *
+ * Removing it from the grid leaves one 24px track in a 39px box, which is what
+ * centring needs. The label is not lost to assistive technology: every item
+ * carries an `aria-label`, which is also what the tooltip shows.
+ */
+.mura-admin-nav--rail :deep(.v-list-item__content) {
+  display: none;
+}
+
+.mura-admin-nav--rail .mura-admin-nav__identity {
+  justify-content: center;
+  padding: 0;
+}
+
+.mura-admin-nav--rail :deep(.v-navigation-drawer__append) > div {
+  display: flex;
+  justify-content: center;
+  padding-inline: 0 !important;
+}
+
+/*
+ * A scrollbar must not move the centre line.
+ *
+ * Fourteen entries overflow a 720px-tall window, and the scrollbar that appears
+ * takes its width out of the content box — which shifts every icon by half of
+ * it, so the rail would be centred on a tall screen and off-centre on a short
+ * one.
+ *
+ * Reserving the gutter on both edges was the first attempt and cost 20px of a
+ * 72px rail — enough that the button at the bottom no longer fitted between the
+ * two gutters and sat 5px off the axis. Hiding the bar instead keeps the full
+ * width and makes the centring exact.
+ *
+ * Hiding a scrollbar normally hides the fact that there is more to see; here
+ * the fade below restores that, and the rail still scrolls on a wheel or a
+ * trackpad. This applies only to the collapsed rail — the expanded drawer keeps
+ * its ordinary scrollbar, because there the label tells you what you are
+ * looking at and 15px of 272 costs nothing.
+ */
+.mura-admin-nav--rail :deep(.v-navigation-drawer__content) {
+  scrollbar-width: none;
+}
+
+.mura-admin-nav--rail :deep(.v-navigation-drawer__content::-webkit-scrollbar) {
+  display: none;
+}
+
+/* The affordance the hidden scrollbar took away: content running under the
+   bottom edge is visibly cut off rather than simply absent. */
+.mura-admin-nav--rail :deep(.v-navigation-drawer__content) {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent 100%);
+}
+
+/* No fade when there is nothing below the fold — `scroll-state` is progressive:
+   where it is unsupported the fade simply stays, which is a soft edge rather
+   than a wrong one. */
+@supports (container-type: scroll-state) {
+  .mura-admin-nav--rail :deep(.v-navigation-drawer__content) {
+    container-type: scroll-state;
+  }
 }
 
 /* The title was hard against the sidebar's edge; this gives it the same
@@ -418,33 +718,9 @@ async function signOut(): Promise<void> {
   }
 }
 
-.mura-admin-foot {
-  min-height: 40px;
-  padding-block: 0;
-  border-top: 1px solid rgba(var(--v-border-color), 0.6);
-  background: rgb(var(--v-theme-surface));
-  font-size: 0.75rem;
-}
-
-.mura-admin-foot__crumb {
-  padding-inline: 0.25rem;
-  color: rgb(var(--v-theme-on-surface-variant));
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.mura-admin-foot__crumb:hover {
-  color: rgb(var(--v-theme-primary));
-  text-decoration: underline;
-}
-
-.mura-admin-foot__crumb--current {
-  color: rgb(var(--v-theme-on-surface));
-  font-weight: 600;
-}
-
 .mura-admin-nav__who {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .mura-admin-nav__name {
@@ -471,21 +747,42 @@ async function signOut(): Promise<void> {
 }
 
 /*
- * The search bar spans the content region rather than the whole extension.
+ * The seam between the two rows.
+ *
+ * Without it the tools row reads as part of the header block above it and the
+ * whole thing looks 116px tall; with it there are two bands, which is what they
+ * are — identity and title above, tools for the page below.
+ */
+.mura-admin-bar__seam {
+  top: 0;
+  opacity: 0.6;
+}
+
+.mura-admin-tools {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  padding-inline: 0.5rem;
+}
+
+@media (min-width: 960px) {
+  .mura-admin-tools {
+    gap: 0.5rem;
+    padding-inline: 1rem;
+  }
+}
+
+/*
+ * The search bar spans part of the row rather than all of it.
  *
  * Full width it reads as a page element rather than a tool, and on a wide
  * screen the caret ends up a long way from the results that drop under it.
  */
 .mura-admin-search {
-  width: 100%;
-  max-width: 520px;
-  padding-inline: 0.5rem;
-}
-
-@media (min-width: 960px) {
-  .mura-admin-search {
-    padding-inline: 1rem;
-  }
+  min-width: 0;
+  max-width: 460px;
+  flex: 1 1 460px;
 }
 
 /* Same treatment as the storefront's field: a 5% tint disappears against a
@@ -502,8 +799,34 @@ async function signOut(): Promise<void> {
   box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.16);
 }
 
-/* The bar's own padding is handled above. */
+.mura-admin-kbd {
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid rgba(var(--v-border-color), 0.9);
+  border-radius: 4px;
+  background: rgba(var(--v-theme-on-surface), 0.05);
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-family: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.mura-admin-tools__btn {
+  flex: 0 0 auto;
+}
+
+/* The row's own padding is handled above. */
 .mura-admin-bar :deep(.v-toolbar__extension) {
   padding-inline: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mura-admin-nav__identity,
+  .mura-admin-nav__edit,
+  .mura-admin-search :deep(.v-field) {
+    transition: none;
+  }
 }
 </style>

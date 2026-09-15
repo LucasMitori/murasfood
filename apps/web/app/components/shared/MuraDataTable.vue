@@ -1,5 +1,5 @@
 <template lang="pug">
-v-card.mura-card(flat)
+v-card.mura-card(flat :class="{ 'mura-data-table__card--loading': firstLoad }")
   //- Toolbar: title, search, custom filters, refresh.
   .d-flex.flex-wrap.align-center.ga-3.pa-4(v-if="title || searchable || $slots.filters || $slots.actions")
     div(v-if="title || subtitle")
@@ -134,8 +134,13 @@ v-card.mura-card(flat)
       //- itself. With rows already present Vuetify's own progress bar runs
       //- along the top instead and the data stays put until the new page
       //- arrives.
+      //-
+      //- Our own skeleton rather than `v-skeleton-loader`: that one's CSS ships
+      //- with its own chunk and lands a frame or two after the markup on the
+      //- first visit to a table screen, rendering an unstyled block — which on
+      //- the dark theme is a black rectangle where the data belongs.
     template(v-if="!table.items.value.length" #loading)
-      v-skeleton-loader(type="table-row@5")
+      mura-table-skeleton(:columns="headers.length" :rows="skeletonRows")
 
     template(#footer.prepend)
       span.text-caption.text-medium-emphasis.ml-4(v-if="table.total.value > 0") {{ rangeLabel }}
@@ -246,6 +251,18 @@ const auth = useAuthStore()
 const money = useMoney()
 
 const searchDraft = ref('')
+
+/**
+ * Rows to draw in the placeholder.
+ *
+ * The page size, capped: a skeleton taller than the viewport is scrollbar for
+ * nothing, and one shorter than the real table makes the page jump when the
+ * data lands.
+ */
+const skeletonRows = computed(() => Math.min(props.table.itemsPerPage.value || 6, 8))
+
+/** The first load, where there is nothing on screen to keep. */
+const firstLoad = computed(() => props.table.loading.value && !props.table.items.value.length)
 const confirmOpen = ref(false)
 const pendingAction = ref<{ action: TableAction<Row>, row: Row } | null>(null)
 
@@ -431,6 +448,17 @@ function onRowClick(_event: unknown, context: { item: Row }): void {
 <style scoped>
 .mura-data-table__search {
   max-width: 280px;
+}
+
+/*
+ * Hold the height through the first load.
+ *
+ * Without it the card is toolbar-height for the moment before the skeleton
+ * exists, then grows — so the page below it moves twice before any data has
+ * arrived. The minimum is roughly a toolbar plus six rows.
+ */
+.mura-data-table__card--loading {
+  min-height: 420px;
 }
 
 /*

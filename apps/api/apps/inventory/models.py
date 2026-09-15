@@ -313,3 +313,90 @@ class StockBatch(TenantOwnedModel):
         if self.cost_price is None:
             return None
         return (self.cost_price * self.quantity).quantize(Decimal("0.01"))
+
+
+class RestockAlert(TenantOwnedModel):
+    """Someone wants to hear when a product is sellable again.
+
+    Why this exists rather than simply hiding what is out of stock: a shopper
+    who came for one item and finds it missing leaves. A shopper who is told
+    "we will email you" leaves an address, and the merchant learns which gaps on
+    the shelf are actually costing them sales — a demand signal they cannot get
+    any other way, because unmet demand leaves no trace in the order table.
+
+    Either a signed-in customer or a bare email address. Guests are the point:
+    requiring an account to be told about a bag of rice is how a shop collects
+    no signal at all.
+
+    One row per person per product. Being notified does not delete the row, it
+    stamps ``notified_at`` — so a second run cannot email twice, and asking
+    again later reuses the row rather than accumulating duplicates.
+    """
+
+    product = models.ForeignKey(
+        "catalog.Product",
+        on_delete=models.CASCADE,
+        related_name="restock_alerts",
+        verbose_name=_("product"),
+    )
+    customer = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="restock_alerts",
+        verbose_name=_("customer"),
+    )
+    email = models.EmailField(
+        _("email"),
+        blank=True,
+        help_text=_("Used when the request came from a visitor with no account."),
+    )
+    locale = models.CharField(
+        _("locale"),
+        max_length=10,
+        blank=True,
+        help_text=_("Language the request was made in, so the email matches it."),
+    )
+    notified_at = models.DateTimeField(_("notified at"), null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("restock alert")
+        verbose_name_plural = _("restock alerts")
+        ordering = ["-created_at"]
+        constraints = [
+            # An alert with neither an account nor an address has nobody to
+            # notify, and would sit in the demand report forever inflating it.
+            models.CheckConstraint(
+                condition=models.Q(customer__isnull=False) | ~models.Q(email=""),
+                name="restock_alert_has_a_recipient",
+            ),
+            models.UniqueConstraint(
+                fields=["tenant", "product", "customer"],
+                condition=models.Q(customer__isnull=False),
+                name="uniq_restock_alert_per_customer",
+            ),
+            # Scoped to rows without a customer, so a signed-in shopper whose
+            # address matches a guest request does not collide with it.
+            models.UniqueConstraint(
+                fields=["tenant", "product", "email"],
+                condition=models.Q(customer__isnull=True),
+                name="uniq_restock_alert_per_email",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "product", "notified_at"]),
+            models.Index(fields=["tenant", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return f"{self.recipient} ← {self.product}"
+
+    @property
+    def recipient(self) -> str:
+        """Where the message goes. The account wins, because it is verified."""
+        return (self.customer.email if self.customer_id else "") or self.email
+
+    @property
+    def is_pending(self) -> bool:
+        return self.notified_at is None

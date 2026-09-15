@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,12 +18,20 @@ from apps.common.permissions import HasTenantPermission
 from apps.common.views import TenantScopedMixin
 from apps.reports.periods import resolve_period
 
-from .models import FinancialAccount, FinancialCategory, FinancialTransaction
+from .models import (
+    Budget,
+    BudgetLine,
+    FinancialAccount,
+    FinancialCategory,
+    FinancialTransaction,
+)
 from .serializers import (
+    BudgetSerializer,
     ExpenseCreateSerializer,
     FinancialAccountSerializer,
     FinancialCategorySerializer,
     FinancialTransactionSerializer,
+    PriceSimulationSerializer,
     ProfitAndLossSerializer,
 )
 from .services import (
@@ -162,4 +174,196 @@ class FinancialSummaryView(TenantScopedMixin, APIView):
                     tenant_id=self.tenant_id, start=window.start_date, end=window.end_date
                 ),
             }
+        )
+
+
+class BudgetViewSet(TenantScopedMixin, viewsets.ModelViewSet):
+    """Monthly plans. Editable, unlike the ledger they are compared against."""
+
+    serializer_class = BudgetSerializer
+    permission_classes = [HasTenantPermission]
+    required_permissions = {
+        "list": ["finance.view"],
+        "retrieve": ["finance.view"],
+        "variance": ["finance.view"],
+        "default": ["finance.manage"],
+    }
+    filterset_fields = ["year", "month", "is_active"]
+
+    def get_queryset(self) -> Any:
+        return (
+            Budget.objects.for_tenant(self.tenant_id)
+            .prefetch_related("lines__category")
+            .order_by("-year", "-month")
+        )
+
+    @extend_schema(responses={200: dict}, operation_id="finance_budget_variance")
+    @action(detail=True, methods=["get"])
+    def variance(self, request: Request, pk: str | None = None) -> Response:
+        """Planned against actual, for this budget's month."""
+        from .analysis import budget_variance
+
+        return Response(budget_variance(tenant=self.tenant, budget=self.get_object()))
+
+    @extend_schema(
+        request=None, responses={201: BudgetSerializer}, operation_id="finance_budget_copy"
+    )
+    @action(detail=True, methods=["post"], url_path="copy-to-next")
+    def copy_to_next(self, request: Request, pk: str | None = None) -> Response:
+        """Start next month from this month's plan.
+
+        Most months look like the month before. Retyping twelve categories to
+        change two of them is the reason budgets stop being maintained after
+        March.
+        """
+        source = self.get_object()
+        if source.month == 12:
+            year, month = source.year + 1, 1
+        else:
+            year, month = source.year, source.month + 1
+
+        if Budget.objects.for_tenant(self.tenant_id).filter(year=year, month=month).exists():
+            raise ValidationError({"detail": _("A budget for that month already exists.")})
+
+        with transaction.atomic():
+            copy = Budget.objects.create(
+                tenant=self.tenant,
+                name=source.name,
+                year=year,
+                month=month,
+                note=source.note,
+                created_by=request.user,
+            )
+            BudgetLine.objects.bulk_create(
+                [
+                    BudgetLine(
+                        tenant=self.tenant,
+                        budget=copy,
+                        category=line.category,
+                        planned_amount=line.planned_amount,
+                        note=line.note,
+                    )
+                    for line in source.lines.all()
+                ]
+            )
+
+        return Response(BudgetSerializer(copy).data, status=status.HTTP_201_CREATED)
+
+
+class IncomeStatementView(TenantScopedMixin, APIView):
+    """DRE for a period, with vertical and horizontal analysis."""
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["finance.view"]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("period", str, description="today|last_7|last_30|month|custom"),
+            OpenApiParameter("start", str),
+            OpenApiParameter("end", str),
+            OpenApiParameter("compare", bool, description="Include the previous period."),
+        ],
+        responses={200: dict},
+        operation_id="finance_income_statement",
+    )
+    def get(self, request: Request) -> Response:
+        from .analysis import income_statement
+
+        window = resolve_period(request, tenant=self.tenant)
+        compare = str(request.query_params.get("compare", "true")).lower() != "false"
+
+        return Response(
+            income_statement(
+                tenant_id=self.tenant_id,
+                start=window.start_date,
+                end=window.end_date,
+                compare=compare,
+            )
+        )
+
+
+class ForecastView(TenantScopedMixin, APIView):
+    """A straight-line projection of revenue and expenses. Not a promise."""
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["finance.view"]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("months", int, description="Months ahead, 1-12. Defaults to 3."),
+            OpenApiParameter("history", int, description="Months of history to fit. Default 12."),
+        ],
+        responses={200: dict},
+        operation_id="finance_forecast",
+    )
+    def get(self, request: Request) -> Response:
+        from .analysis import forecast
+
+        def as_int(name: str, fallback: int) -> int:
+            try:
+                return int(request.query_params.get(name, fallback))
+            except (TypeError, ValueError):
+                return fallback
+
+        return Response(
+            forecast(
+                tenant_id=self.tenant_id,
+                months_ahead=as_int("months", 3),
+                history_months=max(3, min(as_int("history", 12), 36)),
+            )
+        )
+
+
+class CashFlowView(TenantScopedMixin, APIView):
+    """Money in and out per month, with a running balance.
+
+    Separate from the statement on purpose: that one answers "did the shop make
+    money", this one answers "did the shop have money", and a business can fail
+    the second while passing the first.
+    """
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["finance.view"]
+
+    @extend_schema(responses={200: dict}, operation_id="finance_cash_flow")
+    def get(self, request: Request) -> Response:
+        from .analysis import cash_flow
+
+        window = resolve_period(request, tenant=self.tenant)
+        return Response(
+            cash_flow(tenant_id=self.tenant_id, start=window.start_date, end=window.end_date)
+        )
+
+
+class PriceSimulationView(TenantScopedMixin, APIView):
+    """Replay the period's real sales at a different price.
+
+    A POST because it takes a body of assumptions, not because it writes
+    anything — nothing here touches the database beyond reading orders.
+    """
+
+    permission_classes = [HasTenantPermission]
+    required_permissions = ["finance.view"]
+
+    @extend_schema(
+        request=PriceSimulationSerializer,
+        responses={200: dict},
+        operation_id="finance_price_simulation",
+    )
+    def post(self, request: Request) -> Response:
+        from .analysis import price_simulation
+
+        payload = PriceSimulationSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        window = resolve_period(request, tenant=self.tenant)
+        return Response(
+            price_simulation(
+                tenant_id=self.tenant_id,
+                change_percentage=payload.validated_data["change_percentage"],
+                elasticity=payload.validated_data.get("elasticity"),
+                category_id=payload.validated_data.get("category"),
+                start=window.start_date,
+                end=window.end_date,
+            )
         )

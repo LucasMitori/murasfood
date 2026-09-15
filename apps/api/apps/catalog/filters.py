@@ -6,6 +6,7 @@ respects an active promotion rather than the base price.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from django.db.models import F, Q, QuerySet
@@ -23,6 +24,8 @@ class ProductFilter(filters.FilterSet):
     is_featured = filters.BooleanFilter()
     on_sale = filters.BooleanFilter(method="filter_on_sale")
     in_stock = filters.BooleanFilter(method="filter_in_stock")
+    availability = filters.CharFilter(method="filter_availability")
+    min_discount = filters.NumberFilter(method="filter_min_discount")
 
     class Meta:
         model = Product
@@ -63,6 +66,45 @@ class ProductFilter(filters.FilterSet):
             Q(inventory__isnull=True)
             | Q(inventory__track_stock=False)
             | Q(inventory__quantity__gt=F("inventory__reserved_quantity"))
+        )
+
+    def filter_availability(self, queryset: QuerySet, name: str, value: str) -> QuerySet:
+        """Split the catalogue by whether it can be bought right now.
+
+        `in_stock=true` already existed but has no opposite: a boolean filter
+        reads `false` as "do not filter", so there was no way to ask for the
+        shelf gaps. The shop needs that view — it is where the
+        "tell me when it is back" button lives, and where a merchant looks to
+        decide what to reorder.
+        """
+        choice = (value or "").strip().lower()
+        if choice == "in":
+            return self.filter_in_stock(queryset, name, True)
+        if choice == "out":
+            return queryset.filter(
+                inventory__track_stock=True,
+                inventory__quantity__lte=F("inventory__reserved_quantity"),
+            )
+        return queryset
+
+    def filter_min_discount(self, queryset: QuerySet, name: str, value: Any) -> QuerySet:
+        """Products at least ``value`` percent off.
+
+        Expressed against the *base* price, which is the number the shopper is
+        comparing against — a discount measured off an already-discounted price
+        would let "50% off" mean anything.
+        """
+        try:
+            percent = Decimal(str(value))
+        except (TypeError, ArithmeticError):
+            return queryset
+        if percent <= 0:
+            return queryset
+
+        factor = (Decimal("100") - percent) / Decimal("100")
+        return queryset.filter(
+            sale_price__isnull=False,
+            sale_price__lte=F("base_price") * factor,
         )
 
     def _tenant_id(self) -> Any:

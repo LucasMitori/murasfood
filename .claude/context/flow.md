@@ -348,3 +348,225 @@ flowchart LR
 
 > `SearchFilter` sat outside that chain until phase 2, which is why `?search=`
 > answered 200 and filtered nothing on seven tables.
+
+
+---
+
+## 11. Back-in-stock — turning a lost sale into a signal
+
+The only view this platform has onto demand that produced **no order**. A sales
+report cannot show it, because nothing was sold.
+
+```mermaid
+flowchart TD
+    V["visitor finds an empty shelf"] --> B{"account?"}
+    B -- no --> E["types an email"]
+    B -- yes --> A["account address is used;<br/>any email in the body is ignored"]
+    E --> S["POST /catalog/products/:slug/restock-alert/<br/>throttled 20/hour"]
+    A --> S
+    S --> R[("RestockAlert<br/>one row per person per product")]
+
+    R -.->|"ranked by count"| D["/admin/inventory/restock-demand/<br/><b>what to reorder next</b>"]
+
+    P["merchant receives stock"] --> ADJ["adjust_stock()"]
+    ADJ --> T{"available was 0<br/>and is now > 0?"}
+    T -- no --> X["nothing"]
+    T -- yes --> Q["transaction.on_commit →<br/>notify_restocked.delay()"]
+    Q --> C{"still in stock<br/>when the task runs?"}
+    C -- no --> X2["skip — it sold again"]
+    C -- yes --> TPL{"template seeded<br/>for this tenant?"}
+    TPL -- no --> ERR["log loudly, stamp nobody"]
+    TPL -- yes --> M["stamp notified_at, then queue the email<br/>(same transaction, so a crash cannot double-send)"]
+    M --> R
+
+    style T fill:#f0e6d8
+    style TPL fill:#f0e6d8
+    style D fill:#d8e8d8
+```
+
+Three guards, each for a failure that actually happened or would have:
+
+- **the transition, not the increase** — receiving more of something already in
+  stock is not news;
+- **re-check availability in the task** — it is queued on commit and runs later;
+  the two units that arrived may already be gone;
+- **check the template exists before stamping anyone** —
+  `queue_transactional_email` returns `None` both for "already queued" and "no
+  such template", and the first run of this stamped a waiting shopper as
+  notified and sent them nothing.
+
+---
+
+## 12. Finance — one ledger, four questions
+
+`services.py` writes. `analysis.py` only reads. Nothing recomputes a figure the
+other already produces, because two implementations of "revenue" eventually
+disagree and the one on screen is never the one someone checked.
+
+```mermaid
+flowchart LR
+    O["paid order"] --> PROJ["project_order_to_ledger()"]
+    PAY["payment"] --> FEE["project_payment_fee()"]
+    MAN["merchant types an expense"] --> REC["record_expense()"]
+
+    PROJ --> L[("FinancialTransaction<br/>one ledger, soft-delete only")]
+    FEE --> L
+    REC --> L
+
+    L --> DRE["income_statement()<br/><b>fact</b>"]
+    L --> VAR["budget_variance()<br/><b>fact about a plan</b>"]
+    L --> FC["forecast()<br/><i>extrapolation</i>"]
+    L --> CF["cash_flow()<br/><b>fact</b>"]
+
+    OI[("OrderItem<br/>units · price · cost")] --> SIM["price_simulation()<br/><i>assumption</i>"]
+
+    B[("Budget + BudgetLine<br/>editable, unlike the ledger")] --> VAR
+
+    style DRE fill:#d8e8d8
+    style VAR fill:#d8e8d8
+    style CF fill:#d8e8d8
+    style FC fill:#f0e6d8
+    style SIM fill:#f0e6d8
+```
+
+Green is arithmetic over recorded rows. Amber is a guess, and says so on screen:
+the forecast carries its basis in months and a confidence band; the simulation
+carries the elasticity it used.
+
+**Why the simulation reads order lines and not the ledger.** The ledger has no
+units in it, and a margin without units cannot be re-priced.
+
+### The DRE, in the order it is read
+
+```mermaid
+flowchart TD
+    GR["Receita bruta"] --> NR["= Receita líquida"]
+    TX["(-) Impostos sobre vendas"] --> NR
+    NR --> GP["= Lucro bruto"]
+    CM["(-) CMV"] --> GP
+    GP --> OR["= Resultado operacional"]
+    OP["(-) Despesas operacionais"] --> OR
+    DL["(-) Custos de entrega"] --> OR
+    OR --> NET["= Resultado líquido"]
+    PF["(-) Taxas de pagamento"] --> NET
+
+    style NR fill:#e8e8f0
+    style GP fill:#e8e8f0
+    style OR fill:#e8e8f0
+    style NET fill:#d8e8d8
+```
+
+> Tax on sales is a **deduction from revenue**, above the gross-profit line —
+> not an operating cost beside rent. Putting it below would overstate gross
+> margin on every statement.
+
+Each line also carries **AV** (its share of net revenue) and **AH** (change
+against the previous period *of the same length* — comparing 31 days against 28
+makes February read as a collapse every year).
+
+---
+
+## 13. Images at ten thousand products
+
+Before this phase the conversion was already right. What was missing was
+everything that decides whether the shop is *fast*.
+
+```mermaid
+flowchart TD
+    U["upload"] --> CK["sha-256"]
+    CK --> DUP{"same bytes,<br/>same tenant, folder<br/>and visibility?"}
+    DUP -- yes --> REUSE["reuse the row<br/><b>no storage, no re-encode</b>"]
+    DUP -- no --> ST["store + queue on the <b>media</b> queue"]
+
+    ST --> W["worker: -Q celery,media"]
+    W --> MASTER["master capped at 2048px, WebP"]
+    W --> DERIV["4 widths × WebP + AVIF"]
+    W --> LQIP["24px blurred WebP → data URI on the row"]
+
+    DERIV --> S3[("object storage<br/>Cache-Control:<br/>public, max-age=31536000, immutable")]
+    MASTER --> S3
+
+    LQIP --> JSON["arrives in the product card's JSON<br/>~120 bytes, no extra request"]
+    S3 --> PIC["&lt;picture&gt; AVIF → WebP → src"]
+
+    JSON --> PAINT["blurred shape immediately"]
+    PIC --> PAINT2["real photo fades in over it"]
+
+    style DUP fill:#f0e6d8
+    style S3 fill:#d8e8d8
+    style LQIP fill:#d8e8d8
+```
+
+| Fix | Why it matters at 10k products |
+|---|---|
+| `Cache-Control … immutable` | ~240,000 objects were being re-fetched on every return visit. Keys embed the asset UUID and a reprocess writes a *new* key, so `immutable` is honest |
+| checksum dedupe | a supplier catalogue repeats one photo across a dozen flavours; each copy was stored and re-encoded eight times |
+| `media` queue | 10,000 imports queued ahead of the order confirmation a customer is waiting for |
+| LQIP | a grey rectangle reads as broken; a blurred shape reads as loading |
+
+---
+
+## 14. Diagnostics — reporting on a system that may be broken
+
+```mermaid
+flowchart TD
+    REQ["GET /admin/system/diagnostics/"] --> CAP{"holds<br/>system.diagnostics?"}
+    CAP -- no --> F["403"]
+    CAP -- yes --> RUN["run_diagnostics()"]
+
+    RUN --> P1["database + migrations"]
+    RUN --> P2["cache round trip"]
+    RUN --> P3["celery ping"]
+    RUN --> P4["queue depth (broker directly)"]
+    RUN --> P5["storage head_bucket"]
+    RUN --> P6["email: 24h outcomes"]
+    RUN --> P7["scheduler: overdue reservations"]
+    RUN --> P8["configuration warnings"]
+
+    P1 & P2 & P3 & P4 & P5 & P6 & P7 & P8 --> AGG["status = worst of all"]
+    AGG --> SAFE["_safe_error(): a DSN carries a password,<br/>so anything credential-shaped<br/>is reduced to the exception type"]
+    SAFE --> OUT["JSON, Cache-Control: no-store"]
+
+    style CAP fill:#f0e6d8
+    style SAFE fill:#d8e8d8
+```
+
+Three rules this page is built on:
+
+1. **Never a secret.** Not even masked — a masked secret still discloses length
+   and shape. `secret_key_set: true`, never the key.
+2. **Never another tenant's data.** Infrastructure checks report *liveness only*;
+   the counts are tenant-scoped.
+3. **Never block.** Every probe has a timeout and every failure is caught. A
+   diagnostics page that dies with its dependency removes the one screen that
+   would have said so.
+
+**Why a capability and not a page code.** Page codes here are hierarchical —
+holding `perm.admin` grants everything under it. Expressing this as
+`perm.admin.diagnostics` alone would hand queue depth, storage state and
+configuration warnings to every staff member who can open the dashboard.
+`system.diagnostics` is granted only where it is listed, and it is listed only
+for administrators.
+
+---
+
+## 15. Where a new permission or template actually goes
+
+The shape of a bug this project has now hit three times.
+
+```mermaid
+flowchart LR
+    ADD["add a code to<br/>PERMISSION_CATALOGUE"] --> ROW["Permission row created<br/>by sync_permissions()"]
+    ROW --> Q{"who is granted it?"}
+    Q --> NEW["a tenant created <b>after</b> the deploy<br/>✅ has it"]
+    Q --> OLD["a tenant created <b>before</b><br/>❌ does not"]
+    OLD --> CMD["manage.py sync_roles"]
+    CMD --> FIXED["✅ has it"]
+
+    style OLD fill:#f0d8d8
+    style CMD fill:#d8e8d8
+```
+
+Identical for `DEFAULT_TEMPLATES` → `sync_email_templates`. The failure mode is
+the worst kind: it works on a fresh database and on every test run, and is dead
+in the one place that matters.

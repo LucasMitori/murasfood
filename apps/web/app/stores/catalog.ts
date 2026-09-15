@@ -18,6 +18,16 @@ interface CatalogFilters {
   maxPrice: string
   onSale: boolean
   inStock: boolean
+  /**
+   * `''` — everything; `in` — buyable now; `out` — the shelf gaps.
+   *
+   * Separate from `inStock` because a boolean has no third state: `false`
+   * means "do not filter", so there was no way to ask for what is *missing* —
+   * which is exactly the view where the "tell me when it's back" button lives.
+   */
+  availability: '' | 'in' | 'out'
+  /** Minimum discount percentage, as a string so an empty field is empty. */
+  minDiscount: string
   sort: ProductSort
   page: number
 }
@@ -31,6 +41,8 @@ const DEFAULT_FILTERS: CatalogFilters = {
   maxPrice: '',
   onSale: false,
   inStock: false,
+  availability: '',
+  minDiscount: '',
   sort: 'relevance',
   page: 1,
 }
@@ -52,6 +64,8 @@ export const useCatalogStore = defineStore('catalog', {
       if (state.filters.maxPrice) count += 1
       if (state.filters.onSale) count += 1
       if (state.filters.inStock) count += 1
+      if (state.filters.availability) count += 1
+      if (state.filters.minDiscount) count += 1
       return count
     },
 
@@ -73,6 +87,8 @@ export const useCatalogStore = defineStore('catalog', {
       if (state.filters.maxPrice) query.max_price = state.filters.maxPrice
       if (state.filters.onSale) query.on_sale = true
       if (state.filters.inStock) query.in_stock = true
+      if (state.filters.availability) query.availability = state.filters.availability
+      if (state.filters.minDiscount) query.min_discount = state.filters.minDiscount
       return query
     },
   },

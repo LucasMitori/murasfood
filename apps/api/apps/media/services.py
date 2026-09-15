@@ -187,6 +187,31 @@ def store_upload(
     )
     upload.seek(0)
     asset.checksum = checksum(upload)
+
+    # The same picture, uploaded again.
+    #
+    # `checksum` has been computed and indexed since day one and nothing read
+    # it. A supplier catalogue is full of repeats — one photo standing in for
+    # every flavour of a product, a house brand's identical packaging shot — and
+    # a ten-thousand-product import would store each copy separately and then
+    # pay to resize and re-encode it four times over in two formats.
+    #
+    # Reusing the row is safe because `ProductImage.asset` is a plain foreign
+    # key: many products may point at one asset, and the orphan sweep derives
+    # what is still referenced from `_meta`, so a shared asset is never
+    # collected while anything still uses it.
+    existing = _identical_asset(asset)
+    if existing is not None:
+        logger.info(
+            "media_asset_deduplicated",
+            extra={
+                "event": "media.deduplicated",
+                "asset_id": str(existing.pk),
+                "bytes_saved": asset.size_bytes,
+            },
+        )
+        return existing
+
     asset.save()
 
     get_storage().save(asset.storage_key, upload, content_type=asset.content_type, public=is_public)
@@ -343,3 +368,31 @@ def record_banner_event(banner_id: Any, *, event: str) -> None:
 
     field = "click_count" if event == "click" else "impression_count"
     Banner.objects.filter(pk=banner_id).update(**{field: F(field) + 1})
+
+
+def _identical_asset(candidate: MediaAsset) -> MediaAsset | None:
+    """An already-processed asset holding exactly these bytes, if there is one.
+
+    Matched on tenant, folder, visibility and SHA-256. Tenant because assets are
+    never shared across shops; folder and visibility because they decide the
+    storage key's prefix and its ACL, and a private document must never be
+    satisfied by a public product photo that happens to be byte-identical.
+
+    Only `READY` rows qualify. A `PENDING` match is an upload whose derivatives
+    have not been generated yet, and returning it would hand the caller an asset
+    with no variants; a `FAILED` one is broken.
+    """
+    if not candidate.checksum:
+        return None
+
+    return (
+        MediaAsset.objects.filter(
+            tenant_id=candidate.tenant_id,
+            checksum=candidate.checksum,
+            folder=candidate.folder,
+            is_public=candidate.is_public,
+            status=AssetStatus.READY,
+        )
+        .order_by("created_at")
+        .first()
+    )

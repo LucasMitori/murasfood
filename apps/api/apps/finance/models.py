@@ -12,8 +12,10 @@ not a financial record (invariant #9).
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -208,3 +210,90 @@ class FinancialTransaction(TenantOwnedModel, SoftDeleteModel):
     def signed_amount(self) -> Decimal:
         """Positive for revenue, negative for expenses."""
         return self.amount if self.transaction_type == TransactionType.REVENUE else -self.amount
+
+
+class Budget(TenantOwnedModel):
+    """A plan for one month, against which the ledger is compared.
+
+    Monthly rather than free-form: a market's costs are monthly (rent, payroll,
+    utilities), the comparison a merchant actually wants is "how is this month
+    going against what I planned", and an arbitrary date range makes both the
+    query and the conversation harder without making either more useful.
+
+    A budget is a *plan*, so it is editable — unlike a ledger entry, which is a
+    record of something that happened and is therefore append-only.
+    """
+
+    name = models.CharField(_("name"), max_length=120, blank=True)
+    year = models.PositiveSmallIntegerField(_("year"))
+    month = models.PositiveSmallIntegerField(
+        _("month"), validators=[MinValueValidator(1), MaxValueValidator(12)]
+    )
+    note = models.TextField(_("note"), blank=True)
+    is_active = models.BooleanField(_("active"), default=True)
+
+    created_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = _("budget")
+        verbose_name_plural = _("budgets")
+        ordering = ["-year", "-month"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "year", "month"], name="uniq_budget_per_tenant_month"
+            ),
+        ]
+        indexes = [models.Index(fields=["tenant", "-year", "-month"])]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return self.name or f"{self.month:02d}/{self.year}"
+
+    @property
+    def period(self) -> tuple[date, date]:
+        """First and last day of the month this budget covers."""
+        import calendar
+
+        last = calendar.monthrange(self.year, self.month)[1]
+        return date(self.year, self.month, 1), date(self.year, self.month, last)
+
+
+class BudgetLine(TenantOwnedModel):
+    """One planned amount, for one category, in one budget.
+
+    Amounts are positive; whether the line is money in or money out comes from
+    the category's ``kind``, exactly as it does for a real transaction. Keeping
+    the two representations identical is what lets plan and actual be compared
+    without a translation step that could invert a sign.
+    """
+
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="lines", verbose_name=_("budget")
+    )
+    category = models.ForeignKey(
+        FinancialCategory,
+        on_delete=models.PROTECT,
+        related_name="budget_lines",
+        verbose_name=_("category"),
+    )
+    planned_amount = models.DecimalField(
+        _("planned amount"), max_digits=14, decimal_places=2, default=Decimal("0.00")
+    )
+    note = models.CharField(_("note"), max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = _("budget line")
+        verbose_name_plural = _("budget lines")
+        ordering = ["category__kind", "category__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["budget", "category"], name="uniq_budget_line_per_category"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(planned_amount__gte=0), name="budget_line_amount_non_negative"
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return f"{self.category}: {self.planned_amount}"

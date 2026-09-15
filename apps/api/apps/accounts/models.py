@@ -190,6 +190,18 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     accepted_terms_at = models.DateTimeField(_("accepted terms at"), null=True, blank=True)
     marketing_opt_in = models.BooleanField(_("accepts marketing"), default=False)
 
+    avatar = models.ForeignKey(
+        "media.MediaAsset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        # Named, because `cleanup_orphaned_assets` derives the set of live
+        # relations from `MediaAsset._meta`. A reverse accessor that exists is
+        # an avatar the collector will not delete out from under its owner.
+        related_name="user_avatars",
+        verbose_name=_("profile picture"),
+    )
+
     anonymized_at = models.DateTimeField(_("anonymised at"), null=True, blank=True)
 
     objects = UserManager()

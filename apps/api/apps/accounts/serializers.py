@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import (
     TokenObtainPairSerializer as BaseTokenObtainPairSerializer,
@@ -23,6 +24,60 @@ class InvalidCredentialsError(DomainError):
     default_detail = _("Email or password is incorrect.")
     default_code = "INVALID_CREDENTIALS"
     status_code = 401
+
+
+@extend_schema_field(
+    {
+        "type": "object",
+        "nullable": True,
+        "properties": {
+            "id": {"type": "string", "format": "uuid"},
+            "url": {"type": "string"},
+            "variants": {"type": "object", "additionalProperties": {"type": "string"}},
+            "placeholder": {"type": "string"},
+            "alt_text": {"type": "string"},
+        },
+    }
+)
+class AvatarField(serializers.Field):
+    """A user's profile picture, rendered the way every other image is.
+
+    Declared as a plain field rather than a nested ``MediaAssetSerializer`` so
+    that importing this module does not pull in ``apps.media.serializers`` at
+    import time — accounts is imported by nearly everything, and media imports
+    storage, which reads settings.
+    """
+
+    def to_representation(self, value: Any) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        from apps.media.serializers import MediaAssetSerializer
+
+        return MediaAssetSerializer(value, context=self.context).data
+
+
+def _apply_avatar(instance: User, validated_data: dict[str, Any], write: Any) -> User:
+    """Resolve ``avatar_id`` to an asset the caller's own tenant owns.
+
+    Accepting a bare id and assigning it would let one merchant point a staff
+    photo at another merchant's asset — a cross-tenant read through a foreign
+    key, which no amount of queryset scoping elsewhere would catch.
+    """
+    if "avatar_id" not in validated_data:
+        return write(instance, validated_data)
+
+    from apps.media.models import MediaAsset
+
+    asset_id = validated_data.pop("avatar_id")
+    if asset_id is None:
+        validated_data["avatar"] = None
+    else:
+        asset = MediaAsset.objects.filter(pk=asset_id, tenant_id=instance.tenant_id).first()
+        if asset is None:
+            raise serializers.ValidationError({"avatar_id": _("Unknown image.")})
+        validated_data["avatar"] = asset
+
+    return write(instance, validated_data)
 
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -91,6 +146,8 @@ class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source="get_full_name", read_only=True)
     permissions = serializers.SerializerMethodField()
     roles = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
+    avatar = AvatarField(read_only=True)
+    avatar_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -104,11 +161,16 @@ class UserSerializer(serializers.ModelSerializer):
             "user_type",
             "is_verified",
             "marketing_opt_in",
+            "avatar",
+            "avatar_id",
             "roles",
             "permissions",
             "created_at",
         ]
         read_only_fields = ["id", "email", "user_type", "is_verified", "roles", "created_at"]
+
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        return _apply_avatar(instance, validated_data, super().update)
 
     def get_permissions(self, obj: User) -> list[str]:
         """Permission codes, so the dashboard can hide what the user cannot do.
@@ -284,6 +346,8 @@ class StaffUserSerializer(serializers.ModelSerializer):
         slug_field="slug", many=True, queryset=Role.objects.all(), required=False
     )
     full_name = serializers.CharField(source="get_full_name", read_only=True)
+    avatar = AvatarField(read_only=True)
+    avatar_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -297,7 +361,12 @@ class StaffUserSerializer(serializers.ModelSerializer):
             "user_type",
             "is_active",
             "is_verified",
+            "avatar",
+            "avatar_id",
             "roles",
             "created_at",
         ]
         read_only_fields = ["id", "is_verified", "created_at"]
+
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        return _apply_avatar(instance, validated_data, super().update)
