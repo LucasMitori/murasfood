@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.db.models import F
+from django.db.models import Count, F, Q
 from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.types import OpenApiTypes
@@ -25,6 +25,7 @@ from apps.common.exceptions import NotFoundError
 from apps.common.permissions import HasTenantPermission
 from apps.common.views import TenantScopedMixin
 
+from .constants import ProductStatus
 from .filters import ProductFilter
 from .models import Brand, Category, Favorite, Product, ProductTag, UnitOfMeasure
 from .search import order_by_relevance, search_products, search_suggestions
@@ -751,10 +752,40 @@ class AdminCategoryViewSet(TenantScopedMixin, viewsets.ModelViewSet):
     pagination_class = None
 
     def get_queryset(self) -> Any:
+        # `product_count` is declared on the serializer with a default of 0, so
+        # without this annotation the management screen reported every category
+        # as empty — which reads as "nothing is filed here" rather than "nobody
+        # counted", and is exactly the number a merchant uses to decide whether
+        # a category is safe to delete.
+        #
+        # Counts only what is actually on sale, matching the storefront's own
+        # tally: drafts and archived products are not what "12 produtos" means
+        # to the person reading it.
         return (
             Category.objects.for_tenant(self.tenant_id)
             .select_related("image")
             .prefetch_related("children", "translations")
+            .annotate(
+                own_products=Count(
+                    "products",
+                    filter=Q(products__is_active=True, products__status=ProductStatus.ACTIVE),
+                    distinct=True,
+                ),
+                # Descendants count too, because clicking a category in the shop
+                # shows its subcategories' products — `ProductFilter.filter_category`
+                # includes the children. A root reading "0 produtos" while a tap
+                # on it lists forty is a number that teaches people to distrust
+                # the screen.
+                child_products=Count(
+                    "children__products",
+                    filter=Q(
+                        children__products__is_active=True,
+                        children__products__status=ProductStatus.ACTIVE,
+                    ),
+                    distinct=True,
+                ),
+            )
+            .annotate(product_count=F("own_products") + F("child_products"))
             .order_by("position", "name")
         )
 

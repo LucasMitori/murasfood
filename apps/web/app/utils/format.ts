@@ -196,3 +196,39 @@ export function saveFile(blob: Blob, filename: string): void {
 
   URL.revokeObjectURL(url)
 }
+
+/**
+ * How far a parallax layer may travel, given how much picture it has to spare.
+ *
+ * Extracted from the two components that do this because the bug it prevents
+ * was invisible in review and obvious on screen: the travel used to be a
+ * fraction of the *scroll distance* while the overscan was a fraction of the
+ * *element height*. Those are unrelated numbers, and they disagreed — a band on
+ * screen across `viewport + height` of scrolling moved its image about 303px
+ * while having 74px to move within, leaving a blank strip at one edge or the
+ * other for most of the scroll.
+ *
+ * Expressing travel as a share of the measured slack makes that impossible
+ * rather than unlikely: `|shift| <= slack` always holds, so the layer's edge
+ * lands at most exactly on the frame's edge.
+ *
+ * @param top      the element's `getBoundingClientRect().top`
+ * @param height   the element's height
+ * @param viewport `window.innerHeight`
+ * @param slack    `(mediaHeight - height) / 2`, measured from the DOM
+ */
+export function parallaxShift(
+  top: number,
+  height: number,
+  viewport: number,
+  slack: number,
+): number {
+  // The element is on screen across this much travel of its own centre.
+  const span = (viewport + height) / 2
+  if (span <= 0 || slack <= 0) return 0
+
+  const centred = top + height / 2 - viewport / 2
+  const progress = Math.max(-1, Math.min(1, centred / span))
+
+  return progress * slack
+}

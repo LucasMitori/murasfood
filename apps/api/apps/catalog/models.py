@@ -358,6 +358,15 @@ class ProductImage(TenantOwnedModel):
         verbose_name=_("image"),
     )
     position = models.PositiveSmallIntegerField(_("position"), default=0)
+    caption = models.CharField(
+        _("caption"),
+        max_length=160,
+        blank=True,
+        help_text=_(
+            "Shown under the photo in the gallery. Describes this shot — "
+            '"rótulo", "porção servida" — rather than repeating the product name.'
+        ),
+    )
     is_primary = models.BooleanField(_("primary"), default=False)
 
     class Meta:

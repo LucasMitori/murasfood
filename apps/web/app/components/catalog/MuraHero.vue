@@ -1,5 +1,6 @@
 <template lang="pug">
 section.mura-hero(
+  ref="root"
   :class="{ 'mura-hero--band': !fullHeight }"
   :aria-label="t('home.heroLabel')"
 )
@@ -100,8 +101,12 @@ const props = withDefaults(defineProps<{
 const { t } = useI18n()
 
 const active = ref(0)
-const offset = ref(0)
+/** How far through its exit the hero is, 0 at rest and 1 once scrolled past. */
+const progress = ref(0)
+/** Overscan available to move within, measured from the DOM. */
+const slack = ref(0)
 const scrolled = ref(false)
+const root = ref<HTMLElement | null>(null)
 const reducedMotion = ref(false)
 
 const cycle = computed(() => props.autoplay && props.banners.length > 1 && !reducedMotion.value)
@@ -116,8 +121,20 @@ const showScrollHint = computed(() => !scrolled.value)
 /** Nothing moves unless the merchant asked for it and the reader allows it. */
 const moves = computed(() => props.parallax && !reducedMotion.value)
 
+/**
+ * Travel bounded by the picture, not by the scroll.
+ *
+ * It was `scrollOffset * 0.4` against a fixed 12% of overscan. Those numbers
+ * are unrelated and did not agree: scrolling one viewport moved the image
+ * `0.4 × 900 = 360px` while it had `0.12 × 720 ≈ 86px` to move within, so the
+ * hero's top edge went blank after about 215px of scroll.
+ *
+ * `progress` is how far through its own exit the hero is, in 0..1. Multiplying
+ * the measured slack by it means the image's edge lands exactly on the hero's
+ * edge at the end and never past it — whatever the viewport or the overscan.
+ */
 const mediaStyle = computed(() => ({
-  transform: moves.value ? `translate3d(0, ${offset.value * 0.4}px, 0)` : 'none',
+  transform: moves.value ? `translate3d(0, ${(progress.value * slack.value).toFixed(2)}px, 0)` : 'none',
 }))
 
 /**
@@ -127,7 +144,9 @@ const mediaStyle = computed(() => ({
  * between the two speeds is the entire effect.
  */
 const textStyle = computed(() => ({
-  transform: moves.value ? `translate3d(0, ${offset.value * 0.14}px, 0)` : 'none',
+  transform: moves.value
+    ? `translate3d(0, ${(progress.value * slack.value * 0.35).toFixed(2)}px, 0)`
+    : 'none',
 }))
 
 function scrimStyle(banner: Banner): Record<string, string> {
@@ -185,7 +204,24 @@ function scrollPast(): void {
  */
 function onScroll(): void {
   const y = window.scrollY
-  offset.value = Math.min(y, window.innerHeight)
+  const element = root.value
+  if (!element) return
+
+  const height = element.getBoundingClientRect().height
+
+  // Measured rather than assumed, so changing the overscan in the CSS changes
+  // the strength of the effect and can never expose an edge.
+  //
+  // Queried through the root rather than with a template ref: the media layer
+  // lives inside the carousel's `v-for`, so `ref="media"` would collect an
+  // *array* of them and `getBoundingClientRect` would not exist on it. Every
+  // slide has identical geometry, so the first one answers for all.
+  const mediaHeight = element
+    .querySelector('.mura-hero__media')
+    ?.getBoundingClientRect().height ?? height
+  slack.value = Math.max(0, (mediaHeight - height) / 2)
+
+  progress.value = height > 0 ? Math.min(1, Math.max(0, y / height)) : 0
   scrolled.value = y > 80
 }
 

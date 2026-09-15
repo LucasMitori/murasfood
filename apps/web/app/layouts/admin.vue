@@ -380,6 +380,7 @@ const entries = [
   { to: '/admin', icon: 'mdi-view-dashboard-outline', labelKey: 'admin.dashboard', permission: 'perm.admin.dashboard' },
   { to: '/admin/orders', icon: 'mdi-receipt-text-outline', labelKey: 'admin.orders', permission: 'perm.admin.orders' },
   { to: '/admin/products', icon: 'mdi-package-variant-closed', labelKey: 'admin.products', permission: 'perm.admin.products' },
+  { to: '/admin/categories', icon: 'mdi-shape-outline', labelKey: 'admin.categories', permission: 'perm.admin.products' },
   { to: '/admin/inventory', icon: 'mdi-warehouse', labelKey: 'admin.inventory', permission: 'perm.admin.inventory' },
   { to: '/admin/inventory/alerts', icon: 'mdi-alert-decagram-outline', labelKey: 'admin.stockHealth', permission: 'perm.admin.inventory' },
   { to: '/admin/inventory/expiry', icon: 'mdi-calendar-clock', labelKey: 'admin.expiry', permission: 'perm.admin.inventory' },
@@ -390,6 +391,7 @@ const entries = [
   { to: '/admin/storefront', icon: 'mdi-home-edit-outline', labelKey: 'admin.homeConfig', permission: 'perm.admin.settings' },
   { to: '/admin/tools', icon: 'mdi-gesture-tap-button', labelKey: 'admin.floatingTools', permission: 'perm.admin.settings' },
   { to: '/admin/emails', icon: 'mdi-email-multiple-outline', labelKey: 'admin.emails', permission: 'perm.admin.settings' },
+  { to: '/admin/faq', icon: 'mdi-frequently-asked-questions', labelKey: 'admin.faq', permission: 'perm.admin.settings' },
   { to: '/admin/diagnostics', icon: 'mdi-heart-pulse', labelKey: 'admin.diagnostics', permission: 'perm.admin.diagnostics' },
 ]
 
@@ -414,6 +416,8 @@ const quickCreateSources = [
   { to: '/admin/inventory/expiry', icon: 'mdi-calendar-plus', labelKey: 'admin.batchNew', permission: 'perm.admin.inventory' },
   { to: '/admin/finance?tab=entries&new=expense', icon: 'mdi-cash-minus', labelKey: 'finance.addExpense', permission: 'perm.admin.finance' },
   { to: '/admin/reports', icon: 'mdi-file-chart-outline', labelKey: 'reports.newReport', permission: 'perm.admin.reports' },
+  { to: '/admin/categories', icon: 'mdi-shape-plus-outline', labelKey: 'admin.categoryNew', permission: 'perm.admin.products' },
+  { to: '/admin/faq', icon: 'mdi-comment-question-outline', labelKey: 'admin.faqNew', permission: 'perm.admin.settings' },
 ]
 
 const quickCreateItems = computed(() =>

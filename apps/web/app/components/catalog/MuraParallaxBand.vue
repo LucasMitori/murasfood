@@ -9,7 +9,7 @@ section.mura-band(
     //- CSS background so it can carry a srcset — a band is the largest picture
     //- on the page, and serving a 4000px file to a phone to blur past it is the
     //- most expensive thing a storefront can do.
-  .mura-band__media(:style="mediaStyle")
+  .mura-band__media(ref="media" :style="mediaStyle")
     mura-image(
       v-if="section.image"
       :asset="section.image"
@@ -65,6 +65,7 @@ section.mura-band(
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { HomeSection } from '~/types/api'
+import { parallaxShift } from '~/utils/format'
 
 const props = withDefaults(defineProps<{
   section: HomeSection
@@ -74,7 +75,9 @@ const props = withDefaults(defineProps<{
   eager: false,
 })
 
-const offset = ref(0)
+/** Media travel in pixels, never more than the overscan allows. */
+const shift = ref(0)
+const slack = ref(0)
 const motion = ref(false)
 
 const height = computed(() => (props.section.height === 100 ? 'full' : 'tall'))
@@ -83,16 +86,24 @@ const overlayAlpha = computed(() => String((props.section.overlay ?? 45) / 100))
 
 const internal = computed(() => (props.section.cta_url || '').startsWith('/'))
 
-/** Image and text move at different rates; the gap between them is the depth. */
+/**
+ * Image and text move at different rates; the gap between them is the depth.
+ *
+ * The text moves at 0.4 of the image, which is the ratio that was there before.
+ * What changed is the *amplitude*: it is now a share of the real overscan
+ * rather than a share of the scroll distance, so neither layer can travel
+ * further than there is picture to travel over.
+ */
 const mediaStyle = computed(() => (
-  motion.value ? { transform: `translate3d(0, ${offset.value * 0.4}px, 0)` } : undefined
+  motion.value ? { transform: `translate3d(0, ${shift.value.toFixed(2)}px, 0)` } : undefined
 ))
 
 const textStyle = computed(() => (
-  motion.value ? { transform: `translate3d(0, ${offset.value * 0.16}px, 0)` } : undefined
+  motion.value ? { transform: `translate3d(0, ${(shift.value * 0.4).toFixed(2)}px, 0)` } : undefined
 ))
 
 const root = ref<HTMLElement | null>(null)
+const media = ref<HTMLElement | null>(null)
 let frame = 0
 let observer: IntersectionObserver | null = null
 
@@ -108,14 +119,36 @@ let observer: IntersectionObserver | null = null
  * A frame loop asks the question directly and cannot fall out of step. It runs
  * only while the band is visible, so a page with six of them costs nothing for
  * the five that are not.
+ *
+ * **The travel is bounded by the picture, not by the scroll.**
+ *
+ * It used to be `scrollOffset * 0.4`, with the media given a fixed 12% of
+ * overscan to move within. Those two numbers are unrelated, and they did not
+ * agree: a band is on screen across roughly `viewportHeight + bandHeight` of
+ * scrolling, so the media travelled `0.4 × (900 + 616) / 2 ≈ 303px` while
+ * having only `0.12 × 616 ≈ 74px` of slack — leaving 229px of empty band above
+ * or below the image at the extremes of the scroll. That is the blank strip.
+ *
+ * Expressing travel as a *fraction of the measured slack* makes the failure
+ * impossible rather than merely unlikely: at the extremes the image's edge
+ * lands exactly on the band's edge, whatever the viewport, the band height or
+ * the overscan later becomes.
  */
 function tick(): void {
   const element = root.value
   if (!element) return
 
   const rect = element.getBoundingClientRect()
-  // Zero when the band is centred, so the effect is symmetrical about it.
-  offset.value = rect.top + rect.height / 2 - window.innerHeight / 2
+  const mediaRect = media.value?.getBoundingClientRect()
+
+  // How far the image may move before an edge shows, measured rather than
+  // assumed — the CSS owns the overscan and may change it.
+  slack.value = mediaRect ? Math.max(0, (mediaRect.height - rect.height) / 2) : 0
+
+  // -1 as the band leaves the top, +1 before it enters from the bottom, 0 when
+  // its centre is the viewport's centre — scaled to the slack, so the edge can
+  // at most exactly meet the band's edge. Shared with the hero, and tested.
+  shift.value = parallaxShift(rect.top, rect.height, window.innerHeight, slack.value)
 
   frame = requestAnimationFrame(tick)
 }
@@ -170,11 +203,18 @@ onBeforeUnmount(() => {
 .mura-band--tall { min-height: 70vh; }
 .mura-band--full { min-height: 100vh; }
 
-/* Taller than the band, so the image still covers it at the extremes of the
-   translation. Without the overscan the top and bottom edges show through. */
+/*
+ * Taller than the band, so the image still covers it at the extremes of the
+ * translation. This is the *only* thing that decides how far the parallax
+ * travels — the script reads the resulting slack and moves within it — so
+ * raising this number makes the effect stronger and can never expose an edge.
+ *
+ * 18% gives about 110px of movement on a 616px band: clearly parallax, and
+ * nowhere near enough to be seasick over.
+ */
 .mura-band__media {
   position: absolute;
-  inset: -12% 0;
+  inset: -18% 0;
   z-index: 0;
   will-change: transform;
 }

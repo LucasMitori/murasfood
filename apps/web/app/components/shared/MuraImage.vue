@@ -122,9 +122,23 @@ watch(src, () => {
   requestAnimationFrame(syncLoaded)
 })
 
+/**
+ * A CSS length from whatever the caller passed.
+ *
+ * A bare number string gets `px` too. In a template `width="40"` is a *string*,
+ * and this used to return it untouched — `width: 40` is not valid CSS, so it
+ * was silently dropped and the frame fell back to `width: 100%` with no height
+ * at all. In the products table that produced thumbnails 0px tall and between
+ * 117px and 146px wide, so every product name started at a different x. The
+ * symptom looked like a layout problem and was a units problem.
+ *
+ * Anything that already carries a unit (`50%`, `4rem`, `calc(...)`) passes
+ * through as written.
+ */
 function unit(value: number | string | undefined): string | undefined {
-  if (value === undefined) return undefined
-  return typeof value === 'number' ? `${value}px` : value
+  if (value === undefined || value === '') return undefined
+  if (typeof value === 'number') return `${value}px`
+  return /^-?\d*\.?\d+$/.test(value.trim()) ? `${value.trim()}px` : value
 }
 
 const frameStyle = computed(() => ({

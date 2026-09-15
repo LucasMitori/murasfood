@@ -8865,6 +8865,442 @@ paths:
                 items:
                   $ref: '#/components/schemas/BusinessHours'
           description: ''
+  /api/v1/tenants/admin/faq/:
+    get:
+      operationId: tenants_admin_faq_list
+      description: Questions and answers, draft or published.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+          format: uuid
+      - name: ordering
+        required: false
+        in: query
+        description: Qual campo usar ao ordenar os resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Um número de página dentro do conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a serem retornados por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Um termo de busca.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - PUBLISHED
+        description: |-
+          * `DRAFT` - Draft
+          * `PUBLISHED` - Published
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFaqEntryList'
+          description: ''
+    post:
+      operationId: tenants_admin_faq_create
+      description: Questions and answers, draft or published.
+      tags:
+      - tenants
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaqEntryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FaqEntryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FaqEntryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqEntry'
+          description: ''
+  /api/v1/tenants/admin/faq-categories/:
+    get:
+      operationId: tenants_admin_faq_categories_list
+      description: Headings on the help page.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Qual campo usar ao ordenar os resultados.
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: Um termo de busca.
+        schema:
+          type: string
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FaqCategory'
+          description: ''
+    post:
+      operationId: tenants_admin_faq_categories_create
+      description: Headings on the help page.
+      tags:
+      - tenants
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaqCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FaqCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FaqCategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqCategory'
+          description: ''
+  /api/v1/tenants/admin/faq-categories/{id}/:
+    get:
+      operationId: tenants_admin_faq_categories_retrieve
+      description: Headings on the help page.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ category.
+        required: true
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqCategory'
+          description: ''
+    put:
+      operationId: tenants_admin_faq_categories_update
+      description: Headings on the help page.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ category.
+        required: true
+      tags:
+      - tenants
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaqCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FaqCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FaqCategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqCategory'
+          description: ''
+    patch:
+      operationId: tenants_admin_faq_categories_partial_update
+      description: Headings on the help page.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ category.
+        required: true
+      tags:
+      - tenants
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFaqCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFaqCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFaqCategoryRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqCategory'
+          description: ''
+    delete:
+      operationId: tenants_admin_faq_categories_destroy
+      description: Headings on the help page.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ category.
+        required: true
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/tenants/admin/faq/{id}/:
+    get:
+      operationId: tenants_admin_faq_retrieve
+      description: Questions and answers, draft or published.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ entry.
+        required: true
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqEntry'
+          description: ''
+    put:
+      operationId: tenants_admin_faq_update
+      description: Questions and answers, draft or published.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ entry.
+        required: true
+      tags:
+      - tenants
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaqEntryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FaqEntryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FaqEntryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqEntry'
+          description: ''
+    patch:
+      operationId: tenants_admin_faq_partial_update
+      description: Questions and answers, draft or published.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ entry.
+        required: true
+      tags:
+      - tenants
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFaqEntryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFaqEntryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFaqEntryRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqEntry'
+          description: ''
+    delete:
+      operationId: tenants_admin_faq_destroy
+      description: Questions and answers, draft or published.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ entry.
+        required: true
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/tenants/admin/faq/{id}/publish/:
+    post:
+      operationId: admin_faq_publish
+      description: |-
+        Make an answer live, stamping when.
+
+        A separate action rather than a PATCH of `status` so the timestamp
+        cannot drift out of step with the state — and so the audit log records
+        publishing as its own event rather than as an edit that happened to
+        change a field.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ entry.
+        required: true
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqEntry'
+          description: ''
+  /api/v1/tenants/admin/faq/{id}/unpublish/:
+    post:
+      operationId: admin_faq_unpublish
+      description: Back to draft. The copy is kept — this is hiding, not deleting.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: Um string UUID que identifica este FAQ entry.
+        required: true
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqEntry'
+          description: ''
+  /api/v1/tenants/admin/faq/reorder/:
+    post:
+      operationId: admin_faq_reorder
+      description: Persist a drag-and-drop ordering in one write.
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/tenants/admin/settings/:
     patch:
       operationId: tenants_settings_update
@@ -8912,6 +9348,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TenantPublic'
+          description: ''
+  /api/v1/tenants/faq/:
+    get:
+      operationId: tenants_faq
+      description: |-
+        The help page, as a visitor sees it.
+
+        Published entries only, grouped by heading. An empty list is a valid answer:
+        a shop that has written nothing gets the page's built-in copy instead, which
+        is what every shop had before this was editable.
+      tags:
+      - tenants
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FaqPublicCategory'
           description: ''
 components:
   schemas:
@@ -10540,6 +11000,178 @@ components:
       - category_code
       - description
       - occurred_on
+    FaqCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          title: Nome
+          maxLength: 120
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        icon:
+          type: string
+          description: Material Design Icons name, e.g. mdi-truck-outline.
+          maxLength: 64
+        position:
+          type: integer
+          maximum: 32767
+          minimum: 0
+        is_active:
+          type: boolean
+          title: Ativo
+        entry_count:
+          type: integer
+          readOnly: true
+          default: 0
+      required:
+      - entry_count
+      - id
+      - name
+      - slug
+    FaqCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Nome
+          maxLength: 120
+        icon:
+          type: string
+          description: Material Design Icons name, e.g. mdi-truck-outline.
+          maxLength: 64
+        position:
+          type: integer
+          maximum: 32767
+          minimum: 0
+        is_active:
+          type: boolean
+          title: Ativo
+      required:
+      - name
+    FaqEntry:
+      type: object
+      description: One question, as the merchant edits it.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        category:
+          type: string
+          format: uuid
+        category_name:
+          type: string
+          readOnly: true
+        question:
+          type: string
+          maxLength: 255
+        answer:
+          type: string
+        status:
+          $ref: '#/components/schemas/FaqEntryStatusEnum'
+        position:
+          type: integer
+          maximum: 32767
+          minimum: 0
+        view_count:
+          type: integer
+          readOnly: true
+          title: Views
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Criado em
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - answer
+      - category
+      - category_name
+      - created_at
+      - id
+      - published_at
+      - question
+      - updated_at
+      - view_count
+    FaqEntryRequest:
+      type: object
+      description: One question, as the merchant edits it.
+      properties:
+        category:
+          type: string
+          format: uuid
+        question:
+          type: string
+          minLength: 1
+          maxLength: 255
+        answer:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/FaqEntryStatusEnum'
+        position:
+          type: integer
+          maximum: 32767
+          minimum: 0
+      required:
+      - answer
+      - category
+      - question
+    FaqEntryStatusEnum:
+      enum:
+      - DRAFT
+      - PUBLISHED
+      type: string
+      description: |-
+        * `DRAFT` - Draft
+        * `PUBLISHED` - Published
+    FaqPublicCategory:
+      type: object
+      description: What the storefront renders. Published entries only.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          title: Nome
+          maxLength: 120
+        slug:
+          type: string
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+        icon:
+          type: string
+          description: Material Design Icons name, e.g. mdi-truck-outline.
+          maxLength: 64
+        entries:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+      required:
+      - entries
+      - id
+      - name
+      - slug
     Favorite:
       type: object
       properties:
@@ -12134,6 +12766,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EmailLog'
+    PaginatedFaqEntryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqEntry'
     PaginatedFavoriteList:
       type: object
       required:
@@ -12997,6 +13652,45 @@ components:
         is_active:
           type: boolean
           title: Ativo
+    PatchedFaqCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Nome
+          maxLength: 120
+        icon:
+          type: string
+          description: Material Design Icons name, e.g. mdi-truck-outline.
+          maxLength: 64
+        position:
+          type: integer
+          maximum: 32767
+          minimum: 0
+        is_active:
+          type: boolean
+          title: Ativo
+    PatchedFaqEntryRequest:
+      type: object
+      description: One question, as the merchant edits it.
+      properties:
+        category:
+          type: string
+          format: uuid
+        question:
+          type: string
+          minLength: 1
+          maxLength: 255
+        answer:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/FaqEntryStatusEnum'
+        position:
+          type: integer
+          maximum: 32767
+          minimum: 0
     PatchedFinancialAccountRequest:
       type: object
       properties:
@@ -13167,6 +13861,25 @@ components:
           writeOnly: true
           description: Media assets to show for this product, in order. The first
             is primary.
+        gallery:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductGalleryItemRequest'
+          writeOnly: true
+        low_stock_threshold:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+          description: Flag this product as low when available stock reaches this.
+        minimum_stock:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+          description: The level the shop should never knowingly go below.
+        track_stock:
+          type: boolean
         translations:
           type: array
           items:
@@ -14240,6 +14953,20 @@ components:
           items:
             $ref: '#/components/schemas/ProductImage'
           readOnly: true
+        low_stock_threshold:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+          description: Flag this product as low when available stock reaches this.
+        minimum_stock:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+          description: The level the shop should never knowingly go below.
+        track_stock:
+          type: boolean
         barcodes:
           type: array
           items:
@@ -14384,6 +15111,25 @@ components:
           writeOnly: true
           description: Media assets to show for this product, in order. The first
             is primary.
+        gallery:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductGalleryItemRequest'
+          writeOnly: true
+        low_stock_threshold:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+          description: Flag this product as low when available stock reaches this.
+        minimum_stock:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+          description: The level the shop should never knowingly go below.
+        track_stock:
+          type: boolean
         translations:
           type: array
           items:
@@ -14619,6 +15365,30 @@ components:
       - stock
       - tags
       - unit
+    ProductGalleryItem:
+      type: object
+      description: 'One image in the gallery: which asset, and what to say about it.'
+      properties:
+        id:
+          type: string
+          format: uuid
+        caption:
+          type: string
+          maxLength: 160
+      required:
+      - id
+    ProductGalleryItemRequest:
+      type: object
+      description: 'One image in the gallery: which asset, and what to say about it.'
+      properties:
+        id:
+          type: string
+          format: uuid
+        caption:
+          type: string
+          maxLength: 160
+      required:
+      - id
     ProductImage:
       type: object
       properties:
@@ -14637,6 +15407,11 @@ components:
         is_primary:
           type: boolean
           title: Primary
+        caption:
+          type: string
+          description: Shown under the photo in the gallery. Describes this shot —
+            "rótulo", "porção servida" — rather than repeating the product name.
+          maxLength: 160
       required:
       - asset
       - id
@@ -14650,6 +15425,11 @@ components:
         is_primary:
           type: boolean
           title: Primary
+        caption:
+          type: string
+          description: Shown under the photo in the gallery. Describes this shot —
+            "rótulo", "porção servida" — rather than repeating the product name.
+          maxLength: 160
     ProductList:
       type: object
       description: Product card.

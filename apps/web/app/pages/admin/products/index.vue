@@ -44,15 +44,23 @@ div
         @update:model-value="table.applyFilters()"
       )
 
+    //- A fixed 40px box, whatever the photo is — or whether there is one.
+      //-
+      //- The thumbnail used to be `width="40" height="40"` as *strings*, which
+      //- `MuraImage` dropped as invalid CSS: the frames came out 0px tall and
+      //- 117–146px wide, so every product name began at a different x. The units
+      //- bug is fixed there; this wrapper is what guarantees the column has one
+      //- left edge even when a product has no image at all.
     template(#item.name="{ item }")
       .d-flex.align-center.ga-3.py-1
-        mura-image(
-          :asset="item.images?.[0]?.asset"
-          :alt="String(item.name)"
-          variant="thumbnail"
-          width="40"
-          height="40"
-        )
+        .mura-product-thumb
+          mura-image(
+            :asset="item.images?.[0]?.asset"
+            :alt="String(item.name)"
+            variant="thumbnail"
+            :aspect-ratio="1"
+            cover
+          )
         .min-width-0
           p.text-body-2.mb-0.text-truncate {{ item.name }}
           p.text-caption.text-medium-emphasis.mb-0 {{ item.sku }}
@@ -70,6 +78,18 @@ div
     :max-width="880"
     persistent
   )
+    //- Photos first: a product without a picture is the one thing a shopper
+      //- will not click, so it is not the last thing asked for.
+    .mb-5
+      mura-product-gallery(
+        v-model="gallery"
+        :label="t('admin.productImages')"
+        folder="products"
+        :max="8"
+      )
+
+    v-divider.mb-5
+
     mura-form-builder(
       ref="formRef"
       v-model:values="formValues"
@@ -103,9 +123,10 @@ div
  * markup, which is the point — the next admin screen is a schema, not a page.
  */
 import { computed, ref } from 'vue'
+import type { GalleryItem } from '~/components/catalog/MuraProductGallery.vue'
 import { useI18n } from 'vue-i18n'
 import type { FormSchema, FormValues, TableAction, TableColumn } from '~/types/ui'
-import type { Category, UnitOfMeasure } from '~/types/api'
+import type { Category, MediaAsset, UnitOfMeasure } from '~/types/api'
 import { useServerTable } from '~/composables/useServerTable'
 import { useMoney } from '~/composables/useMoney'
 import { useApiError } from '~/composables/useApiError'
@@ -136,7 +157,7 @@ interface ProductRow {
   status: string
   requires_weighing: boolean
   is_featured: boolean
-  images?: { asset?: { id: string } }[]
+  images?: { asset?: MediaAsset | null, caption?: string }[]
   [key: string]: unknown
 }
 
@@ -221,23 +242,11 @@ const formRef = ref<{
 
 const schema = computed<FormSchema>(() => ({
   sections: [
-    {
-      //- The gallery first: a product without a picture is the one thing a
-      //- shopper will not click, so it should not be the last thing asked for.
-      title: 'admin.productImages',
-      icon: 'mdi-image-multiple-outline',
-      fields: [
-        {
-          name: 'image_ids',
-          type: 'image',
-          label: 'admin.productImages',
-          folder: 'products',
-          multiple: true,
-          max: 6,
-          hint: 'admin.productImagesHint',
-        },
-      ],
-    },
+    // The gallery is rendered above the form rather than as a field in it: it
+    // needs ordering and a caption per image, which the schema's `image` type
+    // cannot express, and inventing a one-off field type for a single screen
+    // would put the complexity somewhere it has to be maintained forever.
+
     {
       title: 'admin.productDetails',
       icon: 'mdi-package-variant-closed',
@@ -301,11 +310,47 @@ const schema = computed<FormSchema>(() => ({
     {
       title: 'admin.inventory',
       icon: 'mdi-warehouse',
-      // Stock is set once at creation; afterwards it moves only through audited
-      // adjustments, so the field would be a lie on an edit form.
-      visibleWhen: () => editing.value === null,
       fields: [
-        { name: 'initial_stock', type: 'quantity', label: 'admin.initialStock', min: 0, md: 6 },
+        {
+          name: 'initial_stock',
+          type: 'quantity',
+          label: 'admin.initialStock',
+          min: 0,
+          md: 6,
+          // Stock is set once at creation; afterwards it moves only through
+          // audited adjustments, so the field would be a lie on an edit form.
+          visibleWhen: () => editing.value === null,
+        },
+        {
+          name: 'track_stock',
+          type: 'switch',
+          label: 'admin.trackStock',
+          hint: 'admin.trackStockHint',
+          md: 6,
+          default: true,
+        },
+        // Thresholds are per product on purpose. A shop that sells two sacks of
+        // rice a week and forty litres of milk cannot have one number mean "low"
+        // for both, and the shared `low_stock_threshold` setting was exactly that
+        // — which is why the stock-health screen was either noisy or silent.
+        {
+          name: 'low_stock_threshold',
+          type: 'quantity',
+          label: 'admin.lowStockThreshold',
+          hint: 'admin.lowStockThresholdHint',
+          min: 0,
+          md: 6,
+          visibleWhen: values => values.track_stock !== false,
+        },
+        {
+          name: 'minimum_stock',
+          type: 'quantity',
+          label: 'admin.minimumStock',
+          hint: 'admin.minimumStockHint',
+          min: 0,
+          md: 6,
+          visibleWhen: values => values.track_stock !== false,
+        },
       ],
     },
     {
@@ -318,8 +363,19 @@ const schema = computed<FormSchema>(() => ({
   ],
 }))
 
+/**
+ * The gallery's own state.
+ *
+ * Kept beside the form rather than inside its values because it is a list of
+ * objects the schema has no field type for, and because it is sent to the API
+ * as `gallery` — a different shape from the `image_ids` the import path and
+ * older clients still use.
+ */
+const gallery = ref<GalleryItem[]>([])
+
 function openCreate(): void {
   editing.value = null
+  gallery.value = []
   formValues.value = { product_type: 'SIMPLE', is_featured: false }
   formOpen.value = true
 }
@@ -339,16 +395,32 @@ function openEdit(row: ProductRow): void {
     product_type: row.product_type,
     requires_weighing: row.requires_weighing,
     is_featured: row.is_featured,
-    // The API reads a list of asset ids and returns full image rows, so the
-    // form is loaded with the ids the upload widget speaks.
-    image_ids: (row.images ?? []).map(image => image.asset?.id).filter(Boolean),
+    // Read back so the form shows what is stored rather than a blank box the
+    // merchant would fill in again with a different number.
+    track_stock: row.track_stock !== false,
+    low_stock_threshold: row.low_stock_threshold ?? '',
+    minimum_stock: row.minimum_stock ?? '',
   }
+
+  gallery.value = (row.images ?? [])
+    .map(image => ({
+      id: String(image.asset?.id ?? ''),
+      caption: image.caption ?? '',
+      asset: image.asset ?? null,
+    }))
+    .filter(item => item.id)
+
   formOpen.value = true
 }
 
 async function save(values: FormValues): Promise<void> {
   saving.value = true
   try {
+    // `gallery` carries order and captions; `image_ids` could carry neither.
+    values = {
+      ...values,
+      gallery: gallery.value.map(item => ({ id: item.id, caption: item.caption })),
+    }
     if (editing.value) {
       await useNuxtApp().$api.patch(`/admin/products/${editing.value}/`, values)
     }
@@ -405,6 +477,28 @@ function stockColor(row: ProductRow): string {
 <style scoped>
 .mura-admin-filter {
   max-width: 200px;
+}
+
+/*
+ * One square per row, so the name column has a single left edge.
+ *
+ * `flex: 0 0 40px` rather than `width` alone: in a flex row a merely-sized
+ * child can still be squeezed by a long product name beside it, which is part
+ * of how this column got ragged. The other part was `MuraImage` receiving
+ * `width="40"` as a string and dropping it as invalid CSS — fixed there.
+ */
+.mura-product-thumb {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.mura-product-thumb :deep(.mura-image) {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
 }
 
 .min-width-0 {

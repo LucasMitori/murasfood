@@ -141,8 +141,15 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductImage
-        fields = ["id", "asset", "position", "is_primary"]
+        fields = ["id", "asset", "position", "is_primary", "caption"]
         read_only_fields = ["id"]
+
+
+class ProductGalleryItemSerializer(serializers.Serializer):
+    """One image in the gallery: which asset, and what to say about it."""
+
+    id = serializers.UUIDField()
+    caption = serializers.CharField(max_length=160, required=False, allow_blank=True)
 
 
 class ProductBarcodeSerializer(serializers.ModelSerializer):
@@ -304,6 +311,33 @@ class ProductAdminSerializer(serializers.ModelSerializer):
         help_text=_("Media assets to show for this product, in order. The first is primary."),
     )
 
+    #: Richer write side: `[{"id": "...", "caption": "..."}]`, in display order.
+    #:
+    #: `image_ids` is kept because the import path and older clients send it, and
+    #: breaking them to add a caption would be a poor trade. When both arrive
+    #: this one wins, since it is strictly more information.
+    gallery = ProductGalleryItemSerializer(many=True, write_only=True, required=False)
+
+    #: Stock thresholds live on `InventoryItem`, not on `Product`, but a
+    #: merchant edits them here — "what counts as low for *this* item" is a fact
+    #: about the product as they think of it, and sending them to a second
+    #: screen to set it is why nobody sets it.
+    low_stock_threshold = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+        help_text=_("Flag this product as low when available stock reaches this."),
+    )
+    minimum_stock = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+        help_text=_("The level the shop should never knowingly go below."),
+    )
+    track_stock = serializers.BooleanField(required=False)
+
     barcodes = ProductBarcodeSerializer(many=True, read_only=True)
     translations = ProductTranslationSerializer(many=True, required=False)
     tags = serializers.PrimaryKeyRelatedField(
@@ -340,6 +374,10 @@ class ProductAdminSerializer(serializers.ModelSerializer):
             "max_quantity_per_order",
             "images",
             "image_ids",
+            "gallery",
+            "low_stock_threshold",
+            "minimum_stock",
+            "track_stock",
             "barcodes",
             "translations",
             "price",
@@ -363,6 +401,21 @@ class ProductAdminSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def to_representation(self, instance: Product) -> dict[str, Any]:
+        """Surface the inventory thresholds beside the product's own fields.
+
+        They belong to `InventoryItem`, but the form that edits them is this
+        one, and a form that cannot read back what it just wrote is a form
+        people stop trusting.
+        """
+        data = super().to_representation(instance)
+        item = getattr(instance, "inventory", None)
+
+        data["low_stock_threshold"] = str(item.reorder_threshold) if item else None
+        data["minimum_stock"] = str(item.minimum_stock) if item else None
+        data["track_stock"] = item.track_stock if item else True
+        return data
+
     def get_stock_quantity(self, obj: Product) -> str | None:
         item = getattr(obj, "inventory", None)
         return str(item.quantity) if item else None
@@ -374,22 +427,120 @@ class ProductAdminSerializer(serializers.ModelSerializer):
     def update(self, instance: Product, validated_data: dict[str, Any]) -> Product:
         translations = validated_data.pop("translations", None)
         images = validated_data.pop("image_ids", None)
+        gallery = validated_data.pop("gallery", None)
+        inventory = self._pop_inventory(validated_data)
+
         product = super().update(instance, validated_data)
+
         if translations is not None:
             self._sync_translations(product, translations)
+
         # `None` means the client did not mention images; an empty list means it
         # asked for none. Only the second should clear them.
-        if images is not None:
+        if gallery is not None:
+            self._sync_gallery(product, gallery)
+        elif images is not None:
             self._sync_images(product, images)
+
+        if inventory:
+            self._apply_inventory(product, inventory)
         return product
 
     def create(self, validated_data: dict[str, Any]) -> Product:
         translations = validated_data.pop("translations", [])
         images = validated_data.pop("image_ids", [])
+        gallery = validated_data.pop("gallery", None)
+        inventory = self._pop_inventory(validated_data)
+
         product = super().create(validated_data)
         self._sync_translations(product, translations)
-        self._sync_images(product, images)
+
+        if gallery is not None:
+            self._sync_gallery(product, gallery)
+        else:
+            self._sync_images(product, images)
+
+        if inventory:
+            self._apply_inventory(product, inventory)
         return product
+
+    @staticmethod
+    def _pop_inventory(validated_data: dict[str, Any]) -> dict[str, Any]:
+        """Take the fields that belong to `InventoryItem` rather than `Product`.
+
+        They have to come out before `super().create/update`, or the model
+        serializer tries to set them on `Product` and raises.
+        """
+        mapping = {
+            "low_stock_threshold": "reorder_threshold",
+            "minimum_stock": "minimum_stock",
+            "track_stock": "track_stock",
+        }
+        return {
+            field: validated_data.pop(key)
+            for key, field in mapping.items()
+            if key in validated_data
+        }
+
+    @staticmethod
+    def _apply_inventory(product: Product, values: dict[str, Any]) -> None:
+        """Write the thresholds without touching the quantity.
+
+        Deliberately not through `adjust_stock`: these are *rules about* the
+        stock, not a change to it, and routing them through the ledger would
+        write a movement row saying nothing moved.
+        """
+        from apps.inventory.services import get_or_create_item
+
+        item = get_or_create_item(product)
+        for field, value in values.items():
+            if value is not None:
+                setattr(item, field, value)
+        item.save(update_fields=[*values.keys(), "updated_at"])
+
+        # Put the saved row back in the product's relation cache.
+        #
+        # `get_or_create_item` returns a *different* Python object from the one
+        # `product.inventory` already holds, so without this the serializer
+        # renders the pre-save values and the form reads back what the merchant
+        # just replaced — the response said 5.000 while the database said
+        # 12.000. Assigning a reverse one-to-one updates both sides' caches.
+        product.inventory = item
+
+    @staticmethod
+    def _sync_gallery(product: Product, entries: list[dict[str, Any]]) -> None:
+        """Rebuild the gallery from an ordered list of assets and captions.
+
+        Same reasoning as `_sync_images`: position and primacy are properties of
+        the list rather than of any row, so the rows are rewritten rather than
+        diffed. Assets are re-checked against the product's own tenant — the
+        field would otherwise accept any asset id in the database.
+        """
+        allowed = set(
+            MediaAsset.objects.filter(tenant_id=product.tenant_id).values_list("pk", flat=True)
+        )
+
+        # Refuse rather than filter. Dropping an unknown id quietly would empty
+        # a merchant's gallery and tell them nothing — the first version of this
+        # did exactly that, turning one bad id into "all my photos vanished".
+        unknown = [str(entry["id"]) for entry in entries if entry.get("id") not in allowed]
+        if unknown:
+            raise serializers.ValidationError({"gallery": _("Unknown image: %s") % unknown[0]})
+
+        product.images.all().delete()
+        ProductImage.objects.bulk_create(
+            [
+                ProductImage(
+                    tenant_id=product.tenant_id,
+                    product=product,
+                    asset_id=entry["id"],
+                    position=index,
+                    is_primary=index == 0,
+                    caption=(entry.get("caption") or "")[:160],
+                )
+                for index, entry in enumerate(entries)
+            ]
+        )
 
     @staticmethod
     def _sync_images(product: Product, assets: list[Any]) -> None:

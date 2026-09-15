@@ -15,7 +15,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator, RegexVa
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.common.models import BaseModel
+from apps.common.models import BaseModel, TenantOwnedModel
 
 HEX_COLOR_VALIDATOR = RegexValidator(
     regex=r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
@@ -404,3 +404,87 @@ class BusinessHours(BaseModel):
 
     def __str__(self) -> str:  # pragma: no cover - admin display
         return f"{self.get_weekday_display()} {self.opens_at}–{self.closes_at}"
+
+
+class FaqStatus(models.TextChoices):
+    DRAFT = "DRAFT", _("Draft")
+    PUBLISHED = "PUBLISHED", _("Published")
+
+
+class FaqCategory(TenantOwnedModel):
+    """A heading on the help page: Orders, Delivery, Payment.
+
+    A model rather than a fixed list because the questions a butcher is asked
+    are not the questions a bakery is asked, and a shop that cannot group its
+    own answers ends up with one undifferentiated list of thirty.
+    """
+
+    name = models.CharField(_("name"), max_length=120)
+    slug = models.SlugField(_("slug"), max_length=140)
+    icon = models.CharField(
+        _("icon"),
+        max_length=64,
+        blank=True,
+        default="mdi-help-circle-outline",
+        help_text=_("Material Design Icons name, e.g. mdi-truck-outline."),
+    )
+    position = models.PositiveSmallIntegerField(_("position"), default=0)
+    is_active = models.BooleanField(_("active"), default=True)
+
+    class Meta:
+        verbose_name = _("FAQ category")
+        verbose_name_plural = _("FAQ categories")
+        ordering = ["position", "name"]
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "slug"], name="uniq_faq_category_slug"),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class FaqEntry(TenantOwnedModel):
+    """One question and its answer.
+
+    Draft and published are separate states rather than a boolean because the
+    useful thing is writing an answer over several sittings without it being
+    live in between — which an `is_active` flag also gives you, but names badly
+    enough that people use it as "temporarily hidden" and lose track.
+    """
+
+    category = models.ForeignKey(
+        FaqCategory,
+        on_delete=models.CASCADE,
+        related_name="entries",
+        verbose_name=_("category"),
+    )
+    question = models.CharField(_("question"), max_length=255)
+    answer = models.TextField(_("answer"))
+    status = models.CharField(
+        _("status"), max_length=10, choices=FaqStatus.choices, default=FaqStatus.DRAFT
+    )
+    position = models.PositiveSmallIntegerField(_("position"), default=0)
+
+    #: Counted from the storefront so a merchant can see which answers are
+    #: actually read — the ones nobody opens are usually the ones nobody needed.
+    view_count = models.PositiveIntegerField(_("views"), default=0)
+
+    published_at = models.DateTimeField(_("published at"), null=True, blank=True)
+    updated_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = _("FAQ entry")
+        verbose_name_plural = _("FAQ entries")
+        ordering = ["position", "created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "status", "position"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - admin display
+        return self.question
+
+    @property
+    def is_published(self) -> bool:
+        return self.status == FaqStatus.PUBLISHED

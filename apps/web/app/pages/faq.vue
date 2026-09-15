@@ -46,7 +46,35 @@ useSeoMeta({
   description: () => t('faq.subtitle'),
 })
 
-const groups = computed(() => [
+/**
+ * What the merchant has written, if they have written anything.
+ *
+ * Fetched rather than imported, because these answers used to be locale strings
+ * — which meant a shop could not correct its own delivery window without a
+ * deploy, and every shop on the platform answered identically.
+ */
+interface RemoteCategory {
+  id: string
+  name: string
+  slug: string
+  icon: string
+  entries: { id: string, question: string, answer: string }[]
+}
+
+const { data: remote } = await useAsyncData<RemoteCategory[]>(
+  'public-faq',
+  () => useNuxtApp().$api.get<RemoteCategory[]>('/tenants/faq/'),
+  { default: () => [] },
+)
+
+/**
+ * The shipped copy, used until a shop writes its own.
+ *
+ * Kept rather than deleted: a new tenant's help page would otherwise be blank
+ * on the day they open, and these answers describe how *the platform* behaves —
+ * PIX expiry, the refund path — which is true for every shop on it.
+ */
+const fallbackGroups = computed(() => [
   {
     id: 'pedidos',
     icon: 'mdi-package-variant-closed',
@@ -89,6 +117,25 @@ const groups = computed(() => [
     ],
   },
 ])
+
+/**
+ * Merchant copy wins entirely, or not at all.
+ *
+ * Deliberately not merged. Interleaving a shop's own answers with the shipped
+ * ones produces a page that contradicts itself — their delivery window beside
+ * ours — and no way for them to remove the one they disagree with.
+ */
+const groups = computed(() => {
+  const written = remote.value ?? []
+  if (!written.length) return fallbackGroups.value
+
+  return written.map(category => ({
+    id: category.slug,
+    icon: category.icon || 'mdi-help-circle-outline',
+    title: category.name,
+    items: category.entries.map(entry => ({ q: entry.question, a: entry.answer })),
+  }))
+})
 </script>
 
 <style scoped>

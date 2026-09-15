@@ -8,8 +8,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.db.models import Count, Prefetch
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from rest_framework import status
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -20,9 +23,13 @@ from apps.common.exceptions import TenantResolutionError
 from apps.common.permissions import HasTenantPermission
 from apps.common.views import TenantScopedMixin
 
+from .models import FaqCategory, FaqEntry, FaqStatus
 from .selectors import is_open_at, tenant_with_configuration
 from .serializers import (
     BusinessHoursSerializer,
+    FaqCategorySerializer,
+    FaqEntrySerializer,
+    FaqPublicCategorySerializer,
     TenantAdminSerializer,
     TenantBrandingSerializer,
     TenantPublicSerializer,
@@ -164,3 +171,134 @@ class BusinessHoursView(TenantScopedMixin, APIView):
             request=request,
         )
         return Response(BusinessHoursSerializer(created, many=True).data, status=status.HTTP_200_OK)
+
+
+class AdminFaqCategoryViewSet(TenantScopedMixin, viewsets.ModelViewSet):
+    """Headings on the help page."""
+
+    serializer_class = FaqCategorySerializer
+    permission_classes = [HasTenantPermission]
+    required_permissions = {"list": ["tenant.settings"], "default": ["tenant.settings"]}
+    pagination_class = None
+
+    def get_queryset(self) -> Any:
+        return (
+            FaqCategory.objects.for_tenant(self.tenant_id)
+            .annotate(entry_count=Count("entries"))
+            .order_by("position", "name")
+        )
+
+    def perform_create(self, serializer: Any) -> None:
+        from apps.catalog.services import unique_slug
+
+        serializer.save(
+            tenant=self.tenant,
+            slug=unique_slug(FaqCategory, self.tenant_id, serializer.validated_data["name"]),
+        )
+
+
+class AdminFaqEntryViewSet(TenantScopedMixin, viewsets.ModelViewSet):
+    """Questions and answers, draft or published."""
+
+    serializer_class = FaqEntrySerializer
+    permission_classes = [HasTenantPermission]
+    required_permissions = {
+        "list": ["tenant.settings"],
+        "retrieve": ["tenant.settings"],
+        "default": ["tenant.settings"],
+    }
+    filterset_fields = ["category", "status"]
+    search_fields = ["question", "answer"]
+
+    def get_queryset(self) -> Any:
+        return (
+            FaqEntry.objects.for_tenant(self.tenant_id)
+            .select_related("category")
+            .order_by("position", "created_at")
+        )
+
+    def perform_create(self, serializer: Any) -> None:
+        serializer.save(tenant=self.tenant, updated_by=self.request.user)
+
+    def perform_update(self, serializer: Any) -> None:
+        serializer.save(updated_by=self.request.user)
+
+    @extend_schema(request=None, responses=FaqEntrySerializer, operation_id="admin_faq_publish")
+    @action(detail=True, methods=["post"])
+    def publish(self, request: Request, pk: str | None = None) -> Response:
+        """Make an answer live, stamping when.
+
+        A separate action rather than a PATCH of `status` so the timestamp
+        cannot drift out of step with the state — and so the audit log records
+        publishing as its own event rather than as an edit that happened to
+        change a field.
+        """
+        entry = self.get_object()
+        entry.status = FaqStatus.PUBLISHED
+        entry.published_at = timezone.now()
+        entry.updated_by = request.user
+        entry.save(update_fields=["status", "published_at", "updated_by", "updated_at"])
+
+        record_audit(
+            action="tenant.faq_published",
+            tenant=self.tenant,
+            actor=request.user,
+            resource=entry,
+            new_values={"question": entry.question},
+            request=request,
+        )
+        return Response(FaqEntrySerializer(entry).data)
+
+    @extend_schema(request=None, responses=FaqEntrySerializer, operation_id="admin_faq_unpublish")
+    @action(detail=True, methods=["post"])
+    def unpublish(self, request: Request, pk: str | None = None) -> Response:
+        """Back to draft. The copy is kept — this is hiding, not deleting."""
+        entry = self.get_object()
+        entry.status = FaqStatus.DRAFT
+        entry.updated_by = request.user
+        entry.save(update_fields=["status", "updated_by", "updated_at"])
+        return Response(FaqEntrySerializer(entry).data)
+
+    @extend_schema(request=None, responses={200: dict}, operation_id="admin_faq_reorder")
+    @action(detail=False, methods=["post"])
+    def reorder(self, request: Request) -> Response:
+        """Persist a drag-and-drop ordering in one write."""
+        order = request.data.get("order") or []
+        entries = {str(entry.pk): entry for entry in self.get_queryset()}
+
+        updated = []
+        for index, entry_id in enumerate(order):
+            entry = entries.get(str(entry_id))
+            if entry is not None:
+                entry.position = index
+                updated.append(entry)
+
+        if updated:
+            FaqEntry.objects.bulk_update(updated, ["position"])
+        return Response({"reordered": len(updated)})
+
+
+class PublicFaqView(TenantScopedMixin, APIView):
+    """The help page, as a visitor sees it.
+
+    Published entries only, grouped by heading. An empty list is a valid answer:
+    a shop that has written nothing gets the page's built-in copy instead, which
+    is what every shop had before this was editable.
+    """
+
+    permission_classes = [AllowAny]
+
+    @extend_schema(responses=FaqPublicCategorySerializer(many=True), operation_id="tenants_faq")
+    def get(self, request: Request) -> Response:
+        published = FaqEntry.objects.filter(status=FaqStatus.PUBLISHED).order_by("position")
+
+        categories = (
+            FaqCategory.objects.for_tenant(self.tenant_id)
+            .filter(is_active=True)
+            .prefetch_related(Prefetch("entries", queryset=published, to_attr="published_entries"))
+            .order_by("position", "name")
+        )
+
+        # A heading with nothing published under it is noise on a help page.
+        visible = [category for category in categories if category.published_entries]
+        return Response(FaqPublicCategorySerializer(visible, many=True).data)

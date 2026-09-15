@@ -23,6 +23,9 @@ from .models import (
     PARALLAX_HEIGHTS,
     PARALLAX_MAX_BANDS,
     BusinessHours,
+    FaqCategory,
+    FaqEntry,
+    FaqStatus,
     Tenant,
     TenantBranding,
     TenantSettings,
@@ -463,3 +466,69 @@ def _validate_floating_tools(value: Any) -> dict:
         "position": position,
         "actions": actions,
     }
+
+
+class FaqEntrySerializer(serializers.ModelSerializer):
+    """One question, as the merchant edits it."""
+
+    category_name = serializers.CharField(source="category.name", read_only=True)
+
+    class Meta:
+        model = FaqEntry
+        fields = [
+            "id",
+            "category",
+            "category_name",
+            "question",
+            "answer",
+            "status",
+            "position",
+            "view_count",
+            "published_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "view_count", "published_at", "created_at", "updated_at"]
+
+    def validate_category(self, value: Any) -> Any:
+        """A category from another shop would be a cross-tenant write.
+
+        `category` is a plain primary-key field, so without this any id in the
+        table is accepted — the queryset scoping on the viewset governs what can
+        be *read*, not what can be pointed at.
+        """
+        tenant_id = getattr(self.context.get("request"), "tenant_id", None)
+        if tenant_id and value.tenant_id != tenant_id:
+            raise serializers.ValidationError(_("Unknown category."))
+        return value
+
+
+class FaqCategorySerializer(serializers.ModelSerializer):
+    entry_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = FaqCategory
+        fields = ["id", "name", "slug", "icon", "position", "is_active", "entry_count"]
+        read_only_fields = ["id", "slug", "entry_count"]
+
+
+class FaqPublicCategorySerializer(serializers.ModelSerializer):
+    """What the storefront renders. Published entries only."""
+
+    entries = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FaqCategory
+        fields = ["id", "name", "slug", "icon", "entries"]
+
+    def get_entries(self, obj: FaqCategory) -> list[dict[str, Any]]:
+        # Read from the prefetch rather than querying per category: a help page
+        # with eight headings would otherwise be nine queries.
+        entries = getattr(obj, "published_entries", None)
+        if entries is None:
+            entries = obj.entries.filter(status=FaqStatus.PUBLISHED).order_by("position")
+
+        return [
+            {"id": str(entry.pk), "question": entry.question, "answer": entry.answer}
+            for entry in entries
+        ]
